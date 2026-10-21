@@ -1,5 +1,5 @@
 # MANUAL — Tab2revamp
-Versione: v0.1.0 — 2026-10-21 18:45 UTC
+Versione: v0.1.2 — 2026-10-21 21:50 UTC
 
 Galaxy Tab 2 10.1 (GT-P5100) come display delle risorse di un PC Windows.
 
@@ -11,7 +11,11 @@ Galaxy Tab 2 10.1 (GT-P5100) come display delle risorse di un PC Windows.
 - (Consigliato) **LibreHardwareMonitor** per GPU e temperature:
   avviarlo come amministratore → *Options → Remote Web Server → Run* (porta 8085).
   Senza LHM la dashboard funziona lo stesso, con GPU/temperature vuote.
-- (Per USB) **Android Platform Tools** (`adb`) nel PATH.
+- (Per USB) **Android Platform Tools** (`adb`) nel PATH. Su questo PC adb è in
+  `%LOCALAPPDATA%\Android\Sdk\platform-tools` (non nel PATH): in Git Bash
+  `export PATH="$PATH:/c/Users/<utente>/AppData/Local/Android/Sdk/platform-tools"`.
+- Script `.sh` da **Git Bash**: dalla v0.1.2 impostano `MSYS_NO_PATHCONV=1` da soli
+  (per comandi `adb shell` a mano con percorsi `/sys/...` va esportata anche nella shell).
 
 ### 1.2 Avvio
 Doppio clic su `windows/agent/start_tab2monitor_v0.1.0_20261021-1845.cmd`:
@@ -34,20 +38,27 @@ Utilità di pianificazione → Crea attività → Trigger "All'accesso" → Azio
 
 ### 2.2 Diagnosi (sola lettura)
 ```
-bash android/diagnose_v0.1.0_20261021-1845.sh
+bash android/diagnose_v0.1.2_20261021-2150.sh
 ```
 Genera `android/logs/diag_<data>.txt` (modello, ROM, RAM, CPU, spazio, app). Da
 conservare come baseline prima/dopo.
 
 ### 2.3 Ottimizzazione e apertura dashboard
 ```
-bash android/tune_v0.1.0_20261021-1845.sh             # tuning + dashboard via USB
-bash android/tune_v0.1.0_20261021-1845.sh --debloat   # anche disattivazione app inutili
-URL=http://192.168.1.10:8090 bash android/tune_v0.1.0_20261021-1845.sh   # via Wi-Fi
+bash android/tune_v0.1.2_20261021-2150.sh             # tuning + dashboard via USB
+bash android/tune_v0.1.2_20261021-2150.sh --debloat   # anche disattivazione app inutili
+URL=http://192.168.1.10:8090 bash android/tune_v0.1.2_20261021-2150.sh   # via Wi-Fi
 ```
 - Animazioni a 0, schermo sempre acceso in carica, landscape, luminosità bassa.
 - `adb reverse` richiede **Android 5.0+**: sullo stock 4.x usare la modalità Wi‑Fi.
 - Ripristino: `adb shell pm enable <pacchetto>`, scale animazioni a 1.
+- **Stock 4.2.2 senza root** (situazione verificata 2026-10-21): `pm disable-user` si blocca,
+  lo script v0.1.2 salta il debloat. Alternative: disattivare a mano da
+  *Impostazioni → Gestione applicazioni → Tutte → app → Disattiva*, oppure root (sez. 3).
+- Con root (`su` presente) lo script usa `su -c pm disable <pacchetto>`.
+- Wi‑Fi verificato: tablet e PC sulla stessa LAN, URL `http://<IP-PC>:8090`; il ping dal
+  tablet fallisce (Windows blocca ICMP) ma l'HTTP funziona.
+- Usare **Chrome** (lo script lo apre se installato): il browser stock 4.2 lascia artefatti.
 
 ---
 ## 3. Refactor Android (ROM custom) — da eseguire nella sessione locale
@@ -58,9 +69,19 @@ URL=http://192.168.1.10:8090 bash android/tune_v0.1.0_20261021-1845.sh   # via W
 
 1. **Backup**: foto/dati utente; poi in TWRP backup della partizione **EFS**
    (IMEI/rete mobile) e copiarlo sul PC. Senza EFS il 3G non funziona più.
+   In TWRP (adb gira come root): `adb shell dd if=/dev/block/mmcblk0p1 of=/tmp/efs.img`
+   e `adb pull /tmp/efs.img` — **verificare prima** che p1 sia EFS
+   (`ls -l /dev/block/platform/omap/omap_hsmmc.1/by-name/`; mmcblk0p1 = 20 MB come /efs).
+   Conservare anche il backup EFS fatto dall'interfaccia TWRP (Backup → EFS).
 2. Batteria > 60 %.
 3. Download mode (Power + Volume giù) → flash TWRP con **Odin** (Windows) o
-   **Heimdall** (Linux).
+   **Heimdall** (Linux). File verificato: `twrp-3.4.0-0-espresso3g.img.tar` (7,2 MB)
+   da https://eu.dl.twrp.me/espresso3g/ (pagina: twrp.me → Samsung Galaxy Tab 2 GSM unified,
+   p3100/p5100). Odin: slot PDA/AP, togliere "Auto Reboot", poi Volume su + Power
+   direttamente in TWRP (al primo avvio normale lo stock sovrascrive la recovery).
+   Il contatore download aumenta di 1.
+3b. Root dello stock (opzionale): da TWRP flash dello zip SuperSU 2.82 (Magisk non supporta 4.2).
+   Poi `bash android/tune_v0.1.2_20261021-2150.sh --debloat` usa `su`.
 4. Avvio in recovery (Power + Volume su) → Wipe: system, data, cache, dalvik.
 5. Flash ROM leggera — candidato: **LineageOS 14.1 (Android 7.1) unofficial per espresso3g**,
    **senza GApps**. Android 7.1 consente `adb reverse` e WebView aggiornata.
@@ -76,3 +97,6 @@ URL=http://192.168.1.10:8090 bash android/tune_v0.1.0_20261021-1845.sh   # via W
 | Temperature CPU assenti | LHM va eseguito come amministratore |
 | Pagina lenta | ridurre `POLL_MS` a 2000 nella dashboard; valutare app nativa |
 | `adb reverse` errore | Android < 5.0 → usare Wi‑Fi |
+| `adb devices` = unauthorized | accettare "Consentire debug USB?" sul tablet (spuntare "Consenti sempre") |
+| Dashboard in verticale | `adb shell settings put system user_rotation 0` (Tab 2 10.1 è nativamente orizzontale) |
+| Script tune bloccato su "disable ..." | stock < 4.3 senza root; usare v0.1.2; uccidere i `pm` orfani: `adb shell ps` → `adb shell kill <pid>` degli `app_process` dell'utente shell |

@@ -1,5 +1,5 @@
 # CONTEXT — Tab2revamp
-Versione: v0.1.1 — 2026-10-21 19:05 UTC
+Versione: v0.1.2 — 2026-10-21 21:50 UTC
 
 ## Obiettivo
 Riusare un Galaxy Tab 2 10.1 (GT-P5100, lentissimo: ogni tocco richiede secondi)
@@ -26,13 +26,52 @@ psutil ── tab2monitor_server (:8090) ───┼── USB: adb reverse tcp
 - `dashboard/` pagina unica, polling 1 s, aggiornamento DOM minimo.
 - `android/` script adb: `diagnose` (sola lettura) e `tune` (impostazioni, debloat, apertura dashboard).
 
-## Stato
-- v0.1.0: server, dashboard e script scritti e testati in cloud (server+dashboard
-  verificati con Chromium a 1280x800). **Non ancora provati sul tablet.**
-- Prossimo passo: sessione locale con adb -> `diagnose`, backup EFS, poi flash ROM.
+## Stato (verificato sul tablet il 2026-10-21, sessione locale)
+| Voce | Stato | Dettaglio |
+|---|---|---|
+| Diagnosi adb | ✅ | stock **4.2.2 JDQ39.P5100XXDMJ2**, SDK 17, CSC ITV, kernel 3.0.31 (ott 2013), **niente root**; log in `android/logs/` (ignorato da git: contiene seriale) |
+| Server Windows | ✅ | `start_tab2monitor` avviato, `/api/metrics` ok; LHM non attivo (GPU/temperature "--") |
+| Dashboard via Wi-Fi | ✅ | tablet 192.168.1.226 → PC 192.168.1.237:8090 (rete "Pubblica", regola firewall python.exe presente); Chrome 71 ok, browser stock con artefatti |
+| Tuning impostazioni | ✅ | animazioni 0, stay-on 3, luminosità 90, landscape (`user_rotation 0`), wifi scan off |
+| Debloat via adb | ⛔ senza root | su 4.2.2 `pm disable-user` si blocca; richiede root o disattivazione manuale da Impostazioni |
+| Root | ⏳ | richiesto dall'utente 2026-10-21; richiede flash TWRP → in attesa di conferma (vedi sotto) |
+| ROM custom | ⏳ | nessun flash eseguito |
+
+Misure (am start -W, TotalTime ms, avvio a freddo):
+| | prima del tuning | dopo |
+|---|---|---|
+| Impostazioni | 1472 / 1409 | 3258 / 1902 |
+| Browser stock | 1820 / 1110 | 3132 / 1642 |
+| Chrome con dashboard | — | 3277 |
+Nessun miglioramento misurabile: il "dopo" è stato preso con Chrome+dashboard in RAM
+(MemFree ~33–50 MB su 800 MB, swap zram in uso). Il collo di bottiglia è la **RAM**
+(GMS ~80 MB, Chrome ~125 MB, decine di servizi Samsung), non la CPU (idle ~90%).
+Le animazioni a 0 migliorano la percezione ma non il tempo di avvio.
+
+eMMC: MAG2GA, CID PRV 0x07 (non è la revisione 0x19 del "brick bug" Samsung) — rischio basso,
+comunque usare solo TWRP 3.x per i wipe.
+
+## Root e flash — proposta (NON eseguita, serve conferma esplicita)
+Fonti verificate il 2026-10-21:
+- TWRP ufficiale espresso3g (p3100/p5100): https://twrp.me/samsung/samsunggalaxytab2gmsunified.html,
+  file `twrp-3.4.0-0-espresso3g.img.tar` (7,2 MB, 2020-06-11) da https://eu.dl.twrp.me/espresso3g/
+  (recovery = `/dev/block/mmcblk0p6`).
+- Strumento di flash: **Odin** non ha una fonte ufficiale (tool Samsung trapelato);
+  Heimdall (open source) non ha release su GitHub → scelta della fonte da fare con l'utente.
+- Root su 4.2.2: SuperSU 2.82 (Chainfire) — sito originale non più attivo, fonte da concordare.
+  Magisk attuale non supporta Android < 5.0.
+- ROM: Unlegacy-Android (AOSP 7.1/espresso3g) — builds.unlegacy-android.org **non raggiungibile**
+  il 2026-10-21; LineageOS 14.1 unofficial citato su community.e.foundation, link non verificati.
+
+Procedura proposta: Download mode → flash TWRP (contatore download +1) → avvio diretto in
+recovery (altrimenti lo stock la sovrascrive) → **backup EFS** in TWRP + `adb pull` sul PC →
+(root) SuperSU zip, oppure (refactor) wipe + ROM senza GApps.
+Alternativa senza flash per il debloat: Impostazioni → Gestione applicazioni → Disattiva.
 
 ## Punti aperti
-- ROM esatta e TWRP per espresso3g da verificare al momento del flash (fonti, versione, eventuale repartition).
+- Decidere: root dello stock (debloat) **oppure** direttamente ROM custom senza GApps
+  (il debloat diventa superfluo). Il root dello stock è una deviazione se poi si cambia ROM.
+- Fonte affidabile per Odin/Heimdall e SuperSU.
 - Valutare app nativa Android (Canvas) solo se la pagina web risultasse lenta.
 
 ## Handoff sessione locale (v0.1.1 — 2026-10-21 19:05 UTC)
