@@ -1,6 +1,13 @@
 # CHANGELOG — Tab2revamp
 Versione documento: v0.1.14 — 2026-10-22 01:35 (ora del PC)
 
+## 16. v0.1.15 — 2026-10-22 01:45 ora del PC (sessione «Ricerca hub USB comandabile», solo documenti)
+- Aggiunto `RICERCA_HUB_USB_v0.1.0_20261022-0142.md`: confronto di 7 opzioni per limitare la carica del tablet
+  (presa Shelly/Tasmota, relè USB LCUS-1, Yepkit YKUSH3, Acroname, Cambrionix, uhubctl) con fonti.
+- **Raccomandazione**: Shelly Plug S Gen3 (~24 €, API HTTP locale) + caricatore Samsung 2 A attuale; hub professionali sconsigliati
+  (costo alto e corrente/firma di carica del Tab 2 su porta dati non documentata). YKUSH3 ha `ykushcmd.exe` per Windows (verificato dalla guida Yepkit).
+- Non verificato sull'hardware; nessun acquisto, nessun codice modificato. Rollback: `git rm RICERCA_HUB_USB_v0.1.0_20261022-0142.md`.
+
 ## 15. v0.1.14 — 2026-10-22 01:35 ora del PC (sessione «Piano installer Tab2Monitor», solo documenti)
 - Aggiunto `PIANO_INSTALLER_v0.1.0_20261022-0135.md`: piano (non implementato) per usare server e APK
   su **altri PC Windows** e **altri tablet Android**. Contiene inventario PC/tablet, cablature da

@@ -230,6 +230,8 @@ Drive), montato solo dopo l'accesso. ⛔ `claude`: limiti di piano dell'account 
 - **Batteria / carica** (2026-10-22): sulla USB del PC il tablet si scarica a schermo acceso (−730 mA) e si
   carica piano a schermo spento (+150 mA). Il kernel non permette di sospendere la carica. ⏳ Decisione
   dell'utente sulle opzioni (caricatore 2 A + presa smart comandata dall'app, oppure USB del PC + presenza).
+  Ricerca hub/prese comandabili fatta: `RICERCA_HUB_USB_v0.1.0_20261022-0142.md` → raccomandata presa Shelly Plug S Gen3
+  (~24 €, API HTTP locale) + caricatore Samsung; hub (YKUSH3 ecc.) sconsigliati. ⏳ Da provare sull'hardware, nessun acquisto fatto.
 - **Installer** per altri PC/tablet: pianificato nella sessione dedicata «Piano installer Tab2Monitor»
   (2026-10-22): vedere il suo `PIANO_INSTALLER_*.md` quando pronto.
 - Nomi e abbinamenti delle ventole: decisi dall'utente nella pagina `http://localhost:8090/config`
