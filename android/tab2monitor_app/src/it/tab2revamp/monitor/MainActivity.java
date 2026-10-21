@@ -1,6 +1,8 @@
 // =============================================================================
 // Tab2Monitor - MainActivity + thread di polling
-// Versione: v0.3.0 - 2026-10-22 00:25
+// Versione: v0.4.0 - 2026-10-22 00:45
+//   v0.4.0: piu' GPU (campo "gpus"), sensori per componente con ventole ("sensors"),
+//           pagine a rotazione (page_sec), pannello Ventole (p_fans)
 //   v0.3.0: campo "claude" di /api/metrics (pannello utilizzo Claude), chiave p_claude
 //   v0.2.0: sorgenti USB/Wi-Fi e pannelli attivabili dal pannello impostazioni
 //           (SettingsActivity, si apre tenendo premuto lo schermo)
@@ -25,6 +27,7 @@
 //       --ei poll_ms 2000                    (intervallo di polling)
 //       --ez autostart false                 (disattiva l'avvio al boot)
 //       --ez src_usb false / --ez p_gpu false ... (sorgenti e pannelli, v0.2.0)
+//       --ei page_sec 20                     (cambio pagina, 0 = fermo; v0.4.0)
 // =============================================================================
 package it.tab2revamp.monitor;
 
@@ -51,9 +54,14 @@ public class MainActivity extends Activity {
     // 2026-10-22 v0.3.0: + "p_claude". Versione v0.2.0 sostituita:
     //   static final String[] BOOL_KEYS = {"autostart", "src_usb", "src_wifi",
     //           "p_cpu", "p_cores", "p_hist", "p_ram", "p_gpu", "p_temps", "p_net", "p_disk", "p_procs"};
+    // 2026-10-22 v0.4.0: + "p_fans". Versione v0.3.0 sostituita:
+    //   static final String[] BOOL_KEYS = {"autostart", "src_usb", "src_wifi",
+    //           "p_cpu", "p_cores", "p_hist", "p_ram", "p_gpu", "p_temps", "p_net", "p_disk", "p_procs",
+    //           "p_claude"};
     static final String[] BOOL_KEYS = {"autostart", "src_usb", "src_wifi",
             "p_cpu", "p_cores", "p_hist", "p_ram", "p_gpu", "p_temps", "p_net", "p_disk", "p_procs",
-            "p_claude"};
+            "p_claude", "p_fans", "anim_fans"};
+    static final int DEF_PAGE_SEC = 15;   // v0.4.0: secondi per pagina (0 = niente rotazione)
 
     private MonitorView view;
     private Poller poller;
@@ -74,7 +82,14 @@ public class MainActivity extends Activity {
                 return true;
             }
         });
-        setContentView(view);
+        // v0.4.0: livello trasparente per le ventole animate sopra la dashboard
+        // (era: setContentView(view);)
+        android.widget.FrameLayout root = new android.widget.FrameLayout(this);
+        MonitorView.FanOverlay ov = new MonitorView.FanOverlay(this);
+        view.overlay = ov;
+        root.addView(view);
+        root.addView(ov);
+        setContentView(root);
         applyIntent(getIntent());
     }
 
@@ -91,6 +106,9 @@ public class MainActivity extends Activity {
         SharedPreferences.Editor e = prefs.edit();
         if (i.hasExtra("url")) e.putString("wifi_url", trimUrl(i.getStringExtra("url")));
         if (i.hasExtra("poll_ms")) e.putInt("poll_ms", Math.max(500, i.getIntExtra("poll_ms", 1000)));
+        if (i.hasExtra("page_sec")) e.putInt("page_sec", Math.max(0, i.getIntExtra("page_sec", DEF_PAGE_SEC)));
+        if (i.hasExtra("gpu_busy_pct")) e.putInt("gpu_busy_pct", i.getIntExtra("gpu_busy_pct", 30));
+        if (i.hasExtra("gpu_busy_sec")) e.putInt("gpu_busy_sec", i.getIntExtra("gpu_busy_sec", 60));
         // 2026-10-22 v0.2.0: oltre ad "autostart" si accettano tutti gli interruttori del
         // pannello impostazioni (src_usb, src_wifi, p_cpu, p_gpu, ...), es. --ez p_gpu false
         // (riga v0.1.0 sostituita:
@@ -148,7 +166,9 @@ public class MainActivity extends Activity {
                 : usb ? new String[]{USB_URL} : wf ? new String[]{wifi} : new String[0];
         boolean[] on = new boolean[MonitorView.PANEL_KEYS.length];
         for (int i = 0; i < on.length; i++) on[i] = prefs.getBoolean(MonitorView.PANEL_KEYS[i], true);
-        view.setConfig(urls, on);
+        // 2026-10-22 v0.4.0 (era: view.setConfig(urls, on);)
+        view.setConfig(urls, on, prefs.getInt("page_sec", DEF_PAGE_SEC), prefs.getBoolean("anim_fans", true),
+                prefs.getInt("gpu_busy_pct", 30), prefs.getInt("gpu_busy_sec", 60));
         if (urls.length == 0) return;          // nessuna sorgente: niente thread, solo il messaggio
         poller = new Poller(view, urls, prefs.getInt("poll_ms", 1000));
         poller.start();
@@ -235,8 +255,12 @@ public class MainActivity extends Activity {
         String[] tempName = new String[0]; float[] tempC = new float[0];
         long rx, tx, dr, dw;
         String[] diskM = new String[0]; float[] diskPct = new float[0]; float[] diskTot = new float[0];
+        long[] diskR = new long[0], diskW = new long[0];   // v0.4.0: I/O per disco (-1 = assente)
+        boolean diskPerIo;                                 // v0.4.0: il server invia r/w per disco
         String[] procN = new String[0]; float[] procCpu = new float[0]; int[] procMb = new int[0];
         Claude claude;                                     // v0.3.0: null se il server non lo invia
+        Gpu[] gpus = new Gpu[0];                           // v0.4.0
+        Hw[] hw = new Hw[0];                               // v0.4.0
 
         // Utilizzo Claude (schema concordato con la sessione "Sorgente dati Windows");
         // -1 = campo assente
@@ -272,9 +296,12 @@ public class MainActivity extends Activity {
             if (ds != null) {
                 int k = ds.length();
                 m.diskM = new String[k]; m.diskPct = new float[k]; m.diskTot = new float[k];
+                m.diskR = new long[k]; m.diskW = new long[k];
                 for (int i = 0; i < k; i++) {
                     JSONObject o = ds.optJSONObject(i);
                     m.diskM[i] = o.optString("m"); m.diskPct[i] = f(o, "pct"); m.diskTot[i] = f(o, "tot_gb");
+                    m.diskR[i] = o.optLong("r", -1); m.diskW[i] = o.optLong("w", -1);   // v0.4.0
+                    if (m.diskR[i] >= 0 || m.diskW[i] >= 0) m.diskPerIo = true;
                 }
             }
             JSONArray ps = j.optJSONArray("procs");
@@ -313,7 +340,74 @@ public class MainActivity extends Activity {
                     }
                 }
             }
+            // v0.4.0: tutte le GPU (server >= v0.2.0). Server vecchi: una GPU dai campi "lhm".
+            JSONArray gs = j.optJSONArray("gpus");
+            if (gs != null) {
+                int k = gs.length();
+                m.gpus = new Gpu[k];
+                for (int i = 0; i < k; i++) {
+                    JSONObject o = gs.optJSONObject(i);
+                    Gpu g = new Gpu();
+                    g.name = o.optString("name", "GPU " + (i + 1));
+                    g.load = f(o, "load"); g.memMb = f(o, "mem_mb"); g.memTotMb = f(o, "mem_tot_mb");
+                    g.memPct = f(o, "mem_pct"); g.temp = f(o, "temp"); g.fanRpm = f(o, "fan_rpm");
+                    g.powerPct = f(o, "power_pct");
+                    m.gpus[i] = g;
+                }
+            } else if (!Float.isNaN(m.gpuLoad)) {
+                Gpu g = new Gpu();
+                g.name = m.gpuName != null ? m.gpuName : "GPU";
+                g.load = m.gpuLoad; g.temp = m.gpuTemp; g.memPct = m.gpuMem;
+                m.gpus = new Gpu[]{g};
+            }
+            // v0.4.0: sensori per componente (temperature + ventole). Senza "sensors"
+            // si ripiega sulle temperature piatte di "lhm".
+            JSONObject se = j.optJSONObject("sensors");
+            JSONArray hw = se != null ? se.optJSONArray("hw") : null;
+            if (hw != null) {
+                int k = hw.length();
+                m.hw = new Hw[k];
+                for (int i = 0; i < k; i++) {
+                    JSONObject o = hw.optJSONObject(i);
+                    Hw h = new Hw();
+                    h.name = o.optString("name"); h.kind = o.optString("kind");
+                    JSONArray t = o.optJSONArray("temps");
+                    int nt = t != null ? t.length() : 0;
+                    h.tName = new String[nt]; h.tC = new float[nt];
+                    for (int q = 0; q < nt; q++) {
+                        JSONObject x = t.optJSONObject(q);
+                        h.tName[q] = x.optString("name"); h.tC[q] = f(x, "c");
+                    }
+                    JSONArray fa = o.optJSONArray("fans");
+                    int nf = fa != null ? fa.length() : 0;
+                    h.fName = new String[nf]; h.fRpm = new float[nf]; h.fPct = new float[nf];
+                    for (int q = 0; q < nf; q++) {
+                        JSONObject x = fa.optJSONObject(q);
+                        h.fName[q] = x.optString("name"); h.fRpm[q] = f(x, "rpm"); h.fPct[q] = f(x, "pct");
+                    }
+                    m.hw[i] = h;
+                }
+            } else if (m.tempName.length > 0) {
+                Hw h = new Hw();
+                h.name = "LibreHardwareMonitor"; h.kind = "";
+                h.tName = m.tempName; h.tC = m.tempC;
+                h.fName = new String[0]; h.fRpm = new float[0]; h.fPct = new float[0];
+                m.hw = new Hw[]{h};
+            }
             return m;
+        }
+
+        // v0.4.0: GPU (campo "gpus") e componenti con sensori (campo "sensors.hw")
+        static final class Gpu {
+            String name;
+            float load, memMb = Float.NaN, memTotMb = Float.NaN, memPct = Float.NaN;
+            float temp = Float.NaN, fanRpm = Float.NaN, powerPct = Float.NaN;
+        }
+
+        static final class Hw {
+            String name, kind;
+            String[] tName; float[] tC;
+            String[] fName; float[] fRpm, fPct;
         }
     }
 }

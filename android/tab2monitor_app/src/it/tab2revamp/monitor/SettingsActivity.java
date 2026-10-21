@@ -1,10 +1,13 @@
 // =============================================================================
 // Tab2Monitor - SettingsActivity (pannello impostazioni)
-// Versione: v0.2.0 - 2026-10-22 00:10
+// Versione: v0.4.0 - 2026-10-22 00:45
+//   v0.4.0: campo "cambio pagina ogni N secondi" (page_sec), pannello Ventole; si apre
+//           anche toccando l'ingranaggio in alto a destra
+//   v0.2.0 - 2026-10-22 00:10: prima versione
 // Nota versioning: in Java il nome del file deve coincidere con la classe
 // pubblica, quindi la versione sta qui in testa e nel versionName dell'APK.
 // =============================================================================
-// Si apre tenendo premuto lo schermo della dashboard (oppure da PC:
+// Si apre toccando l'ingranaggio o tenendo premuto lo schermo della dashboard (oppure da PC:
 //   adb shell am start -n it.tab2revamp.monitor/.SettingsActivity).
 // Ogni interruttore scrive subito nelle SharedPreferences "tab2monitor";
 // tornando alla dashboard (Indietro / "Chiudi") MainActivity.onResume rilegge
@@ -34,7 +37,7 @@ import android.widget.TextView;
 
 public class SettingsActivity extends Activity {
     private SharedPreferences prefs;
-    private EditText url, poll;
+    private EditText url, poll, pageSec, busyPct, busySec;   // v0.4.0: + pageSec, soglie GPU
     private LinearLayout ll;
 
     @Override
@@ -62,8 +65,17 @@ public class SettingsActivity extends Activity {
 
         header("Generale");
         toggle("autostart", "Avvio automatico all'accensione del tablet");
+        toggle("anim_fans", "Ventole animate (velocita' come gli RPM reali; spente = meno CPU)");   // v0.4.0
         label("Intervallo di aggiornamento (ms, minimo 500)");
         poll = field(String.valueOf(prefs.getInt("poll_ms", 1000)), "1000", InputType.TYPE_CLASS_NUMBER);
+        // v0.4.0
+        label("Cambio pagina automatico ogni (secondi, 0 = resta sulla pagina; tocco = pagina successiva)");
+        pageSec = field(String.valueOf(prefs.getInt("page_sec", MainActivity.DEF_PAGE_SEC)),
+                String.valueOf(MainActivity.DEF_PAGE_SEC), InputType.TYPE_CLASS_NUMBER);
+        label("Pagina GPU: una scheda e' \"sotto carico\" sopra questa percentuale");
+        busyPct = field(String.valueOf(prefs.getInt("gpu_busy_pct", 30)), "30", InputType.TYPE_CLASS_NUMBER);
+        label("Pagina GPU sotto carico: resta visibile per (secondi)");
+        busySec = field(String.valueOf(prefs.getInt("gpu_busy_sec", 60)), "60", InputType.TYPE_CLASS_NUMBER);
 
         Button close = new Button(this);
         close.setText("Chiudi e torna alla dashboard");
@@ -87,8 +99,19 @@ public class SettingsActivity extends Activity {
         int ms = 1000;
         try { ms = Math.max(500, Integer.parseInt(poll.getText().toString().trim())); }
         catch (NumberFormatException ignored) { }
-        prefs.edit().putString("wifi_url", u).putInt("poll_ms", ms).apply();
+        int ps = MainActivity.DEF_PAGE_SEC;                  // v0.4.0
+        try { ps = Math.max(0, Integer.parseInt(pageSec.getText().toString().trim())); }
+        catch (NumberFormatException ignored) { }
+        // 2026-10-22 v0.4.0 (era: prefs.edit().putString("wifi_url", u).putInt("poll_ms", ms).apply();)
+        prefs.edit().putString("wifi_url", u).putInt("poll_ms", ms).putInt("page_sec", ps)
+                .putInt("gpu_busy_pct", num(busyPct, 30, 1, 100)).putInt("gpu_busy_sec", num(busySec, 60, 1, 3600))
+                .apply();
         super.onPause();
+    }
+
+    private static int num(EditText e, int def, int min, int max) {
+        try { return Math.max(min, Math.min(max, Integer.parseInt(e.getText().toString().trim()))); }
+        catch (NumberFormatException ex) { return def; }
     }
 
     // ------------------------------------------------------------- costruzione

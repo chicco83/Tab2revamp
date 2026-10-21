@@ -1,5 +1,5 @@
 # MANUAL — Tab2revamp
-Versione: v0.1.8 — 2026-10-22 00:30
+Versione: v0.1.9 — 2026-10-22 01:00
 
 Galaxy Tab 2 10.1 (GT-P5100) come display delle risorse di un PC Windows.
 
@@ -66,9 +66,9 @@ Sostituisce Jelly + dashboard web: ~15 MB di RAM invece di 60–100, schermo int
 **Build** (PC, Git Bash; serve solo ciò che è già installato: Android SDK in
 `%LOCALAPPDATA%\Android\Sdk` e il JDK di Android Studio, oppure `JAVA_HOME`):
 ```
-bash android/tab2monitor_app/build_tab2monitor_v0.3.0_20261022-0025.sh
+bash android/tab2monitor_app/build_tab2monitor_v0.4.0_20261022-0045.sh
 ```
-Risultato: `android/tab2monitor_app/dist/Tab2Monitor_v0.3.0.apk` (non versionata in git).
+Risultato: `android/tab2monitor_app/dist/Tab2Monitor_v0.4.0.apk` (non versionata in git).
 Lo script di installazione prende l'APK con la versione più alta in `dist/`.
 
 **Installazione** (tablet in USB, server Windows avviato):
@@ -84,7 +84,17 @@ Con `-home` l'app diventa anche la schermata Home (kiosk); `-nohome` la toglie.
   In alto a destra "USB" o "Wi‑Fi" dice da dove arrivano i dati.
 - Ordine dei tentativi: `http://127.0.0.1:8090` (USB), poi l'URL Wi‑Fi. Dopo un riavvio del tablet
   `adb reverse` è perso e l'app passa da sola al Wi‑Fi (il Wi‑Fi del tablet deve essere acceso).
-- **Impostazioni** (v0.2.0): **tenere premuto** lo schermo ~1 s. Interruttori per:
+- **Pagine** (v0.4.0): 1 "Sistema" (CPU, core, storico, RAM, Claude, rete, dischi, processi),
+  2 "GPU e sensori" (una scheda per GPU con carico e VRAM, temperature per componente, ventole).
+  Cambiano da sole ogni `page_sec` secondi (impostazioni, default 15; 0 = ferme); **tocco** = pagina
+  successiva. La pagina GPU resta 60 s se una GPU supera il 30% (entrambi i valori nelle impostazioni).
+  Pallini e nome della pagina al centro dell'intestazione.
+- **Icone**: lancetta = carico (blu < 70%, giallo < 90%, rosso), termometro = temperatura
+  (blu < 60 °C, giallo < 80 °C, rosso), ventola che gira in proporzione agli RPM (grigia = ferma).
+  Le ventole animate costano ~17–21% di CPU del tablet: si spengono da Impostazioni → "Ventole animate".
+- **Dischi**: con un server che invia `r`/`w` per disco, ogni disco ha lettura ↓ e scrittura ↑ e un
+  pallino verde quando è attivo; altrimenti si vedono i totali.
+- **Impostazioni**: **ingranaggio** in alto a destra (v0.4.0) oppure **tenere premuto** lo schermo ~1 s. Interruttori per:
   sorgenti dati (USB, Wi‑Fi e relativo URL), ciascun pannello (CPU, core, storico, RAM, GPU,
   temperature, rete, disco, processi), avvio al boot, intervallo di aggiornamento (ms).
   "Chiudi" o Indietro → la dashboard rilegge tutto subito. I pannelli spenti lasciano spazio agli altri;
@@ -102,7 +112,8 @@ Con `-home` l'app diventa anche la schermata Home (kiosk); `-nohome` la toglie.
   adb shell am start -n it.tab2revamp.monitor/.MainActivity --ez p_gpu false --ez src_usb false
   adb shell am start -n it.tab2revamp.monitor/.SettingsActivity
   ```
-  Chiavi: `src_usb`, `src_wifi`, `p_cpu`, `p_cores`, `p_hist`, `p_ram`, `p_gpu`, `p_temps`, `p_net`, `p_disk`, `p_procs`, `p_claude`.
+  Chiavi booleane: `src_usb`, `src_wifi`, `p_cpu`, `p_cores`, `p_hist`, `p_ram`, `p_gpu`, `p_temps`, `p_net`, `p_disk`, `p_procs`, `p_claude`, `p_fans`, `anim_fans`.
+  Intere (`--ei`): `poll_ms`, `page_sec`, `gpu_busy_pct`, `gpu_busy_sec`.
 - Disinstallare: `adb uninstall it.tab2revamp.monitor` (dashboard in Jelly con `tune_v0.1.3`).
 
 ---

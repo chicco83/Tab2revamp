@@ -1,5 +1,20 @@
 # CHANGELOG — Tab2revamp
-Versione documento: v0.1.8 — 2026-10-22 00:30
+Versione documento: v0.1.9 — 2026-10-22 01:00
+
+## 10. v0.1.9 — 2026-10-22 01:00 (sessione locale, APK v0.4.0)
+- APK **Tab2Monitor v0.4.0**: pagine a rotazione ("Sistema" / "GPU e sensori") con timer nelle
+  impostazioni; tocco = pagina successiva; icona ingranaggio → impostazioni; una scheda per ogni GPU
+  (campo `gpus` del server v0.2.x) con indicatori a lancetta di carico e saturazione VRAM, temperatura,
+  ventola, potenza; temperature e ventole raggruppate per componente (campo `sensors.hw`) con icona
+  termometro e ventola animata (velocità ∝ RPM, livello `FanOverlay` separato); indicatori a lancetta
+  anche su CPU e RAM; I/O per disco (campi `r`/`w` in `disks`, da aggiungere al server); pagina GPU più
+  lunga se una GPU è sotto carico (`gpu_busy_pct`, `gpu_busy_sec`); interruttore "Ventole animate".
+- Aggiunto `android/tab2monitor_app/build_tab2monitor_v0.4.0_20261022-0045.sh` (versionCode 4).
+- Provata sul tablet con il server reale v0.2.0 e con un mock (porta 8091) per RPM, dischi e Claude.
+  CPU dell'app: 2% senza animazione, 17–21% con ventole animate.
+- Richiesto alla sessione «Sorgente dati Windows»: I/O per disco (`disks[].r/w`).
+- Rollback: `git checkout 5050dbb -- android/tab2monitor_app` e build v0.3.0 (poi `adb uninstall` +
+  install, il versionCode scende).
 
 ## 9. v0.1.8 — 2026-10-22 00:30 (sessione locale, APK v0.3.0)
 - APK **Tab2Monitor v0.3.0**: pannello "Claude - utilizzo" (blocco 5 h, oggi, output, cache letta,

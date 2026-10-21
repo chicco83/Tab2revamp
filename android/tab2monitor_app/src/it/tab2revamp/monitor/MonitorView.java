@@ -1,6 +1,12 @@
 // =============================================================================
 // Tab2Monitor - MonitorView (disegno su Canvas)
-// Versione: v0.3.0 - 2026-10-22 00:25
+// Versione: v0.4.0 - 2026-10-22 00:45
+//   v0.4.0: PAGINE a rotazione (timer page_sec dalle impostazioni, tocco = pagina successiva),
+//           icona ingranaggio -> impostazioni, tutte le GPU (una scheda per GPU),
+//           temperature e ventole raggruppate per componente (campo "sensors");
+//           ICONE disegnate: indicatore a lancetta (carichi), termometro (temperature),
+//           ventola animata che gira in proporzione agli RPM reali; per ogni GPU due
+//           indicatori affiancati: carico di elaborazione e saturazione VRAM
 //   v0.3.0: pannello "Claude" (utilizzo token da Claude Code sul PC), id 9, colonna 2
 //   v0.2.0: pannelli attivabili (PANEL_KEYS), colonne vuote eliminate, schermate
 //           "nessuna sorgente" / "tutti i pannelli spenti"
@@ -10,10 +16,10 @@
 // =============================================================================
 // Una sola View che disegna tutto: niente layout/TextView/RecyclerView, cosi'
 // la gerarchia e' minima e un ridisegno al secondo costa pochissimo sull'OMAP4430.
-// Stessa impaginazione della dashboard web (3 colonne, palette scura):
-//   col 1: CPU, core, storico 60 s (CPU blu / RAM verde)
-//   col 2: RAM, GPU (LibreHardwareMonitor), temperature
-//   col 3: rete, disco I/O + dischi, top processi
+// Pagine (v0.4.0), ognuna a 3 colonne con la palette della dashboard web:
+//   1 "Sistema":        CPU, core, storico | RAM, Claude | rete, disco, processi
+//   2 "GPU e sensori":  una scheda per GPU | temperature per componente | ventole
+// (v0.1.0-v0.3.0: una sola pagina; col 2 era RAM, GPU, [Claude], temperature)
 // Tutte le misure sono in "unita'" u = altezza/800, quindi il layout scala con
 // lo schermo (1280x800 sul Tab 2). Paint e Path preallocati: in onDraw non si
 // crea nessun oggetto tranne le stringhe dei valori.
@@ -26,7 +32,11 @@ import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.RectF;
 import android.graphics.Typeface;
+import android.app.Activity;
+import android.content.Intent;
 import android.os.SystemClock;
+import android.view.GestureDetector;
+import android.view.MotionEvent;
 import android.view.View;
 
 import java.util.Calendar;
@@ -43,19 +53,57 @@ public class MonitorView extends View {
     // 2026-10-22 v0.3.0: + "p_claude" (id 9). Versione v0.2.0 sostituita:
     //   static final String[] PANEL_KEYS = {"p_cpu", "p_cores", "p_hist", "p_ram", "p_gpu",
     //           "p_temps", "p_net", "p_disk", "p_procs"};
+    // 2026-10-22 v0.4.0: + "p_fans" (id 10); etichette con la pagina. Versione v0.3.0 sostituita:
+    //   static final String[] PANEL_KEYS = {"p_cpu", "p_cores", "p_hist", "p_ram", "p_gpu",
+    //           "p_temps", "p_net", "p_disk", "p_procs", "p_claude"};
+    //   static final String[] PANEL_LABELS = {"CPU (totale e frequenza)", "Core (un istogramma per core)",
+    //           "Storico 60 s (CPU / RAM)", "RAM e swap", "GPU (LibreHardwareMonitor)",
+    //           "Temperature (LibreHardwareMonitor)", "Rete (download / upload)",
+    //           "Disco I/O e spazio dischi", "Top processi per CPU",
+    //           "Claude - utilizzo account (token da Claude Code sul PC)"};
     static final String[] PANEL_KEYS = {"p_cpu", "p_cores", "p_hist", "p_ram", "p_gpu",
-            "p_temps", "p_net", "p_disk", "p_procs", "p_claude"};
-    static final String[] PANEL_LABELS = {"CPU (totale e frequenza)", "Core (un istogramma per core)",
-            "Storico 60 s (CPU / RAM)", "RAM e swap", "GPU (LibreHardwareMonitor)",
-            "Temperature (LibreHardwareMonitor)", "Rete (download / upload)",
-            "Disco I/O e spazio dischi", "Top processi per CPU",
-            "Claude - utilizzo account (token da Claude Code sul PC)"};
+            "p_temps", "p_net", "p_disk", "p_procs", "p_claude", "p_fans"};
+    static final String[] PANEL_LABELS = {"CPU (totale e frequenza)  [pag. 1]",
+            "Core (un istogramma per core)  [pag. 1]", "Storico 60 s (CPU / RAM)  [pag. 1]",
+            "RAM e swap  [pag. 1]", "GPU - tutte le schede  [pag. 2]",
+            "Temperature per componente  [pag. 2]", "Rete (download / upload)  [pag. 1]",
+            "Disco I/O e spazio dischi  [pag. 1]", "Top processi per CPU  [pag. 1]",
+            "Claude - utilizzo account (token da Claude Code sul PC)  [pag. 1]",
+            "Ventole (RPM e %)  [pag. 2]"};
     // Colonne come nella dashboard web
     // 2026-10-22 v0.3.0: Claude (9) tra GPU e temperature. Versione v0.2.0 sostituita:
     //   static final int[][] COLS = {{0, 1, 2}, {3, 4, 5}, {6, 7, 8}};
     //   private boolean[] panelOn = {true, true, true, true, true, true, true, true, true};
-    static final int[][] COLS = {{0, 1, 2}, {3, 4, 9, 5}, {6, 7, 8}};
-    private boolean[] panelOn = {true, true, true, true, true, true, true, true, true, true};
+    // 2026-10-22 v0.4.0: pagine di colonne. Versione v0.3.0 sostituita:
+    //   static final int[][] COLS = {{0, 1, 2}, {3, 4, 9, 5}, {6, 7, 8}};
+    //   private boolean[] panelOn = {true, true, true, true, true, true, true, true, true, true};
+    static final int[][][] PAGES = {
+            {{0, 1, 2}, {3, 9}, {6, 7, 8}},          // 1 Sistema
+            {{4}, {5}, {10}}};                       // 2 GPU e sensori
+    static final String[] PAGE_NAMES = {"Sistema", "GPU e sensori"};
+    private boolean[] panelOn = {true, true, true, true, true, true, true, true, true, true, true};
+    private int page;                        // pagina mostrata
+    private long pageAt;                     // uptimeMillis dell'ultimo cambio pagina
+    private int pageSec = 15;                // 0 = niente rotazione automatica
+    // v0.4.0: la pagina GPU resta di piu' se almeno una GPU supera la soglia di carico
+    static final int GPU_PAGE = 1;
+    private int gpuBusyPct = 30, gpuBusySec = 60;
+    private float gearX, gearY;              // centro dell'ingranaggio (per il tocco)
+    private final GestureDetector gestures;
+    // v0.4.0: animazione ventole. Un angolo per ventola (indice progressivo nel disegno);
+    // ridisegno a ~10 fps solo se sulla pagina c'e' almeno una ventola che gira.
+    // 2026-10-22 v0.4.0 (2a stesura): le ventole sono disegnate da FanOverlay, una View
+    // trasparente sopra questa. Ridisegnare tutta la dashboard a 10 fps costava ~29% CPU
+    // (2% senza animazione); ora a ogni frame si ridisegnano solo le icone.
+    FanOverlay overlay;                      // impostato da MainActivity
+    private final float[] fanAng = new float[64];
+    private int fanIdx;                      // contatore ventole nel disegno corrente
+    private boolean fanSpinning;             // almeno una ventola > 0 RPM disegnata
+    private long lastFrame;                  // uptimeMillis del frame precedente
+    private float frameDt;                   // secondi trascorsi dal frame precedente
+    // 10 fps (prima stesura 66 ms = 15 fps: ~25% CPU del tablet sulla pagina 2)
+    static final int FAN_FRAME_MS = 100;
+    private boolean animFans = true;         // interruttore "anim_fans" nelle impostazioni
 
     private final Paint fill = new Paint(), stroke = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint text = new Paint(Paint.ANTI_ALIAS_FLAG), big = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -80,11 +128,56 @@ public class MonitorView extends View {
         big.setTypeface(Typeface.DEFAULT_BOLD);
         setBackgroundColor(BG);
         setKeepScreenOn(true);
+        // v0.4.0: tocco breve sull'ingranaggio -> impostazioni, altrove -> pagina successiva.
+        // La pressione lunga (impostazioni) resta gestita da MainActivity (OnLongClickListener).
+        gestures = new GestureDetector(c, new GestureDetector.SimpleOnGestureListener() {
+            @Override public boolean onDown(MotionEvent e) { return true; }
+            @Override public boolean onSingleTapUp(MotionEvent e) {
+                if (Math.abs(e.getX() - gearX) < 40 * u && Math.abs(e.getY() - gearY) < 40 * u) openSettings();
+                else nextPage();
+                return true;
+            }
+        });
+    }
+
+    @Override
+    public boolean onTouchEvent(MotionEvent e) {
+        gestures.onTouchEvent(e);
+        return super.onTouchEvent(e) || true;     // super: pressione lunga
+    }
+
+    private void openSettings() {
+        Context c = getContext();
+        c.startActivity(new Intent(c, SettingsActivity.class));
+    }
+
+    private void nextPage() {
+        int n = PAGES.length;
+        for (int k = 1; k <= n; k++) {
+            int p = (page + k) % n;
+            if (pageOn(p)) { page = p; break; }
+        }
+        pageAt = SystemClock.uptimeMillis();
+        invalidate();
+    }
+
+    private boolean gpuBusy() {
+        if (m == null) return false;
+        for (MainActivity.Metrics.Gpu g : m.gpus)
+            if (!Float.isNaN(g.load) && g.load >= gpuBusyPct) return true;
+        return false;
+    }
+
+    private boolean pageOn(int p) {
+        for (int[] col : PAGES[p]) for (int id : col) if (panelOn[id]) return true;
+        return false;
     }
 
     // 2026-10-22 v0.2.0 (era: void setUrls(String[] u) { urls = u; })
-    void setConfig(String[] u, boolean[] on) {
-        urls = u; panelOn = on;
+    // 2026-10-22 v0.4.0: + secondi per pagina (era: void setConfig(String[] u, boolean[] on))
+    void setConfig(String[] u, boolean[] on, int sec, boolean anim, int busyPct, int busySec) {
+        urls = u; panelOn = on; pageSec = sec; pageAt = SystemClock.uptimeMillis(); animFans = anim;
+        gpuBusyPct = busyPct; gpuBusySec = busySec;
         if (u.length == 0) { m = null; src = null; }       // nessuna sorgente: schermata d'avviso
         invalidate();
     }
@@ -115,6 +208,9 @@ public class MonitorView extends View {
     protected void onDraw(Canvas cv) {
         float W = getWidth(), H = getHeight(), pad = 12 * u, gap = 10 * u;
         boolean fresh = m != null && SystemClock.uptimeMillis() - lastOk < 5000;
+        long now = SystemClock.uptimeMillis();               // v0.4.0: animazione ventole
+        frameDt = lastFrame == 0 ? 0 : Math.min(0.5f, (now - lastFrame) / 1000f);
+        lastFrame = now; fanIdx = 0; fanSpinning = false;
 
         // Intestazione: host, uptime | stato, sorgente, ora
         float hy = pad + 22 * u;
@@ -126,9 +222,15 @@ public class MonitorView extends View {
         cal.setTimeInMillis(System.currentTimeMillis());
         String clk = two(cal.get(Calendar.HOUR_OF_DAY)) + ":" + two(cal.get(Calendar.MINUTE));
         String where = src == null ? "" : (src.equals(MainActivity.USB_URL) ? "USB" : "Wi-Fi");
+        // 2026-10-22 v0.4.0: testo spostato a sinistra dell'ingranaggio. Versione v0.3.0 sostituita:
+        //   cv.drawText(where + "   " + clk, W - pad, hy, text);
+        //   float dotX = W - pad - text.measureText(where + "   " + clk) - 12 * u;
+        gearX = W - pad - 13 * u; gearY = hy - 6 * u;
+        drawGear(cv, gearX, gearY);
+        float tr = W - pad - 44 * u;
         text.setTextAlign(Paint.Align.RIGHT);
-        cv.drawText(where + "   " + clk, W - pad, hy, text);
-        float dotX = W - pad - text.measureText(where + "   " + clk) - 12 * u;
+        cv.drawText(where + "   " + clk, tr, hy, text);
+        float dotX = tr - text.measureText(where + "   " + clk) - 12 * u;
         fill.setColor(fresh ? GREEN : RED);
         cv.drawCircle(dotX, hy - 6 * u, 7 * u, fill);
 
@@ -137,14 +239,29 @@ public class MonitorView extends View {
         float top = pad + 40 * u, bottom = H - pad;
         // 2026-10-22 v0.2.0: layout a pannelli attivabili (vedi layoutColumn / drawPanel).
         // Colonne vuote (tutti i pannelli spenti) spariscono e le altre si allargano.
+        // 2026-10-22 v0.4.0: le colonne sono quelle della pagina corrente; rotazione a tempo.
+        // Versione v0.2.0/v0.3.0 sostituita:
+        //   int ncol = 0;
+        //   for (int c = 0; c < COLS.length; c++) if (colOn(c)) ncol++;
+        //   ... for (int c = 0; c < COLS.length; c++) { if (!colOn(c)) continue;
+        //           layoutColumn(cv, COLS[c], x, top, cw, bottom - top, gap); x += cw + gap; }
+        int npages = 0;
+        for (int p = 0; p < PAGES.length; p++) if (pageOn(p)) npages++;
+        if (npages == 0) { drawCentered(cv, W, H, "Tutti i pannelli sono spenti",
+                "tocca l'ingranaggio o tieni premuto per aprire le impostazioni"); return; }
+        if (!pageOn(page)) nextPage();
+        // v0.4.0: durata della pagina GPU allungata se una scheda e' sotto carico
+        // (prima stesura: sempre pageSec)
+        int dur = page == GPU_PAGE && gpuBusy() ? Math.max(pageSec, gpuBusySec) : pageSec;
+        if (pageSec > 0 && npages > 1 && SystemClock.uptimeMillis() - pageAt >= dur * 1000L) nextPage();
+        drawPageIndicator(cv, W, hy);
+        int[][] cols = PAGES[page];
         int ncol = 0;
-        for (int c = 0; c < COLS.length; c++) if (colOn(c)) ncol++;
-        if (ncol == 0) { drawCentered(cv, W, H, "Tutti i pannelli sono spenti",
-                "tieni premuto lo schermo per aprire le impostazioni"); return; }
+        for (int[] col : cols) if (colOn(col)) ncol++;
         float cw = (W - 2 * pad - (ncol - 1) * gap) / ncol, x = pad;
-        for (int c = 0; c < COLS.length; c++) {
-            if (!colOn(c)) continue;
-            layoutColumn(cv, COLS[c], x, top, cw, bottom - top, gap);
+        for (int[] col : cols) {
+            if (!colOn(col)) continue;
+            layoutColumn(cv, col, x, top, cw, bottom - top, gap);
             x += cw + gap;
         }
 
@@ -198,6 +315,9 @@ public class MonitorView extends View {
 
         // dati vecchi (> 5 s): velo scuro sopra le schede
         if (!fresh) { fill.setColor(0x990d1117); cv.drawRect(0, top, W, H, fill); }
+        // v0.4.0: ventole che girano -> prossimo frame tra ~66 ms (solo su questa pagina)
+        // (prima stesura: if (fanSpinning && fresh) postInvalidateDelayed(FAN_FRAME_MS);)
+        if (overlay != null) overlay.commit(fanIdx, animFans && fresh);
     }
 
     private void drawWaiting(Canvas cv, float W, float H) {
@@ -224,19 +344,53 @@ public class MonitorView extends View {
     }
 
     // ------------------------------------------------- pannelli (v0.2.0)
-    private boolean colOn(int c) {
-        for (int id : COLS[c]) if (panelOn[id]) return true;
+    // 2026-10-22 v0.4.0 (era: colOn(int c) su COLS[c])
+    private boolean colOn(int[] col) {
+        for (int id : col) if (panelOn[id]) return true;
         return false;
+    }
+
+    // Pallini delle pagine + nome della pagina, al centro dell'intestazione (v0.4.0)
+    private void drawPageIndicator(Canvas cv, float W, float hy) {
+        int n = PAGES.length;
+        float r = 5 * u, step = 18 * u, x0 = W / 2 - (n - 1) * step / 2 - 80 * u;
+        for (int p = 0; p < n; p++) {
+            if (!pageOn(p)) continue;
+            fill.setColor(p == page ? FG : BORDER);
+            cv.drawCircle(x0 + p * step, hy - 6 * u, r, fill);
+        }
+        text.setTextSize(17 * u); text.setColor(FG); text.setTextAlign(Paint.Align.LEFT);
+        cv.drawText(PAGE_NAMES[page], x0 + (n - 1) * step + 16 * u, hy, text);
+    }
+
+    // Ingranaggio disegnato: 8 denti + anello (nessuna risorsa grafica)
+    private void drawGear(Canvas cv, float cx, float cy) {
+        line.setColor(DIM);
+        float old = line.getStrokeWidth();
+        line.setStrokeWidth(4 * u);
+        for (int i = 0; i < 8; i++) {
+            double a = i * Math.PI / 4;
+            float c = (float) Math.cos(a), s = (float) Math.sin(a);
+            cv.drawLine(cx + c * 8 * u, cy + s * 8 * u, cx + c * 13 * u, cy + s * 13 * u, line);
+        }
+        line.setStrokeWidth(3 * u);
+        cv.drawCircle(cx, cy, 8 * u, line);
+        line.setStrokeWidth(old);
+        fill.setColor(DIM);
+        cv.drawCircle(cx, cy, 2.5f * u, fill);
     }
 
     // Altezza fissa del pannello, oppure -1 = "elastico" (prende lo spazio che resta)
     private float fixedH(int id) {
         switch (id) {
-            case 0: case 1: case 3: case 4: return 170 * u;
+            // 2026-10-22 v0.4.0: GPU (4) e Claude (9) diventano elastici. Versione v0.3.0:
+            //   case 0: case 1: case 3: case 4: return 170 * u;  ...  case 9: return 210 * u;
+            case 0: case 1: case 3: return 170 * u;
             case 6: return 104 * u;
-            case 7: return (104 + 26 * Math.min(m.diskM.length, 6)) * u;
-            case 9: return 210 * u;                          // v0.3.0: Claude, 6 righe
-            default: return -1;                              // storico, temperature, processi
+            // v0.4.0: con I/O per disco, due righe per disco (era sempre: (104 + 26 * nd) * u)
+            case 7: return m.diskPerIo ? (66 + 54 * Math.min(m.diskM.length, 6)) * u
+                    : (104 + 26 * Math.min(m.diskM.length, 6)) * u;
+            default: return -1;           // storico, GPU, temperature, processi, Claude, ventole
         }
     }
 
@@ -273,7 +427,13 @@ public class MonitorView extends View {
                 bigCard(cv, x, y, w, "RAM", pct(m.ram),
                         num1(m.ramUsed) + " / " + num1(m.ramTot) + " GB  -  swap " + pct(m.swap), m.ram);
                 break;
-            case 4: {
+            case 4:                                          // v0.4.0: tutte le GPU
+                gpuStack(cv, x, y, w, h);
+                break;
+            case 10:                                         // v0.4.0
+                fansCard(cv, x, y, w, h);
+                break;
+            case -4: {   // v0.3.0, sostituito da gpuStack (una sola GPU da "lhm")
                 boolean gpu = !Float.isNaN(m.gpuLoad);
                 String gsub = !gpu ? "LibreHardwareMonitor non attivo"
                         : (Float.isNaN(m.gpuTemp) ? "" : num1(m.gpuTemp) + " °C")
@@ -282,7 +442,10 @@ public class MonitorView extends View {
                         gpu ? pct(m.gpuLoad) : "--", gsub, gpu ? m.gpuLoad : 0);
                 break;
             }
-            case 5: {
+            case 5:                                          // v0.4.0: per componente
+                tempsCard(cv, x, y, w, h);
+                break;
+            case -5: {   // v0.3.0, sostituito da tempsCard
                 card(cv, x, y, w, h, "Temperature");
                 int nt = Math.min(m.tempName.length, (int) ((h - 44 * u) / (26 * u)));
                 if (nt == 0) row(cv, x, y + 60 * u, w, "--", "");
@@ -295,7 +458,10 @@ public class MonitorView extends View {
                 row(cv, x, y + 60 * u, w, "\u2193 download", rate(m.rx));
                 row(cv, x, y + 86 * u, w, "\u2191 upload", rate(m.tx));
                 break;
-            case 7: {
+            case 7:
+                if (m.diskPerIo) { disksCard(cv, x, y, w, h); break; }   // v0.4.0
+                // senza dati per disco (server vecchio): totali come prima
+            case -7: {
                 card(cv, x, y, w, h, "Disco I/O");
                 row(cv, x, y + 60 * u, w, "lettura", rate(m.dr));
                 row(cv, x, y + 86 * u, w, "scrittura", rate(m.dw));
@@ -337,7 +503,130 @@ public class MonitorView extends View {
         text.setTextSize(17 * u); text.setColor(DIM);
         cv.drawText(fit(sub, w - 24 * u), x + 12 * u, y + 124 * u, text);
         bar(cv, x + 12 * u, y + 140 * u, w - 24 * u, 14 * u, p);
+        gauge(cv, x + w - 58 * u, y + 72 * u, 38 * u, p, null);   // v0.4.0
         return y + h;
+    }
+
+    // ------------------------------------------------------- icone (v0.4.0)
+    // Indicatore a lancetta: arco di 270 gradi (traccia + valore colorato a soglie), lancetta,
+    // valore % al centro se label != null (sotto, l'etichetta).
+    private void gauge(Canvas cv, float cx, float cy, float r, float p, String label) {
+        if (Float.isNaN(p)) p = 0;
+        p = Math.max(0, Math.min(100, p));
+        float old = line.getStrokeWidth();
+        line.setStrokeWidth(r * 0.22f);
+        line.setStrokeCap(Paint.Cap.BUTT);
+        rf.set(cx - r, cy - r, cx + r, cy + r);
+        line.setColor(TRACK); cv.drawArc(rf, 135, 270, false, line);
+        line.setColor(level(p)); cv.drawArc(rf, 135, 270 * p / 100f, false, line);
+        double a = Math.toRadians(135 + 270 * p / 100f);
+        line.setStrokeWidth(Math.max(2, r * 0.07f)); line.setColor(FG);
+        // lancetta corta (0.6 r) e valore nell'apertura in basso: non si sovrappongono
+        // (prima stesura: lancetta 0.72 r, valore a cy + 0.62 r -> coperto dalla lancetta)
+        cv.drawLine(cx, cy, cx + (float) Math.cos(a) * r * 0.6f, cy + (float) Math.sin(a) * r * 0.6f, line);
+        line.setStrokeWidth(old);
+        fill.setColor(FG); cv.drawCircle(cx, cy, r * 0.09f, fill);
+        if (label != null) {
+            big.setTextSize(r * 0.42f); big.setColor(FG); big.setTextAlign(Paint.Align.CENTER);
+            cv.drawText(pct(p), cx, cy + r * 0.98f, big);
+            text.setTextSize(16 * u); text.setColor(DIM); text.setTextAlign(Paint.Align.CENTER);
+            cv.drawText(label, cx, cy + r + 24 * u, text);
+        }
+    }
+
+    // Termometro: bulbo + stelo riempito in proporzione (0-100 °C), colore a soglie
+    // (< 60 blu, < 80 giallo, oltre rosso). (x, y) = linea di base del testo della riga.
+    private void thermo(Canvas cv, float x, float y, float c) {
+        float cx = x + 6 * u, top = y - 18 * u, bulbY = y - 2 * u, sw = 5 * u;
+        int col = Float.isNaN(c) ? DIM : c >= 80 ? RED : c >= 60 ? YELLOW : BLUE;
+        rf.set(cx - sw / 2, top, cx + sw / 2, bulbY);
+        fill.setColor(TRACK); cv.drawRoundRect(rf, sw / 2, sw / 2, fill);
+        float f = Float.isNaN(c) ? 0 : Math.max(0, Math.min(1, c / 100f));
+        rf.set(cx - sw / 2, bulbY - (bulbY - top) * f, cx + sw / 2, bulbY);
+        fill.setColor(col); cv.drawRect(rf, fill);
+        cv.drawCircle(cx, bulbY, 5 * u, fill);
+    }
+
+    // Ventola a 3 pale che ruota: velocita' visiva proporzionale agli RPM
+    // (1 giro reale = 1/10 di giro disegnato per 1000 RPM -> fino a ~1 giro/s a 3000 RPM)
+    private void fan(Canvas cv, float cx, float cy, float r, float rpm) {
+        if (overlay != null) {                       // 2a stesura: solo registrazione
+            if (fanIdx < FanOverlay.MAX) overlay.set(fanIdx++, cx, cy, r, rpm);
+            return;
+        }
+        // --- prima stesura (senza overlay): disegno diretto con ridisegno di tutta la vista
+        int k = fanIdx < fanAng.length ? fanIdx : fanAng.length - 1;
+        fanIdx++;
+        float degPerSec = Float.isNaN(rpm) ? 0 : Math.min(rpm, 4000) * 0.12f;
+        if (degPerSec > 0 && animFans) { fanAng[k] = (fanAng[k] + degPerSec * frameDt) % 360; fanSpinning = true; }
+        int col = Float.isNaN(rpm) || rpm <= 0 ? DIM : BLUE;
+        stroke.setColor(BORDER); cv.drawCircle(cx, cy, r, stroke);
+        fill.setColor(col);
+        cv.save();
+        cv.rotate(fanAng[k], cx, cy);
+        for (int i = 0; i < 3; i++) {
+            rf.set(cx - r * 0.28f, cy - r * 0.92f, cx + r * 0.28f, cy - r * 0.12f);
+            cv.drawOval(rf, fill);
+            cv.rotate(120, cx, cy);
+        }
+        cv.restore();
+        fill.setColor(CARD); cv.drawCircle(cx, cy, r * 0.18f, fill);
+    }
+
+    // ---------------------------------------------------------------------------
+    // FanOverlay (v0.4.0): View trasparente, non cliccabile (i tocchi passano a MonitorView),
+    // che disegna solo le ventole e si anima da sola a ~10 fps finche' almeno una gira.
+    static final class FanOverlay extends View {
+        static final int MAX = 64;
+        private final float[] cx = new float[MAX], cy = new float[MAX], r = new float[MAX];
+        private final float[] rpm = new float[MAX], ang = new float[MAX];
+        private int n;
+        private boolean anim;
+        private long last;
+        private final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG), stroke = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final RectF rf = new RectF();
+
+        FanOverlay(Context c) {
+            super(c);
+            stroke.setStyle(Paint.Style.STROKE);
+            setClickable(false); setFocusable(false);
+        }
+
+        void set(int i, float x, float y, float rr, float v) { cx[i] = x; cy[i] = y; r[i] = rr; rpm[i] = v; }
+
+        // Chiamato a fine onDraw di MonitorView con il numero di ventole sulla pagina
+        void commit(int count, boolean animate) { n = count; anim = animate; invalidate(); }
+
+        @Override
+        protected void onDraw(Canvas cv) {
+            long now = SystemClock.uptimeMillis();
+            float dt = last == 0 ? 0 : Math.min(0.5f, (now - last) / 1000f);
+            last = now;
+            boolean spinning = false;
+            stroke.setStrokeWidth(Math.max(1, getHeight() / 800f));
+            for (int i = 0; i < n; i++) {
+                float v = rpm[i], degPerSec = Float.isNaN(v) ? 0 : Math.min(v, 4000) * 0.12f;
+                if (degPerSec > 0 && anim) { ang[i] = (ang[i] + degPerSec * dt) % 360; spinning = true; }
+                stroke.setColor(BORDER); cv.drawCircle(cx[i], cy[i], r[i], stroke);
+                fill.setColor(Float.isNaN(v) || v <= 0 ? DIM : BLUE);
+                cv.save();
+                cv.rotate(ang[i], cx[i], cy[i]);
+                for (int b = 0; b < 3; b++) {
+                    rf.set(cx[i] - r[i] * 0.28f, cy[i] - r[i] * 0.92f, cx[i] + r[i] * 0.28f, cy[i] - r[i] * 0.12f);
+                    cv.drawOval(rf, fill);
+                    cv.rotate(120, cx[i], cy[i]);
+                }
+                cv.restore();
+                fill.setColor(CARD); cv.drawCircle(cx[i], cy[i], r[i] * 0.18f, fill);
+            }
+            if (spinning) postInvalidateDelayed(100);       // 10 fps (66 ms = 15 fps: ~17% CPU)
+            else last = 0;
+        }
+    }
+
+    // Riga con icona a sinistra (etichetta spostata di 22u)
+    private void rowIcon(Canvas cv, float x, float y, float w, String l, String v) {
+        row(cv, x + 22 * u, y, w - 22 * u, l, v);
     }
 
     private void bar(Canvas cv, float x, float y, float w, float h, float p) {
@@ -402,6 +691,108 @@ public class MonitorView extends View {
         if (s == null) return "";
         int n = text.breakText(s, true, Math.max(0, max), null);
         return n >= s.length() ? s : s.substring(0, Math.max(0, n - 1)) + "…";
+    }
+
+    // ------------------------------------------- GPU, temperature, ventole (v0.4.0)
+    // Una scheda per GPU, impilate nella colonna (max 280u ciascuna)
+    private void gpuStack(Canvas cv, float x, float y, float w, float h) {
+        int n = m.gpus.length;
+        if (n == 0) {
+            card(cv, x, y, w, h, "GPU");
+            row(cv, x, y + 60 * u, w, "nessun dato GPU dal server", "");
+            return;
+        }
+        float gap = 10 * u, gh = Math.min(280 * u, (h - (n - 1) * gap) / n);
+        for (int i = 0; i < n; i++) gpuCard(cv, x, y + i * (gh + gap), w, gh, i);
+    }
+
+    private void gpuCard(Canvas cv, float x, float y, float w, float h, int i) {
+        MainActivity.Metrics.Gpu g = m.gpus[i];
+        card(cv, x, y, w, h, "GPU " + (i + 1) + " - " + g.name);
+        // Carico di elaborazione e saturazione VRAM, affiancati (richiesta utente 2026-10-22)
+        float gr = Math.min(46 * u, Math.min(w / 4 - 10 * u, (h - 120 * u) / 2));
+        float gy = y + 44 * u + gr;
+        gauge(cv, x + w / 4, gy, gr, g.load, "Carico");
+        gauge(cv, x + 3 * w / 4, gy, gr, g.memPct, "VRAM");
+        text.setTextSize(16 * u); text.setColor(DIM); text.setTextAlign(Paint.Align.CENTER);
+        if (!Float.isNaN(g.memTotMb))
+            cv.drawText(num1(g.memMb / 1024f) + " / " + num1(g.memTotMb / 1024f) + " GB",
+                    x + 3 * w / 4, gy + gr + 44 * u, text);
+        float ry = gy + gr + 72 * u, end = y + h - 8 * u;
+        if (ry <= end) {
+            thermo(cv, x + 12 * u, ry, g.temp);
+            rowIcon(cv, x, ry, w, "Temperatura", Float.isNaN(g.temp) ? "--" : num1(g.temp) + " °C");
+            ry += 28 * u;
+        }
+        if (ry <= end) {
+            fan(cv, x + 20 * u, ry - 6 * u, 9 * u, g.fanRpm);
+            rowIcon(cv, x, ry, w, "Ventola", Float.isNaN(g.fanRpm) ? "--" : Math.round(g.fanRpm) + " RPM");
+            ry += 28 * u;
+        }
+        if (ry <= end) rowIcon(cv, x, ry, w, "Potenza", pct(g.powerPct));
+        // (v0.4.0 prima stesura, sostituita: numero grande del carico + barra + "VRAM x / y GB")
+    }
+
+    // Righe raggruppate per componente: intestazione (nome hw) + una riga per sensore
+    private void tempsCard(Canvas cv, float x, float y, float w, float h) {
+        card(cv, x, y, w, h, "Temperature");
+        float ry = y + 60 * u, end = y + h - 8 * u;
+        boolean any = false;
+        for (MainActivity.Metrics.Hw hw : m.hw) {
+            if (hw.tName.length == 0) continue;
+            if (ry > end) break;
+            hwHeader(cv, x, ry, w, hw.name); ry += 26 * u;
+            for (int q = 0; q < hw.tName.length && ry <= end; q++, ry += 28 * u) {
+                thermo(cv, x + 14 * u, ry, hw.tC[q]);
+                rowIcon(cv, x, ry, w, hw.tName[q], num1(hw.tC[q]) + " °C");
+            }
+            any = true;
+        }
+        if (!any) row(cv, x, ry, w, "nessuna temperatura dal server", "");
+    }
+
+    private void fansCard(Canvas cv, float x, float y, float w, float h) {
+        card(cv, x, y, w, h, "Ventole");
+        float ry = y + 60 * u, end = y + h - 8 * u;
+        boolean any = false;
+        for (MainActivity.Metrics.Hw hw : m.hw) {
+            if (hw.fName.length == 0) continue;
+            if (ry > end) break;
+            hwHeader(cv, x, ry, w, hw.name); ry += 26 * u;
+            for (int q = 0; q < hw.fName.length && ry <= end; q++, ry += 34 * u) {
+                String v = (Float.isNaN(hw.fRpm[q]) ? "--" : Math.round(hw.fRpm[q]) + " RPM")
+                        + (Float.isNaN(hw.fPct[q]) ? "" : "  " + pct(hw.fPct[q]));
+                fan(cv, x + 24 * u, ry - 6 * u, 13 * u, hw.fRpm[q]);
+                row(cv, x + 30 * u, ry, w - 30 * u, hw.fName[q], v);
+            }
+            any = true;
+        }
+        if (!any) row(cv, x, ry, w, "nessuna ventola dal server", "");
+    }
+
+    // Dischi con lettura/scrittura propria (richiesta utente 2026-10-22: capire quale disco
+    // e' attivo). Pallino verde = disco con I/O in questo secondo.
+    private void disksCard(Canvas cv, float x, float y, float w, float h) {
+        card(cv, x, y, w, h, "Dischi - I/O per disco");
+        int nd = Math.min(m.diskM.length, 6);
+        for (int i = 0; i < nd; i++) {
+            float ry = y + (60 + 54 * i) * u;
+            long r = m.diskR[i], wr = m.diskW[i];
+            boolean act = r > 0 || wr > 0;
+            fill.setColor(act ? GREEN : BORDER);
+            cv.drawCircle(x + 18 * u, ry - 6 * u, 6 * u, fill);
+            text.setTextSize(17 * u); text.setColor(act ? FG : DIM); text.setTextAlign(Paint.Align.LEFT);
+            cv.drawText(m.diskM[i], x + 32 * u, ry, text);
+            text.setTextAlign(Paint.Align.RIGHT); text.setColor(DIM);
+            cv.drawText(pct(m.diskPct[i]) + " di " + num1(m.diskTot[i]) + " GB", x + w - 12 * u, ry, text);
+            row(cv, x + 20 * u, ry + 24 * u, w - 20 * u,
+                    "↓ " + (r < 0 ? "--" : rate(r)), "↑ " + (wr < 0 ? "--" : rate(wr)));
+        }
+    }
+
+    private void hwHeader(Canvas cv, float x, float y, float w, String name) {
+        text.setTextSize(16 * u); text.setColor(BLUE); text.setTextAlign(Paint.Align.LEFT);
+        cv.drawText(fit(name, w - 24 * u), x + 12 * u, y, text);
     }
 
     // ------------------------------------------------- pannello Claude (v0.3.0)

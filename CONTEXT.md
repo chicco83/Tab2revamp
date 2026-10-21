@@ -1,5 +1,5 @@
 # CONTEXT — Tab2revamp
-Versione: v0.1.8 — 2026-10-22 00:30 (ora locale; anche le voci precedenti marcate "UTC" sono in ora locale)
+Versione: v0.1.9 — 2026-10-22 01:00
 
 ## Obiettivo
 Riusare un Galaxy Tab 2 10.1 (GT-P5100, lentissimo: ogni tocco richiede secondi)
@@ -52,6 +52,7 @@ psutil ── tab2monitor_server (:8090) ───┼── USB: adb reverse tcp
 | APK Tab2Monitor v0.1.0 | ✅ installata e provata | build senza Gradle (JDK di Android Studio, nessun download); via USB ✅, ripiego Wi‑Fi dopo `adb reverse --remove-all` ✅, PSS **14,5 MB** (Jelly con dashboard 64 MB PSS / ~105 MB RSS), CPU app ~3% |
 | APK Tab2Monitor v0.2.0 — pannello impostazioni | ✅ installata e provata (2026-10-22) | pressione lunga sulla dashboard → `SettingsActivity`: interruttori per le sorgenti (USB, Wi‑Fi + URL) e per ognuno dei 9 pannelli, avvio al boot, intervallo. Provato: apertura con pressione lunga, 3 pannelli spenti → colonne ricomposte, nessun crash. APK 25 KB |
 | APK Tab2Monitor v0.3.0 — pannello Claude | ✅ installata, provata con dati finti | pannello "Claude - utilizzo" (id 9, chiave `p_claude`, colonna 2 tra GPU e temperature), disattivabile come gli altri; senza campo `claude` dal server mostra "dati non disponibili". Provata 2026-10-22 00:16 con un mock locale (porta 8091 + `adb reverse tcp:8090 tcp:8091`): 6 righe corrette, nessun crash. **Dati reali ⏳**: dipendono dal server (sessione «Sorgente dati Windows»). Anche la schermata "Nessuna sorgente dati attiva" (v0.2.0) è stata verificata. adb sparisce per minuti dopo `adb root` |
+| APK Tab2Monitor v0.4.0 — pagine, GPU, icone | ✅ installata e provata (2026-10-22 00:30–00:55, dati veri + mock per ventole/dischi/Claude) | 2 pagine a rotazione ("Sistema", "GPU e sensori"), tocco = pagina successiva, **ingranaggio** in alto a destra → impostazioni; una scheda per **ogni GPU** con 2 indicatori a lancetta (carico + saturazione VRAM); temperature per componente con **termometro**; **ventole animate** con velocità proporzionale agli RPM; **I/O per disco** con pallino verde sul disco attivo (serve il server: vedi sotto); pagina GPU più lunga se una scheda supera la soglia di carico. CPU app: 2% senza animazione, **17–21% con ventole animate** (pagina 2) → interruttore per spegnerle |
 | Avvio al boot | ✅ verificato | dopo `adb reboot` (2026-10-22 00:00): `mResumedActivity = it.tab2revamp.monitor/.MainActivity`, screenshot con dati via **Wi‑Fi** (adb reverse perso). PSS 13,9 MB. Il boot completo + ricomparsa di adb ha richiesto ~3–4 min: adb resta assente per minuti anche se Windows vede già il dispositivo USB |
 | Wi‑Fi tablet | ✅ acceso | era spento dopo il setup LineageOS; `svc wifi enable` → si collega da solo (2 reti salvate), IP **192.168.1.234** (DHCP; sullo stock era .226) |
 
@@ -123,6 +124,10 @@ RAM: MemTotal 937 MB (stock 819), Jelly con dashboard ~105–120 MB RSS.
 | `minSdk = targetSdk = 25` | gira solo su LineageOS 14.1; nessun vincolo di background/cleartext delle API successive |
 | Orientamento `landscape` fisso | non serve il sensore di rotazione |
 | URL USB fisso + URL Wi‑Fi via `am start --es url` | v0.1.0: niente schermata impostazioni; dopo un riavvio `adb reverse` è perso e l'app passa da sola al Wi‑Fi |
+| v0.4.0: **pagine** a rotazione (timer `page_sec`, default 15 s, 0 = fermo) invece di stringere tutto in una | richiesta utente: servono spazio per temperature e ventole e una scheda per ognuna delle 2 GPU |
+| v0.4.0: tocco breve = pagina successiva, ingranaggio = impostazioni, pressione lunga = impostazioni | richiesta utente (icona ingranaggio); il tocco breve prima non faceva nulla |
+| v0.4.0: pagina GPU tenuta `gpu_busy_sec` (60 s) se una GPU ≥ `gpu_busy_pct` (30%) | richiesta utente: la pagina GPU deve restare di più se una scheda lavora |
+| v0.4.0: icone disegnate in codice (lancetta, termometro, ventola) | nessuna risorsa grafica da caricare; colori a soglie come le barre |
 | v0.2.0: pannello impostazioni **richiesto dall'utente** (2026-10-22), aperto con **pressione lunga** | il tocco breve non fa nulla: su un display fisso evita aperture accidentali. Activity separata con View create in codice (tema Material di sistema), distrutta all'uscita: non pesa sulla dashboard |
 | "Sorgente" = connessione (USB / Wi‑Fi) **e** pannello (CPU, core, storico, RAM, GPU, temperature, rete, disco, processi) | interpretazione della richiesta "attivare o disattivare ogni sorgente"; chiavi `src_*` e `p_*` nelle SharedPreferences, impostabili anche con `am start --ez <chiave> false` |
 | Pannelli spenti: si salta il disegno, i dati arrivano comunque dal server | il server (sessione separata "Sorgente dati Windows") potrebbe in futuro saltare il calcolo delle sezioni spente, es. `?skip=procs,lhm`: da concordare con quella sessione |
@@ -179,6 +184,17 @@ Drive), montato solo dopo l'accesso. ⏳ `claude`: dati dell'account (limiti di 
   "scan_ts": epoch
 }
 ```
+- **I/O per disco** (richiesta utente 2026-10-22 ~00:50): APK pronta (campi `r`, `w` byte/s in ogni
+  elemento di `disks`; senza, mostra i totali come prima). Chiesto alla sessione «Sorgente dati Windows»
+  (PDH `\LogicalDisk(X:)\Disk Read/Write Bytes/sec`). ✅ server v0.2.2 li invia (verificato con curl
+  2026-10-22 01:00: C/D/E con `r`, `w`, `busy`; G:\ senza → "--"). Anche il campo `claude` arriva dal
+  server v0.2.1 (dati reali: today_tok, blocco 5 h, ecc.). Screenshot dell'APK con i dati reali ⏳
+  (adb sparito dopo un `adb root` lanciato per errore).
+- **Ventole animate**: ridisegnare tutta la dashboard a 10–15 fps costava ~29% CPU; ora le icone stanno
+  in una View trasparente separata (`MonitorView.FanOverlay`) → 17–21%. Se serve meno: interruttore
+  "Ventole animate" spento (2%), oppure ridurre a 5 fps.
+- Le ventole reali oggi: il server v0.2.x vede solo "GPU Fan" della RX 9070 XT (0 RPM a riposo) e nessuna
+  ventola di scheda madre/CPU; le prove sono state fatte con RPM finti.
 - Altre funzioni APK richieste dall'utente il 2026-10-22: «aggiungere altre funzioni», la prima era il
   pannello impostazioni (fatto); le prossime da definire.
 - Sessione parallela «Sorgente dati Windows per Tab2Monitor» (server `windows/agent/`) aperta il
