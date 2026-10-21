@@ -196,7 +196,8 @@ Drive), montato solo dopo l'accesso. ⛔ `claude`: limiti di piano dell'account 
 - ✅ Pagina 2 (APK v0.5.0, 2026-10-22): scelta dell'utente = **un box per hardware con le sue
   temperature e ventole** (CPU, scheda madre, RAM, dischi, altri), GPU con tutti i propri sensori nella
   loro scheda. Verificato con i dati reali: tutto visibile. Le ventole seguono `sensors.pairs` (con il
-  server v0.2.3 quelle che girano passano al box CPU: da verificare quando la v0.2.3 è attiva).
+  server v0.2.3+ quelle che girano passano al box CPU: ✅ verificato con il server v0.2.6, Fan #2/#6/#7
+  nel box CPU con "(scheda madre)", quelle ferme nel box della scheda madre).
   Se in futuro i box non ci stanno, l'ultimo mostra solo le righe che entrano.
 - **Presenza con la fotocamera frontale** (APK v0.6.0, 2026-10-22) ✅ provata: spegnimento reale con
   `DevicePolicyManager.lockNow()` (app amministratore dispositivo, solo policy force-lock), riaccensione
@@ -208,8 +209,8 @@ Drive), montato solo dopo l'accesso. ⛔ `claude`: limiti di piano dell'account 
   | servizio in primo piano + PARTIAL_WAKE_LOCK | a schermo spento l'Activity è in pausa; il tablet è sempre in carica |
   | lockNow (amministratore) e non solo luminosità 0 | l'utente ha chiesto di spegnere lo schermo; senza amministratore resta il ripiego "oscurato" |
   | 5 s di pausa dopo lo spegnimento + 2 fotogrammi consecutivi | falso allarme osservato: il cambio di luce allo spegnimento sembrava movimento |
-  Limiti: al buio il movimento non si vede (la fotocamera non ha IR); da verificare con l'utente la
-  riaccensione al passaggio di una persona (nella prova la riaccensione c'era, ma per il falso allarme).
+  Limiti: al buio il movimento non si vede (la fotocamera non ha IR). ✅ Riaccensione al passaggio di
+  una persona verificata dall'utente (2026-10-22 01:10; log: spegne dopo 120 s, riaccende al movimento).
   L'utente (2026-10-22): "le risorse sul tablet non mi interessano, è dedicato solo all'APK" → il costo in
   CPU di animazioni/fotocamera non è un vincolo.
 - Nomi e abbinamenti delle ventole: decisi dall'utente nella pagina `http://localhost:8090/config`

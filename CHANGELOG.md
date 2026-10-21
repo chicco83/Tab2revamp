@@ -1,6 +1,10 @@
 # CHANGELOG — Tab2revamp
 Versione documento: v0.1.11 — 2026-10-22 02:05
 
+## 12. (2) v0.1.11 — 2026-10-22 01:15 (sessione locale, verifiche)
+- Presenza: **l'utente conferma** che lo schermo si riaccende quando passa davanti al tablet.
+- Con il server v0.2.6 (servizio con admin) le ventole che girano sono nel box CPU (screenshot).
+
 ## 12. v0.1.11 — 2026-10-22 02:05 (sessione locale, APK v0.6.0)
 - APK **v0.6.0**, richiesta utente: **schermo acceso/spento in base alla presenza** rilevata dalla
   fotocamera frontale, come opzione configurabile (spenta di default). Nuovi `PresenceService`
