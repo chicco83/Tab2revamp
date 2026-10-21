@@ -62,6 +62,17 @@ Versione documento: v0.1.10 — 2026-10-22 01:35
   (il versionCode scende, `install -r` non basta).
 - Aperta una sessione parallela per la sorgente dati lato Windows.
 
+## 8. (7) v0.2.6 — 2026-10-22 01:20 (sessione locale, consumo CPU del server)
+- Servizio verificato dopo la chiusura del server orfano (fatta dall'utente da amministratore): v0.2.5
+  partita da sola, sensori con admin ok (CPU 52 °C, scheda madre, RAM, dischi, GPU).
+- Causa del ~31% di un core: `psutil.process_iter` con `num_threads` (1265 ms di CPU ogni 3 s, misurato).
+- Nuovo `windows/agent/tab2monitor_server_v0.2.6_20261022-0120.py`: top processi, `sys.procs` e
+  `sys.threads` dai contatori PDH `Process(*)` e `System` (5 ms); psutil resta come ripiego.
+  Formato di `procs` invariato (nomi con ".exe", % CPU divisa per le CPU logiche, mb = working set).
+- Provato: stessi processi in cima della v0.2.5 (python 2,6%, claude 1,0%…), CPU del server **1,0%** di un
+  core (era 31%). Messo in servizio con `schtasks /End` + `/Run`: il server v0.2.5 si è chiuso insieme al
+  supervisore (correttivo della v0.2.3 verificato dal vivo).
+
 ## 8. (6) v0.2.5 — 2026-10-22 01:10 (sessione locale, voci nascoste)
 - Nuovo `windows/agent/tab2monitor_server_v0.2.5_20261022-0110.py`: `"hidden": true` su `sensors.hw[].fans[]`
   (ventola impostata su "non mostrare") e su `temps[]` (casella "nascondi"); in `fan_config.json` la

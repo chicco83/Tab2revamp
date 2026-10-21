@@ -156,10 +156,10 @@ da Windows (`lhm.src` = `lib` Tab2Sensors / `lhm` app LHM / `win` solo Windows).
 | `claude` (v0.2.1) | `today_tok` (input+output+cache_creation, senza cache_read), `today_out`, `today_cache_r`, `today_msgs`, `block_tok`, `block_start`/`block_end` (epoch, solo se il blocco di 5 h è aperto), `week_tok`, `models[{m,tok}]` (oggi, max 3), `scan_ts`; null senza `~/.claude/projects` o con `--no-claude` |
 
 Stato server: ✅ attività `Tab2Monitor` installata (all'accesso, elevata) · ✅ sensori CPU/scheda madre/
-ventole verificati con admin (vedi CHANGELOG v0.2.3) · ⏳ v0.2.5 in attesa che l'utente chiuda il server
-v0.2.2 orfano (PID 28692, elevato) · ⏳ l'utente dà nomi e abbinamenti alle ventole dalla pagina `/config` · ⏳ APK: disegnare `sensors.pairs`
-(file della sessione impostazioni APK) · ⏳ CPU del server ~25% di un core (da misurare/ridurre:
-probabile contatore PDH `GPU Engine(*)`) · ⛔ avvio prima dell'accesso: il progetto sta su G: (Google
+ventole verificati con admin (vedi CHANGELOG v0.2.3) · ✅ v0.2.6 in servizio sulla 8090 (orfano chiuso
+dall'utente) · ⏳ l'utente dà nomi e abbinamenti alle ventole dalla pagina `/config` · ⏳ APK: disegnare `sensors.pairs`
+(file della sessione impostazioni APK) · ✅ CPU del server ~1% di un core (v0.2.6: processi da PDH;
+la causa era `psutil.process_iter`, non `GPU Engine`) · ⛔ avvio prima dell'accesso: il progetto sta su G: (Google
 Drive), montato solo dopo l'accesso. ⛔ `claude`: limiti di piano dell'account non disponibili: `.credentials.json` non contiene il login Claude (solo connettori MCP). ⛔ FanControl: vedi CHANGELOG v0.2.0.
 
 ## Punti aperti
