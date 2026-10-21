@@ -1,5 +1,5 @@
 # CONTEXT — Tab2revamp
-Versione: v0.1.3 — 2026-10-21 22:15 UTC
+Versione: v0.1.4 — 2026-10-21 23:45 UTC
 
 ## Obiettivo
 Riusare un Galaxy Tab 2 10.1 (GT-P5100, lentissimo: ogni tocco richiede secondi)
@@ -37,7 +37,14 @@ psutil ── tab2monitor_server (:8090) ───┼── USB: adb reverse tcp
 | Root dello stock | ⛔ scartato | l'utente (2026-10-21) ha scelto di passare direttamente alla ROM custom: il root dello stock sarebbe una deviazione |
 | TWRP 3.4.0-0 | ✅ file verificato | `twrp-3.4.0-0-espresso3g.img.tar` nella cartella repo (non versionato), SHA256 `7e90f863…f789d` = quello ufficiale twrp.me |
 | Odin 3.14.4 | ⚠️ | fornito dall'utente, exe **non firmato**, non verificabile; lo esegue l'utente |
-| ROM custom | ⏳ | build scelta (sotto), download e flash **in attesa di conferma** |
+| Backup stock | ✅ | `backup/stock_P5100XXDMJ2_20261021/` (escluso da git): EFS, SBL1/2, PARAM, KERNEL, MODEM, FACTORYFS, HIDDEN (MD5 tablet = PC, `MD5SUMS.txt`) + 665 file utente (517 MB) |
+| TWRP 3.4.0-0 | ✅ installato | flash con Odin dall'utente 2026-10-21 |
+| ROM custom | ✅ installata | LineageOS 14.1 `lineage_espresso3g-userdebug 7.1.2 NJH47F` (MD5 zip verificato); 1° tentativo E1001 cause 101 (`/cache` non montata dopo il wipe) → `twrp mount /cache` e reinstall OK |
+| Debug USB / adb root | ✅ | attivato a mano dall'utente; build userdebug: `adb root` disponibile (accesso root "solo ADB") |
+| Debloat LineageOS | ✅ | 21 app disattivate con `tune_v0.1.3` (Jelly tenuto come browser) |
+| Dashboard via USB | ✅ | `adb reverse tcp:8090` + Jelly (WebView 81), landscape; va rifatto `adb reverse` a ogni riavvio del tablet |
+| rild (RIL 3G) | ✅ disattivato | consumava ~50% CPU in un loop (`ReaderLoop IOCTL_MODEM_STATUS = 4`); aggiunto `disabled` in `/system/etc/init/rild.rc`. Rollback: `adb root; adb remount; adb push backup/lineage14.1_20200623/rild.rc.orig /system/etc/init/rild.rc` (MD5 orig `5ab3fa76…f462`) |
+| SensorService | ⏳ aperto | dopo i riavvii il thread `SensorService` di system_server occupa ~50% (un core) senza sensori attivi; nella 1ª sessione dopo il setup era a 0%. Causa non trovata (non dipende da rild né dalla rotazione automatica) |
 
 Misure (am start -W, TotalTime ms, avvio a freddo):
 | | prima del tuning | dopo |
@@ -89,9 +96,18 @@ Alternativa senza flash per il debloat: Impostazioni → Gestione applicazioni �
   (`lineage-14.1-espresso3g-userdebug-kernel-20200421.zip`) o la build precedente.
 - Niente GApps (meno RAM occupata: oggi i servizi Google pesano ~80 MB).
 
+Misure su LineageOS (am start -W, ms):
+| | stock 4.2.2 | LineageOS prima del tuning | LineageOS dopo tuning |
+|---|---|---|---|
+| Impostazioni | 1409–3258 | 698 / 698 | 799 / 679 |
+| Browser (Jelly) | 1110–3132 (stock) | 2073 / 7896 | 1148 / 1265 |
+RAM: MemTotal 937 MB (stock 819), Jelly con dashboard ~105–120 MB RSS.
+
 ## Punti aperti
-- Conferma utente per: download della ROM (283 MB da AndroidFileHost) e flash.
-- Dopo il flash: rifare diagnose/tune v0.1.2, misurare, valutare `adb reverse` via USB.
+- SensorService al 50% dopo il boot: indagare (log HAL sensori) o conviverci.
+- `adb reverse` va ripristinato a ogni riavvio del tablet (o usare Wi‑Fi).
+- Proposta utente 2026-10-21: **APK nativa** al posto del browser (meno RAM, avvio al boot,
+  schermo intero senza barra URL). Da fare in una sessione dedicata.
 - Valutare app nativa Android (Canvas) solo se la pagina web risultasse lenta.
 
 ## Handoff sessione locale (v0.1.1 — 2026-10-21 19:05 UTC)

@@ -1,5 +1,15 @@
 # CHANGELOG — Tab2revamp
-Versione documento: v0.1.3 — 2026-10-21 22:15 UTC
+Versione documento: v0.1.4 — 2026-10-21 23:45 UTC
+
+## 5. v0.1.4 — 2026-10-21 23:45 UTC (sessione locale, flash eseguito)
+- Backup completo stock (EFS incluso, MD5 verificati) in `backup/` (fuori da git).
+- TWRP 3.4.0-0 flashato dall'utente con Odin; LineageOS 14.1 andi34 installata
+  (1° tentativo E1001 per `/cache` non montata, poi OK). Tablet avviato, adb ok.
+- Aggiunto `android/tune_v0.1.3_20261021-2315.sh`: Jelly non piu' disattivato (era l'unico
+  browser senza GApps), apertura esplicita in Jelly, lista debloat LineageOS (21 app).
+- `/system/etc/init/rild.rc`: servizio `ril-daemon` disattivato (loop al 50% CPU).
+  Originale salvato in `backup/lineage14.1_20200623/rild.rc.orig`.
+- Aperto: SensorService al 50% dopo il boot. Proposta APK nativa da valutare.
 
 ## 4. v0.1.3 — 2026-10-21 22:15 UTC (sessione locale)
 - Decisione utente: niente root dello stock, si passa direttamente alla ROM custom.

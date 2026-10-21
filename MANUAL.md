@@ -1,5 +1,5 @@
 # MANUAL — Tab2revamp
-Versione: v0.1.3 — 2026-10-21 22:15 UTC
+Versione: v0.1.4 — 2026-10-21 23:45 UTC
 
 Galaxy Tab 2 10.1 (GT-P5100) come display delle risorse di un PC Windows.
 
@@ -91,7 +91,16 @@ URL=http://192.168.1.10:8090 bash android/tune_v0.1.2_20261021-2150.sh   # via W
    (`md5sum`), poi in TWRP: Advanced → ADB Sideload → `adb sideload <zip>`
    (oppure `adb push <zip> /sdcard/` e Install). Android 7.1 consente `adb reverse`.
    Niente RIL: 3G e SMS non funzionano con questa ROM.
-6. Primo avvio, poi ripetere 2.1 → 2.3.
+   Se l'installazione fallisce con **E1001 / cause 101** subito dopo il wipe: `/cache` non è
+   montata → `adb shell twrp mount /cache` e reinstallare.
+   Da PC, in TWRP, il wipe si può fare via adb: `adb shell twrp wipe system|data|cache|dalvik`
+   (`data` non tocca i file utente) e `adb shell twrp install /sdcard/<zip>`.
+6. Primo avvio (5–10 min). LineageOS parte con **debug USB spento**: Impostazioni → Info →
+   7 tocchi su Numero build → Opzioni sviluppatore → Debug Android. Poi
+   `bash android/tune_v0.1.3_20261021-2315.sh --debloat` (via USB con `adb reverse`, apre Jelly).
+6b. rild (3G) in loop al 50% CPU: `adb root && adb remount`, salvare `/system/etc/init/rild.rc`,
+   aggiungere la riga `    disabled` sotto `service ril-daemon`, riavviare. 3G/SMS non
+   funzionano comunque con questa ROM; IMEI/EFS non vengono toccati.
 7. Controllo IMEI: Impostazioni → Info → Stato.
 
 ---
@@ -104,5 +113,7 @@ URL=http://192.168.1.10:8090 bash android/tune_v0.1.2_20261021-2150.sh   # via W
 | Pagina lenta | ridurre `POLL_MS` a 2000 nella dashboard; valutare app nativa |
 | `adb reverse` errore | Android < 5.0 → usare Wi‑Fi |
 | `adb devices` = unauthorized | accettare "Consentire debug USB?" sul tablet (spuntare "Consenti sempre") |
+| adb non vede il tablet dopo `adb root` | PowerShell: `Get-Process adb \| Stop-Process -Force`, poi `adb devices` |
+| Git Bash + `adb pull` su `/g/...` con `MSYS_NO_PATHCONV=1` | usare percorsi Windows `G:/...` |
 | Dashboard in verticale | `adb shell settings put system user_rotation 0` (Tab 2 10.1 è nativamente orizzontale) |
 | Script tune bloccato su "disable ..." | stock < 4.3 senza root; usare v0.1.2; uccidere i `pm` orfani: `adb shell ps` → `adb shell kill <pid>` degli `app_process` dell'utente shell |
