@@ -1,5 +1,19 @@
 # CHANGELOG — Tab2revamp
-Versione documento: v0.1.13 — 2026-10-22 03:35
+Versione documento: v0.1.14 — 2026-10-22 01:35 (ora del PC)
+
+## 15. v0.1.14 — 2026-10-22 01:35 ora del PC (sessione «Piano installer Tab2Monitor», solo documenti)
+- Aggiunto `PIANO_INSTALLER_v0.1.0_20261022-0135.md`: piano (non implementato) per usare server e APK
+  su **altri PC Windows** e **altri tablet Android**. Contiene inventario PC/tablet, cablature da
+  sganciare, opzioni con pro/contro (Python embeddable + script/Inno Setup, avvio all'accesso o
+  all'avvio, adb opzionale, chiave di release, minSdk 21, scoperta UDP, sideload da `/apk`),
+  requisiti minimi dei tablet, sicurezza, 8 passi ⏳ e 11 domande per l'utente.
+- Trovato durante l'analisi (verificato sul PC): il driver **PawnIO** (servizio kernel, in
+  `C:\Program Files\PawnIO`) è una dipendenza non documentata dei sensori CPU/scheda madre; le regole
+  firewall esistenti sono "python.exe, profilo Pubblico, qualsiasi porta"; l'attività elevata esegue
+  `.py` da Google Drive (cartella scrivibile dall'utente → rischio di esecuzione come admin).
+- Trovato nel codice: su Android 10+ `BootReceiver` non può avviare l'Activity (blocco avvii dal
+  background) → avvio automatico solo in modalità Home.
+- Nessun file di codice modificato. Rollback: `git rm PIANO_INSTALLER_v0.1.0_20261022-0135.md`.
 
 ## 14. v0.1.13 — 2026-10-22 03:35 (sessione locale, APK v0.9.0)
 - APK **v0.9.0** (richieste utente):

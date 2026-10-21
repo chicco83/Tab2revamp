@@ -1,5 +1,5 @@
 # CONTEXT — Tab2revamp
-Versione: v0.1.13 — 2026-10-22 03:35
+Versione: v0.1.14 — 2026-10-22 01:35 (ora del PC)
 
 ## Obiettivo
 Riusare un Galaxy Tab 2 10.1 (GT-P5100, lentissimo: ogni tocco richiede secondi)
@@ -244,6 +244,23 @@ Drive), montato solo dopo l'accesso. ⛔ `claude`: limiti di piano dell'account 
   pannello impostazioni (fatto); le prossime da definire.
 - Sessione parallela «Sorgente dati Windows per Tab2Monitor» (server `windows/agent/`) aperta il
   2026-10-22: vincolo concordato = lo schema di `/api/metrics` si può solo estendere.
+
+## Installer per altri PC e altri tablet (piano, 2026-10-22)
+Sessione «Piano installer Tab2Monitor». Piano completo: `PIANO_INSTALLER_v0.1.0_20261022-0135.md`.
+| Voce | Stato |
+|---|---|
+| Piano (inventario, opzioni, sicurezza, passi, domande) | ✅ scritto e committato |
+| Risposte dell'utente alle 11 domande (sezione 9 del piano) | ⏳ |
+| Implementazione (config server + cartella dati, scoperta UDP, APK release/minSdk, pacchetto, installer PC e tablet, prove) | ⏳ solo dopo il via esplicito dell'utente |
+Proposte del piano (da confermare): Python **embeddable** incluso (non PyInstaller: falsi positivi
+antivirus), zip + `install.ps1` con Inno Setup facoltativo, installazione in `C:\Program Files\Tab2Monitor`
++ dati in `C:\ProgramData\Tab2Monitor`, Wi‑Fi con **scoperta UDP** come default e adb solo opzionale,
+APK con **chiave di release** fuori repo e **minSdk 21**, targetSdk 25 invariato, sideload da `/apk`.
+Dipendenze nascoste trovate: driver **PawnIO** (sensori CPU/scheda madre), LHM 0.9.6 + `Tab2Sensors.exe`
+fuori da git, adb dell'Android SDK. Rischio trovato: l'attività elevata esegue `.py` da G: (scrivibile
+dall'utente) → risolto dall'installazione in Program Files. Android 10+: avvio al boot solo come Home.
+Decisioni di *non* fare: Play Store/F-Droid/MSI (⛔ fuori ambito), QR code (⏸️ lettura senza librerie),
+ottimizzazioni GT-P5100 nell'installer generico (⛔ restano specifiche), HTTPS in LAN (⛔ sproporzionato).
 
 ## Handoff sessione locale (v0.1.1 — 2026-10-21 19:05 UTC)
 La sessione cloud non può raggiungere il PC/USB: la sessione locale va avviata dall'utente.
