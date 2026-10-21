@@ -1,5 +1,12 @@
 # CHANGELOG — Tab2revamp
-Versione documento: v0.1.5 — 2026-10-21 23:55
+Versione documento: v0.1.6 — 2026-10-22 00:10
+
+## 7. v0.1.6 — 2026-10-22 00:10 (sessione locale, modifica /system approvata dall'utente)
+- HAL sensori disattivato: `/system/lib/hw/sensors.omap4.so` → `sensors.omap4.so.off`
+  (backup `backup/lineage14.1_20200623/sensors.omap4.so.orig`, MD5 `b46bfa9921fa7a8ccf09a29d7b251539`).
+- Verificato dopo il riavvio: "No Sensors on the device", nessun crash, SensorService non più in `top`,
+  Tab2Monitor avviata al boot via Wi‑Fi.
+- Rollback: `adb root; adb remount; adb shell mv /system/lib/hw/sensors.omap4.so.off /system/lib/hw/sensors.omap4.so; adb reboot` (oppure `adb push backup/lineage14.1_20200623/sensors.omap4.so.orig /system/lib/hw/sensors.omap4.so`, MD5 `b46bfa99…1539`).
 
 ## 6. (2) v0.1.5 — 2026-10-22 00:05 (sessione locale)
 - Avvio al boot dell'APK **verificato**: dopo il riavvio Tab2Monitor è in primo piano e legge i dati

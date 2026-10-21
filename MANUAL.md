@@ -1,5 +1,5 @@
 # MANUAL — Tab2revamp
-Versione: v0.1.5 — 2026-10-21 23:55
+Versione: v0.1.6 — 2026-10-22 00:10
 
 Galaxy Tab 2 10.1 (GT-P5100) come display delle risorse di un PC Windows.
 
@@ -133,6 +133,16 @@ Con `-home` l'app diventa anche la schermata Home (kiosk); `-nohome` la toglie.
 6b. rild (3G) in loop al 50% CPU: `adb root && adb remount`, salvare `/system/etc/init/rild.rc`,
    aggiungere la riga `    disabled` sotto `service ril-daemon`, riavviare. 3G/SMS non
    funzionano comunque con questa ROM; IMEI/EFS non vengono toccati.
+6c. SensorService al 50% CPU (bug dell'HAL sensori, pollfd non inizializzata): disattivare l'HAL.
+   ```
+   adb root && adb remount
+   adb pull /system/lib/hw/sensors.omap4.so backup/lineage14.1_20200623/sensors.omap4.so.orig
+   adb shell mv /system/lib/hw/sensors.omap4.so /system/lib/hw/sensors.omap4.so.off
+   adb reboot
+   ```
+   Effetto: niente rotazione/luminosità automatiche (inutili con l'APK in landscape fisso).
+   Ripristino: `adb shell mv /system/lib/hw/sensors.omap4.so.off /system/lib/hw/sensors.omap4.so` e riavvio.
+   Va rifatto dopo ogni reflash della ROM.
 7. Controllo IMEI: Impostazioni → Info → Stato.
 
 ---
@@ -150,5 +160,5 @@ Con `-home` l'app diventa anche la schermata Home (kiosk); `-nohome` la toglie.
 | Dashboard in verticale | `adb shell settings put system user_rotation 0` (Tab 2 10.1 è nativamente orizzontale) |
 | APK: "In attesa del server Tab2Monitor…" | server Windows spento, oppure `adb reverse` perso (riavvio) e Wi‑Fi del tablet spento (`adb shell svc wifi enable`) o URL Wi‑Fi non impostato (`--es url`) |
 | Build APK: `invalid flag: /g/Il` o percorso spezzato | usare lo script di build (gestisce gli spazi); non chiamare `d8.bat` a mano |
-| SensorService al 50% CPU | bug dell'HAL `sensors.omap4.so` (pollfd non inizializzata), vedi CONTEXT → Punti aperti |
+| SensorService al 50% CPU | bug dell'HAL `sensors.omap4.so` (pollfd non inizializzata): disattivarlo, sez. 3 punto 6c |
 | Script tune bloccato su "disable ..." | stock < 4.3 senza root; usare v0.1.2; uccidere i `pm` orfani: `adb shell ps` → `adb shell kill <pid>` degli `app_process` dell'utente shell |

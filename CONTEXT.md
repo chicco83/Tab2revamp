@@ -1,5 +1,5 @@
 # CONTEXT — Tab2revamp
-Versione: v0.1.5 — 2026-10-21 23:55 (ora locale; anche le voci precedenti marcate "UTC" sono in ora locale)
+Versione: v0.1.6 — 2026-10-22 00:10 (ora locale; anche le voci precedenti marcate "UTC" sono in ora locale)
 
 ## Obiettivo
 Riusare un Galaxy Tab 2 10.1 (GT-P5100, lentissimo: ogni tocco richiede secondi)
@@ -48,7 +48,7 @@ psutil ── tab2monitor_server (:8090) ───┼── USB: adb reverse tcp
 | Debloat LineageOS | ✅ | 21 app disattivate con `tune_v0.1.3` (Jelly tenuto come browser) |
 | Dashboard via USB | ✅ | `adb reverse tcp:8090` + Jelly (WebView 81), landscape; va rifatto `adb reverse` a ogni riavvio del tablet |
 | rild (RIL 3G) | ✅ disattivato | consumava ~50% CPU in un loop (`ReaderLoop IOCTL_MODEM_STATUS = 4`); aggiunto `disabled` in `/system/etc/init/rild.rc`. Rollback: `adb root; adb remount; adb push backup/lineage14.1_20200623/rild.rc.orig /system/etc/init/rild.rc` (MD5 orig `5ab3fa76…f462`) |
-| SensorService | ⏳ causa trovata, fix da approvare | thread `SensorService` di system_server al ~50% (un core) con **0 connessioni attive**. `strace -p <tid>` (2026-10-21): loop di `ppoll(..., timeout 0)` su 6 fd, il 5° è **non inizializzato** (`fd=539771469`, eventi spazzatura) → ritorna subito `POLLNVAL` e il ciclo non dorme mai. Bug dell'HAL `/system/lib/hw/sensors.omap4.so` ("Galaxy Tab 2 Sensor Module", MD5 `b46bfa99…1539`); il valore dipende da memoria non inizializzata, per questo a volte era 0%. Vedi "Punti aperti" |
+| SensorService | ✅ risolto (HAL sensori disattivato, 2026-10-22) | thread `SensorService` di system_server al ~50% (un core) con **0 connessioni attive**. `strace -p <tid>` (2026-10-21): loop di `ppoll(..., timeout 0)` su 6 fd, il 5° è **non inizializzato** (`fd=539771469`, eventi spazzatura) → ritorna subito `POLLNVAL` e il ciclo non dorme mai. Bug dell'HAL `/system/lib/hw/sensors.omap4.so` ("Galaxy Tab 2 Sensor Module", MD5 `b46bfa99…1539`); il valore dipende da memoria non inizializzata, per questo a volte era 0%. **Fix approvato dall'utente ed eseguito**: HAL rinominato in `sensors.omap4.so.off`, backup in `backup/lineage14.1_20200623/sensors.omap4.so.orig` (MD5 uguale). Dopo il riavvio: boot ~40 s, `dumpsys sensorservice` = "No Sensors on the device", nessun crash, nessun thread SensorService in `top`, Tab2Monitor riavviata da sola. Si perdono rotazione/luminosità automatiche (voluto). Rollback: `adb root; adb remount; adb shell mv /system/lib/hw/sensors.omap4.so.off /system/lib/hw/sensors.omap4.so; adb reboot` (oppure `adb push backup/lineage14.1_20200623/sensors.omap4.so.orig /system/lib/hw/sensors.omap4.so`, MD5 `b46bfa99…1539`) |
 | APK Tab2Monitor v0.1.0 | ✅ installata e provata | build senza Gradle (JDK di Android Studio, nessun download); via USB ✅, ripiego Wi‑Fi dopo `adb reverse --remove-all` ✅, PSS **14,5 MB** (Jelly con dashboard 64 MB PSS / ~105 MB RSS), CPU app ~3% |
 | Avvio al boot | ✅ verificato | dopo `adb reboot` (2026-10-22 00:00): `mResumedActivity = it.tab2revamp.monitor/.MainActivity`, screenshot con dati via **Wi‑Fi** (adb reverse perso). PSS 13,9 MB. Il boot completo + ricomparsa di adb ha richiesto ~3–4 min: adb resta assente per minuti anche se Windows vede già il dispositivo USB |
 | Wi‑Fi tablet | ✅ acceso | era spento dopo il setup LineageOS; `svc wifi enable` → si collega da solo (2 reti salvate), IP **192.168.1.234** (DHCP; sullo stock era .226) |
@@ -129,18 +129,7 @@ Rollback: `adb uninstall it.tab2revamp.monitor`, poi la dashboard web con
 `bash android/tune_v0.1.3_20261021-2315.sh` (apre Jelly).
 
 ## Punti aperti
-- **SensorService** (causa trovata, vedi tabella Stato). Opzioni, nessuna eseguita:
-  1. *(proposta)* disattivare l'HAL dei sensori: `adb root; adb remount;
-     adb pull /system/lib/hw/sensors.omap4.so backup/lineage14.1_20200623/`, poi
-     `adb shell mv /system/lib/hw/sensors.omap4.so /system/lib/hw/sensors.omap4.so.off` e riavvio.
-     Effetto atteso: SensorService senza sensori → 0% CPU. Si perdono rotazione e luminosità
-     automatiche (inutili per un display fisso in landscape con l'APK).
-     Rollback: rinominare indietro e riavviare (da TWRP se system_server non partisse).
-     **Serve conferma dell'utente** (modifica /system).
-  2. patch binaria dell'HAL (azzerare la pollfd non usata): fattibile ma rischiosa e da rifare a ogni flash.
-  3. conviverci: costa un core su due, l'APK resta fluida (CPU app ~3%).
-  Al riavvio del 2026-10-22 00:00 SensorService era a **0%** (conferma che dipende dal caso):
-  il problema può tornare a ogni boot.
+- SensorService: ✅ risolto disattivando l'HAL (vedi tabella Stato). Scartate: patch binaria dell'HAL (rischiosa, da rifare a ogni flash) e conviverci (un core su due sprecato). Attenzione: un reflash della ROM ripristina l'HAL → rifare il rename.
 - `adb reverse` va rifatto a ogni riavvio del tablet: con l'APK non è più bloccante (ripiego Wi‑Fi).
 - Il server Python risponde in HTTP/1.0 (niente keep-alive): una connessione TCP per richiesta.
   Accettabile a 1 Hz; eventualmente `protocol_version = "HTTP/1.1"` nel server.
