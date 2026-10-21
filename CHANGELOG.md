@@ -43,6 +43,24 @@ Versione documento: v0.1.9 — 2026-10-22 01:00
   (il versionCode scende, `install -r` non basta).
 - Aperta una sessione parallela per la sorgente dati lato Windows.
 
+## 8. (4) v0.2.3 — 2026-10-22 00:50 (sessione locale, servizio installato dall'utente)
+- Attività `Tab2Monitor` installata dall'utente (elevata): **sensori verificati con admin**: CPU Ryzen 5 9600X
+  (Tctl 55 °C, CCD1), scheda madre ASUS ROG STRIX B650-A (SuperIO Nuvoton NCT6799D: 5 temperature,
+  7 ventole; attive Fan #2 678 RPM, #6 571, #7 3061 al 100%), 2 DIMM Kingston, NVMe Samsung 990 EVO Plus,
+  2 HDD, RX 9070 XT (fan 0 RPM = modalità zero-RPM), MI50 da Windows (35 °C).
+- Nuovo `windows/agent/tab2monitor_server_v0.2.3_20261022-0050.py`: scartate le soglie (Warning/Critical/
+  Limit/Resolution) dalle temperature; RAM come kind `ram`; `fans[].on`; ventole della scheda madre a 0 RPM
+  escluse da `pairs`, le altre abbinate di default alla CPU (`how` = `cpu_default`, curva ASUS predefinita);
+  niente SO_REUSEADDR; il server esce quando si chiude lo stdin del supervisore.
+- Problema trovato: con SO_REUSEADDR (default di Python) su Windows il servizio e il server avviato a mano
+  ascoltavano **entrambi** sulla 8090; e `schtasks /End` chiude il supervisore ma lascia il server orfano.
+  Entrambi corretti nella v0.2.3 (provato: 10048 "indirizzo già in uso" invece del doppio ascolto; stdin
+  chiuso → uscita in < 1 s, Tab2Sensors compreso).
+- Account Claude: `~/.claude/.credentials.json` letto con l'autorizzazione dell'utente (solo i nomi delle
+  chiavi): contiene solo token OAuth dei connettori MCP, **nessun `claudeAiOauth`** → i limiti di piano non
+  si leggono da lì (accesso fatto dall'app desktop). Non cercati altri archivi di credenziali.
+- Riavvio senza admin: `schtasks /End /TN Tab2Monitor` poi `schtasks /Run /TN Tab2Monitor`.
+
 ## 8. (3) v0.2.2 — 2026-10-22 00:40 (sessione locale, server Windows)
 - Nuovo `windows/agent/tab2monitor_server_v0.2.2_20261022-0040.py`: `disks[].r`, `disks[].w` (byte/s) e
   `disks[].busy` (% tempo attivo = 100 − % Idle Time) per volume, contatori PDH `LogicalDisk`

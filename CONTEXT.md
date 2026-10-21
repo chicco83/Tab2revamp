@@ -148,17 +148,17 @@ da Windows (`lhm.src` = `lib` Tab2Sensors / `lhm` app LHM / `win` solo Windows).
 | `sys.procs`, `sys.threads` | numero processi e thread |
 | `gpus[]` | `name, luid, load, mem_mb, mem_tot_mb, mem_pct, temp, fan_rpm, power_pct, src` per scheda |
 | `sensors.hw[]` | `id, name, kind (cpu/gpu/mb/disk/ram/other), temps[{name,c}], fans[{name,rpm,pct}]` |
-| `sensors.pairs[]` | `fan, rpm, pct, fan_hw, temp, c, temp_hw, how (map/same_hw/cpu/mb/guess), g` — stesso `g` = stesso colore sull'APK |
+| `sensors.pairs[]` | `fan, rpm, pct, fan_hw, temp, c, temp_hw, how (map/same_hw/cpu/cpu_default/mb), g`; dalla v0.2.3 `fans[].on` (rpm > 0) e niente ventole ferme della scheda madre — stesso `g` = stesso colore sull'APK |
 | `srv` | `lhm` (fonte sensori), `adb` {seriale: ok/errore}, `http` |
 | `disks[].r`, `disks[].w`, `disks[].busy` (v0.2.2) | byte/s lettura/scrittura e % tempo attivo per volume (PDH LogicalDisk); omessi se il volume non ha contatori (G:) |
 | `claude` (v0.2.1) | `today_tok` (input+output+cache_creation, senza cache_read), `today_out`, `today_cache_r`, `today_msgs`, `block_tok`, `block_start`/`block_end` (epoch, solo se il blocco di 5 h è aperto), `week_tok`, `models[{m,tok}]` (oggi, max 3), `scan_ts`; null senza `~/.claude/projects` o con `--no-claude` |
 
-Stato server: ✅ v0.2.2 in esecuzione sulla 8090 (supervisore avviato a mano, senza admin) ·
-⏳ installare l'avvio automatico (serve UAC dell'utente) · ⏳ sensori CPU/scheda madre/ventole case
-(si vedono solo con admin) e poi compilare `fan_map_*.json` · ⏳ APK: disegnare `sensors.pairs`
+Stato server: ✅ attività `Tab2Monitor` installata (all'accesso, elevata) · ✅ sensori CPU/scheda madre/
+ventole verificati con admin (vedi CHANGELOG v0.2.3) · ⏳ v0.2.3 in attesa che l'utente chiuda il server
+v0.2.2 orfano (elevato) · ⏳ identificare quale ventola è collegata a quale header e compilare `fan_map_*.json` · ⏳ APK: disegnare `sensors.pairs`
 (file della sessione impostazioni APK) · ⏳ CPU del server ~25% di un core (da misurare/ridurre:
 probabile contatore PDH `GPU Engine(*)`) · ⛔ avvio prima dell'accesso: il progetto sta su G: (Google
-Drive), montato solo dopo l'accesso. ⏳ `claude`: dati dell'account (limiti di piano) da `.credentials.json`, bloccati dal controllo permessi, decisione dell'utente. ⛔ FanControl: vedi CHANGELOG v0.2.0.
+Drive), montato solo dopo l'accesso. ⛔ `claude`: limiti di piano dell'account non disponibili: `.credentials.json` non contiene il login Claude (solo connettori MCP). ⛔ FanControl: vedi CHANGELOG v0.2.0.
 
 ## Punti aperti
 - SensorService: ✅ risolto disattivando l'HAL (vedi tabella Stato). Scartate: patch binaria dell'HAL (rischiosa, da rifare a ogni flash) e conviverci (un core su due sprecato). Attenzione: un reflash della ROM ripristina l'HAL → rifare il rename.
