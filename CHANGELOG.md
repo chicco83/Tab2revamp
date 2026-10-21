@@ -1,5 +1,18 @@
 # CHANGELOG — Tab2revamp
-Versione documento: v0.1.6 — 2026-10-22 00:10
+Versione documento: v0.1.7 — 2026-10-22 00:15
+
+## 8. v0.1.7 — 2026-10-22 00:15 (sessione locale, APK v0.2.0)
+- APK **Tab2Monitor v0.2.0**: pannello impostazioni (`SettingsActivity`, pressione lunga sulla
+  dashboard) con interruttori per le sorgenti USB / Wi‑Fi (+ URL), per ognuno dei 9 pannelli, per
+  l'avvio al boot e l'intervallo di aggiornamento. `MonitorView`: layout a pannelli attivabili
+  (colonne vuote eliminate, pannelli elastici), schermate "nessuna sorgente" e "pannelli spenti".
+  `MainActivity`: `--ez` accetta tutte le chiavi (`src_usb`, `p_gpu`, ...). Vecchio layout e righe
+  sostituite lasciati come commento datato.
+- Aggiunto `android/tab2monitor_app/build_tab2monitor_v0.2.0_20261022-0010.sh` (versionCode 2).
+- Provata sul tablet. Rollback: `git checkout 62832f3 -- android/tab2monitor_app/src android/tab2monitor_app/AndroidManifest.xml`,
+  build con `build_tab2monitor_v0.1.0_*`, poi `adb uninstall it.tab2revamp.monitor` e reinstallare
+  (il versionCode scende, `install -r` non basta).
+- Aperta una sessione parallela per la sorgente dati lato Windows.
 
 ## 7. v0.1.6 — 2026-10-22 00:10 (sessione locale, modifica /system approvata dall'utente)
 - HAL sensori disattivato: `/system/lib/hw/sensors.omap4.so` → `sensors.omap4.so.off`

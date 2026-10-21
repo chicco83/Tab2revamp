@@ -1,6 +1,9 @@
 // =============================================================================
 // Tab2Monitor - MonitorView (disegno su Canvas)
-// Versione: v0.1.0 - 2026-10-21 23:50
+// Versione: v0.2.0 - 2026-10-22 00:10
+//   v0.2.0: pannelli attivabili (PANEL_KEYS), colonne vuote eliminate, schermate
+//           "nessuna sorgente" / "tutti i pannelli spenti"
+//   v0.1.0 - 2026-10-21 23:50: layout fisso a 3 colonne
 // Nota versioning: in Java il nome del file deve coincidere con la classe
 // pubblica, quindi la versione sta qui in testa e nel versionName dell'APK.
 // =============================================================================
@@ -34,6 +37,18 @@ public class MonitorView extends View {
     static final int YELLOW = 0xffd29922, RED = 0xfff85149;
     static final int HIST = 60;
 
+    // 2026-10-22 v0.2.0: pannelli attivabili dal pannello impostazioni.
+    // Indici: 0 CPU, 1 core, 2 storico, 3 RAM, 4 GPU, 5 temperature, 6 rete, 7 disco, 8 processi
+    static final String[] PANEL_KEYS = {"p_cpu", "p_cores", "p_hist", "p_ram", "p_gpu",
+            "p_temps", "p_net", "p_disk", "p_procs"};
+    static final String[] PANEL_LABELS = {"CPU (totale e frequenza)", "Core (un istogramma per core)",
+            "Storico 60 s (CPU / RAM)", "RAM e swap", "GPU (LibreHardwareMonitor)",
+            "Temperature (LibreHardwareMonitor)", "Rete (download / upload)",
+            "Disco I/O e spazio dischi", "Top processi per CPU"};
+    // Colonne come nella dashboard web
+    static final int[][] COLS = {{0, 1, 2}, {3, 4, 5}, {6, 7, 8}};
+    private boolean[] panelOn = {true, true, true, true, true, true, true, true, true};
+
     private final Paint fill = new Paint(), stroke = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint text = new Paint(Paint.ANTI_ALIAS_FLAG), big = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint line = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -59,7 +74,12 @@ public class MonitorView extends View {
         setKeepScreenOn(true);
     }
 
-    void setUrls(String[] u) { urls = u; }
+    // 2026-10-22 v0.2.0 (era: void setUrls(String[] u) { urls = u; })
+    void setConfig(String[] u, boolean[] on) {
+        urls = u; panelOn = on;
+        if (u.length == 0) { m = null; src = null; }       // nessuna sorgente: schermata d'avviso
+        invalidate();
+    }
 
     // Chiamato dal thread UI: m == null -> server non raggiungibile
     void update(MainActivity.Metrics nm, String from) {
@@ -107,64 +127,184 @@ public class MonitorView extends View {
         if (m == null) { drawWaiting(cv, W, H); return; }
 
         float top = pad + 40 * u, bottom = H - pad;
-        float cw = (W - 2 * pad - 2 * gap) / 3f;
-        float x1 = pad, x2 = pad + cw + gap, x3 = pad + 2 * (cw + gap);
+        // 2026-10-22 v0.2.0: layout a pannelli attivabili (vedi layoutColumn / drawPanel).
+        // Colonne vuote (tutti i pannelli spenti) spariscono e le altre si allargano.
+        int ncol = 0;
+        for (int c = 0; c < COLS.length; c++) if (colOn(c)) ncol++;
+        if (ncol == 0) { drawCentered(cv, W, H, "Tutti i pannelli sono spenti",
+                "tieni premuto lo schermo per aprire le impostazioni"); return; }
+        float cw = (W - 2 * pad - (ncol - 1) * gap) / ncol, x = pad;
+        for (int c = 0; c < COLS.length; c++) {
+            if (!colOn(c)) continue;
+            layoutColumn(cv, COLS[c], x, top, cw, bottom - top, gap);
+            x += cw + gap;
+        }
 
-        // ---- colonna 1
-        float y = top;
-        y = bigCard(cv, x1, y, cw, "CPU", pct(m.cpu), Float.isNaN(m.mhz) ? "" : (int) m.mhz + " MHz", m.cpu) + gap;
-        y = coresCard(cv, x1, y, cw, 170 * u) + gap;
-        histCard(cv, x1, y, cw, bottom - y);
-
-        // ---- colonna 2
-        y = top;
-        y = bigCard(cv, x2, y, cw, "RAM", pct(m.ram),
-                num1(m.ramUsed) + " / " + num1(m.ramTot) + " GB  -  swap " + pct(m.swap), m.ram) + gap;
-        boolean gpu = !Float.isNaN(m.gpuLoad);
-        String gsub = !gpu ? "LibreHardwareMonitor non attivo"
-                : (Float.isNaN(m.gpuTemp) ? "" : num1(m.gpuTemp) + " °C")
-                + (Float.isNaN(m.gpuMem) ? "" : "  -  VRAM " + pct(m.gpuMem));
-        y = bigCard(cv, x2, y, cw, m.gpuName != null ? "GPU - " + m.gpuName : "GPU",
-                gpu ? pct(m.gpuLoad) : "--", gsub, gpu ? m.gpuLoad : 0) + gap;
-        float th = bottom - y;
-        card(cv, x2, y, cw, th, "Temperature");
-        int nt = Math.min(m.tempName.length, (int) ((th - 44 * u) / (26 * u)));
-        if (nt == 0) row(cv, x2, y + 60 * u, cw, "--", "");
-        for (int i = 0; i < nt; i++)
-            row(cv, x2, y + (60 + 26 * i) * u, cw, m.tempName[i], num1(m.tempC[i]) + " °C");
-
-        // ---- colonna 3
-        y = top;
-        card(cv, x3, y, cw, 104 * u, "Rete");
-        row(cv, x3, y + 60 * u, cw, "↓ download", rate(m.rx));
-        row(cv, x3, y + 86 * u, cw, "↑ upload", rate(m.tx));
-        y += 104 * u + gap;
-        int nd = Math.min(m.diskM.length, 6);
-        float dh = (104 + 26 * nd) * u;
-        card(cv, x3, y, cw, dh, "Disco I/O");
-        row(cv, x3, y + 60 * u, cw, "lettura", rate(m.dr));
-        row(cv, x3, y + 86 * u, cw, "scrittura", rate(m.dw));
-        for (int i = 0; i < nd; i++)
-            row(cv, x3, y + (112 + 26 * i) * u, cw, m.diskM[i], pct(m.diskPct[i]) + " di " + num1(m.diskTot[i]) + " GB");
-        y += dh + gap;
-        float ph = bottom - y;
-        card(cv, x3, y, cw, ph, "Top processi (CPU)");
-        int np = Math.min(m.procN.length, (int) ((ph - 44 * u) / (26 * u)));
-        for (int i = 0; i < np; i++)
-            row(cv, x3, y + (60 + 26 * i) * u, cw, m.procN[i], num1(m.procCpu[i]) + "%  " + m.procMb[i] + " MB");
+        // ---- Layout fisso v0.1.0 (2026-10-21 23:50), sostituito dal blocco sopra:
+        //float top = pad + 40 * u, bottom = H - pad;
+        //float cw = (W - 2 * pad - 2 * gap) / 3f;
+        //float x1 = pad, x2 = pad + cw + gap, x3 = pad + 2 * (cw + gap);
+        //
+        //// ---- colonna 1
+        //float y = top;
+        //y = bigCard(cv, x1, y, cw, "CPU", pct(m.cpu), Float.isNaN(m.mhz) ? "" : (int) m.mhz + " MHz", m.cpu) + gap;
+        //y = coresCard(cv, x1, y, cw, 170 * u) + gap;
+        //histCard(cv, x1, y, cw, bottom - y);
+        //
+        //// ---- colonna 2
+        //y = top;
+        //y = bigCard(cv, x2, y, cw, "RAM", pct(m.ram),
+        //        num1(m.ramUsed) + " / " + num1(m.ramTot) + " GB  -  swap " + pct(m.swap), m.ram) + gap;
+        //boolean gpu = !Float.isNaN(m.gpuLoad);
+        //String gsub = !gpu ? "LibreHardwareMonitor non attivo"
+        //        : (Float.isNaN(m.gpuTemp) ? "" : num1(m.gpuTemp) + " °C")
+        //        + (Float.isNaN(m.gpuMem) ? "" : "  -  VRAM " + pct(m.gpuMem));
+        //y = bigCard(cv, x2, y, cw, m.gpuName != null ? "GPU - " + m.gpuName : "GPU",
+        //        gpu ? pct(m.gpuLoad) : "--", gsub, gpu ? m.gpuLoad : 0) + gap;
+        //float th = bottom - y;
+        //card(cv, x2, y, cw, th, "Temperature");
+        //int nt = Math.min(m.tempName.length, (int) ((th - 44 * u) / (26 * u)));
+        //if (nt == 0) row(cv, x2, y + 60 * u, cw, "--", "");
+        //for (int i = 0; i < nt; i++)
+        //    row(cv, x2, y + (60 + 26 * i) * u, cw, m.tempName[i], num1(m.tempC[i]) + " °C");
+        //
+        //// ---- colonna 3
+        //y = top;
+        //card(cv, x3, y, cw, 104 * u, "Rete");
+        //row(cv, x3, y + 60 * u, cw, "↓ download", rate(m.rx));
+        //row(cv, x3, y + 86 * u, cw, "↑ upload", rate(m.tx));
+        //y += 104 * u + gap;
+        //int nd = Math.min(m.diskM.length, 6);
+        //float dh = (104 + 26 * nd) * u;
+        //card(cv, x3, y, cw, dh, "Disco I/O");
+        //row(cv, x3, y + 60 * u, cw, "lettura", rate(m.dr));
+        //row(cv, x3, y + 86 * u, cw, "scrittura", rate(m.dw));
+        //for (int i = 0; i < nd; i++)
+        //    row(cv, x3, y + (112 + 26 * i) * u, cw, m.diskM[i], pct(m.diskPct[i]) + " di " + num1(m.diskTot[i]) + " GB");
+        //y += dh + gap;
+        //float ph = bottom - y;
+        //card(cv, x3, y, cw, ph, "Top processi (CPU)");
+        //int np = Math.min(m.procN.length, (int) ((ph - 44 * u) / (26 * u)));
+        //for (int i = 0; i < np; i++)
+        //    row(cv, x3, y + (60 + 26 * i) * u, cw, m.procN[i], num1(m.procCpu[i]) + "%  " + m.procMb[i] + " MB");
 
         // dati vecchi (> 5 s): velo scuro sopra le schede
         if (!fresh) { fill.setColor(0x990d1117); cv.drawRect(0, top, W, H, fill); }
     }
 
     private void drawWaiting(Canvas cv, float W, float H) {
+        if (urls.length == 0) {                              // v0.2.0
+            drawCentered(cv, W, H, "Nessuna sorgente dati attiva",
+                    "tieni premuto lo schermo per aprire le impostazioni e attivare USB o Wi-Fi");
+            return;
+        }
         big.setTextSize(34 * u); big.setColor(FG); big.setTextAlign(Paint.Align.CENTER);
         cv.drawText("In attesa del server Tab2Monitor…", W / 2, H / 2 - 40 * u, big);
         text.setTextSize(19 * u); text.setColor(DIM); text.setTextAlign(Paint.Align.CENTER);
         for (int i = 0; i < urls.length; i++)
             cv.drawText(urls[i] + "/api/metrics", W / 2, H / 2 + (10 + 30 * i) * u, text);
-        cv.drawText("USB: adb reverse tcp:8090 tcp:8090   -   Wi-Fi: am start ... --es url http://<IP-PC>:8090",
+        // 2026-10-22 v0.2.0 (era: "USB: adb reverse ...   -   Wi-Fi: am start ... --es url ...")
+        cv.drawText("USB: adb reverse tcp:8090 tcp:8090   -   tieni premuto per le impostazioni",
                 W / 2, H / 2 + (30 + 30 * urls.length) * u, text);
+    }
+
+    private void drawCentered(Canvas cv, float W, float H, String t1, String t2) {
+        big.setTextSize(34 * u); big.setColor(FG); big.setTextAlign(Paint.Align.CENTER);
+        cv.drawText(t1, W / 2, H / 2 - 20 * u, big);
+        text.setTextSize(19 * u); text.setColor(DIM); text.setTextAlign(Paint.Align.CENTER);
+        cv.drawText(t2, W / 2, H / 2 + 24 * u, text);
+    }
+
+    // ------------------------------------------------- pannelli (v0.2.0)
+    private boolean colOn(int c) {
+        for (int id : COLS[c]) if (panelOn[id]) return true;
+        return false;
+    }
+
+    // Altezza fissa del pannello, oppure -1 = "elastico" (prende lo spazio che resta)
+    private float fixedH(int id) {
+        switch (id) {
+            case 0: case 1: case 3: case 4: return 170 * u;
+            case 6: return 104 * u;
+            case 7: return (104 + 26 * Math.min(m.diskM.length, 6)) * u;
+            default: return -1;                              // storico, temperature, processi
+        }
+    }
+
+    // Impila i pannelli accesi di una colonna; lo spazio libero va ai pannelli elastici
+    private void layoutColumn(Canvas cv, int[] ids, float x, float y, float w, float h, float gap) {
+        int n = 0, flex = 0; float fixed = 0;
+        for (int id : ids) {
+            if (!panelOn[id]) continue;
+            n++;
+            float f = fixedH(id);
+            if (f < 0) flex++; else fixed += f;
+        }
+        float flexH = flex > 0 ? Math.max(100 * u, (h - fixed - (n - 1) * gap) / flex) : 0;
+        for (int id : ids) {
+            if (!panelOn[id]) continue;
+            float f = fixedH(id), ph = f < 0 ? flexH : f;
+            drawPanel(cv, id, x, y, w, ph);
+            y += ph + gap;
+        }
+    }
+
+    private void drawPanel(Canvas cv, int id, float x, float y, float w, float h) {
+        switch (id) {
+            case 0:
+                bigCard(cv, x, y, w, "CPU", pct(m.cpu), Float.isNaN(m.mhz) ? "" : (int) m.mhz + " MHz", m.cpu);
+                break;
+            case 1:
+                coresCard(cv, x, y, w, h);
+                break;
+            case 2:
+                histCard(cv, x, y, w, h);
+                break;
+            case 3:
+                bigCard(cv, x, y, w, "RAM", pct(m.ram),
+                        num1(m.ramUsed) + " / " + num1(m.ramTot) + " GB  -  swap " + pct(m.swap), m.ram);
+                break;
+            case 4: {
+                boolean gpu = !Float.isNaN(m.gpuLoad);
+                String gsub = !gpu ? "LibreHardwareMonitor non attivo"
+                        : (Float.isNaN(m.gpuTemp) ? "" : num1(m.gpuTemp) + " °C")
+                        + (Float.isNaN(m.gpuMem) ? "" : "  -  VRAM " + pct(m.gpuMem));
+                bigCard(cv, x, y, w, m.gpuName != null ? "GPU - " + m.gpuName : "GPU",
+                        gpu ? pct(m.gpuLoad) : "--", gsub, gpu ? m.gpuLoad : 0);
+                break;
+            }
+            case 5: {
+                card(cv, x, y, w, h, "Temperature");
+                int nt = Math.min(m.tempName.length, (int) ((h - 44 * u) / (26 * u)));
+                if (nt == 0) row(cv, x, y + 60 * u, w, "--", "");
+                for (int i = 0; i < nt; i++)
+                    row(cv, x, y + (60 + 26 * i) * u, w, m.tempName[i], num1(m.tempC[i]) + " °C");
+                break;
+            }
+            case 6:
+                card(cv, x, y, w, h, "Rete");
+                row(cv, x, y + 60 * u, w, "\u2193 download", rate(m.rx));
+                row(cv, x, y + 86 * u, w, "\u2191 upload", rate(m.tx));
+                break;
+            case 7: {
+                card(cv, x, y, w, h, "Disco I/O");
+                row(cv, x, y + 60 * u, w, "lettura", rate(m.dr));
+                row(cv, x, y + 86 * u, w, "scrittura", rate(m.dw));
+                int nd = Math.min(m.diskM.length, 6);
+                for (int i = 0; i < nd; i++)
+                    row(cv, x, y + (112 + 26 * i) * u, w, m.diskM[i],
+                            pct(m.diskPct[i]) + " di " + num1(m.diskTot[i]) + " GB");
+                break;
+            }
+            case 8: {
+                card(cv, x, y, w, h, "Top processi (CPU)");
+                int np = Math.min(m.procN.length, (int) ((h - 44 * u) / (26 * u)));
+                for (int i = 0; i < np; i++)
+                    row(cv, x, y + (60 + 26 * i) * u, w, m.procN[i],
+                            num1(m.procCpu[i]) + "%  " + m.procMb[i] + " MB");
+                break;
+            }
+        }
     }
 
     // Riquadro con titolo; restituisce nulla, il chiamante conosce l'altezza

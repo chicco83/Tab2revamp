@@ -1,6 +1,9 @@
 // =============================================================================
 // Tab2Monitor - MainActivity + thread di polling
-// Versione: v0.1.0 - 2026-10-21 23:50
+// Versione: v0.2.0 - 2026-10-22 00:10
+//   v0.2.0: sorgenti USB/Wi-Fi e pannelli attivabili dal pannello impostazioni
+//           (SettingsActivity, si apre tenendo premuto lo schermo)
+//   v0.1.0 - 2026-10-21 23:50: prima versione
 // Nota versioning: in Java il nome del file deve coincidere con la classe
 // pubblica, quindi la versione sta qui in testa e nel versionName dell'APK.
 // =============================================================================
@@ -15,11 +18,12 @@
 //     cosi' dopo un riavvio del tablet (adb reverse perso) passa da solo al Wi-Fi.
 //   - in pausa (schermo spento / altra app) il polling si ferma: zero CPU.
 //
-// Configurazione da PC (niente schermate di impostazioni = meno codice e RAM):
+// Configurazione: tenere premuto lo schermo -> SettingsActivity, oppure da PC:
 //   adb shell am start -n it.tab2revamp.monitor/.MainActivity \
 //       --es url http://192.168.1.237:8090   (URL Wi-Fi; "" per toglierlo)
 //       --ei poll_ms 2000                    (intervallo di polling)
 //       --ez autostart false                 (disattiva l'avvio al boot)
+//       --ez src_usb false / --ez p_gpu false ... (sorgenti e pannelli, v0.2.0)
 // =============================================================================
 package it.tab2revamp.monitor;
 
@@ -42,6 +46,9 @@ import java.net.URL;
 public class MainActivity extends Activity {
     static final String PREFS = "tab2monitor";
     static final String USB_URL = "http://127.0.0.1:8090";
+    // Interruttori booleani (default true) impostabili dal pannello o con "am start --ez"
+    static final String[] BOOL_KEYS = {"autostart", "src_usb", "src_wifi",
+            "p_cpu", "p_cores", "p_hist", "p_ram", "p_gpu", "p_temps", "p_net", "p_disk", "p_procs"};
 
     private MonitorView view;
     private Poller poller;
@@ -54,6 +61,14 @@ public class MainActivity extends Activity {
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
                 | WindowManager.LayoutParams.FLAG_FULLSCREEN);
         view = new MonitorView(this);
+        // pressione lunga ovunque -> impostazioni (un tocco breve non fa nulla:
+        // evita aperture accidentali su un display fisso)
+        view.setOnLongClickListener(new View.OnLongClickListener() {
+            public boolean onLongClick(View v) {
+                startActivity(new Intent(MainActivity.this, SettingsActivity.class));
+                return true;
+            }
+        });
         setContentView(view);
         applyIntent(getIntent());
     }
@@ -71,7 +86,12 @@ public class MainActivity extends Activity {
         SharedPreferences.Editor e = prefs.edit();
         if (i.hasExtra("url")) e.putString("wifi_url", trimUrl(i.getStringExtra("url")));
         if (i.hasExtra("poll_ms")) e.putInt("poll_ms", Math.max(500, i.getIntExtra("poll_ms", 1000)));
-        if (i.hasExtra("autostart")) e.putBoolean("autostart", i.getBooleanExtra("autostart", true));
+        // 2026-10-22 v0.2.0: oltre ad "autostart" si accettano tutti gli interruttori del
+        // pannello impostazioni (src_usb, src_wifi, p_cpu, p_gpu, ...), es. --ez p_gpu false
+        // (riga v0.1.0 sostituita:
+        //  if (i.hasExtra("autostart")) e.putBoolean("autostart", i.getBooleanExtra("autostart", true));)
+        for (String k : BOOL_KEYS)
+            if (i.hasExtra(k)) e.putBoolean(k, i.getBooleanExtra(k, true));
         e.apply();
     }
 
@@ -112,9 +132,19 @@ public class MainActivity extends Activity {
 
     private void restartPoller() {
         stopPoller();
+        // 2026-10-22 v0.2.0: ogni sorgente si puo' spegnere dal pannello impostazioni.
+        // Versione v0.1.0 sostituita:
+        //   String wifi = prefs.getString("wifi_url", "");
+        //   String[] urls = wifi.length() > 0 ? new String[]{USB_URL, wifi} : new String[]{USB_URL};
         String wifi = prefs.getString("wifi_url", "");
-        String[] urls = wifi.length() > 0 ? new String[]{USB_URL, wifi} : new String[]{USB_URL};
-        view.setUrls(urls);
+        boolean usb = prefs.getBoolean("src_usb", true);
+        boolean wf = prefs.getBoolean("src_wifi", true) && wifi.length() > 0;
+        String[] urls = usb && wf ? new String[]{USB_URL, wifi}
+                : usb ? new String[]{USB_URL} : wf ? new String[]{wifi} : new String[0];
+        boolean[] on = new boolean[MonitorView.PANEL_KEYS.length];
+        for (int i = 0; i < on.length; i++) on[i] = prefs.getBoolean(MonitorView.PANEL_KEYS[i], true);
+        view.setConfig(urls, on);
+        if (urls.length == 0) return;          // nessuna sorgente: niente thread, solo il messaggio
         poller = new Poller(view, urls, prefs.getInt("poll_ms", 1000));
         poller.start();
     }

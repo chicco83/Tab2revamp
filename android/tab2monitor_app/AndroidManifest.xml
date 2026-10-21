@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   Tab2Monitor - APK nativa (sostituisce la dashboard nel browser)
-  Versione: v0.1.0 - 2026-10-21 23:50
+  Versione: v0.2.0 - 2026-10-22 00:10  (v0.2.0: + SettingsActivity; v0.1.0 - 2026-10-21 23:50)
   Target: Galaxy Tab 2 10.1 GT-P5100, LineageOS 14.1 (Android 7.1.2, SDK 25).
   Scelte per la poca RAM:
     - nessuna libreria (niente AppCompat/AndroidX), nessun layout XML: tutto su un Canvas
@@ -37,6 +37,16 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- 2026-10-22 v0.2.0: pannello impostazioni (pressione lunga sulla dashboard).
+             Tema Material scuro di sistema: interruttori e campi senza librerie. -->
+        <activity
+            android:name=".SettingsActivity"
+            android:exported="true"
+            android:label="Tab2Monitor - impostazioni"
+            android:screenOrientation="landscape"
+            android:theme="@android:style/Theme.Material"
+            android:windowSoftInputMode="adjustResize|stateHidden" />
 
         <!-- Modalita' "kiosk" opzionale: Tab2Monitor come schermata Home.
              Disattivata di default; si attiva con
