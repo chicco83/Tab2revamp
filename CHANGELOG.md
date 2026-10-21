@@ -62,6 +62,15 @@ Versione documento: v0.1.10 — 2026-10-22 01:35
   (il versionCode scende, `install -r` non basta).
 - Aperta una sessione parallela per la sorgente dati lato Windows.
 
+## 8. (6) v0.2.5 — 2026-10-22 01:10 (sessione locale, voci nascoste)
+- Nuovo `windows/agent/tab2monitor_server_v0.2.5_20261022-0110.py`: `"hidden": true` su `sensors.hw[].fans[]`
+  (ventola impostata su "non mostrare") e su `temps[]` (casella "nascondi"); in `fan_config.json` la
+  nuova chiave `hidden` (lista di id). Chiesto dalla sessione APK: l'APK v0.5.x disegna da `hw[].fans`,
+  non da `pairs`, e non può dedurre "nascosta" dall'assenza in `pairs` (anche le ventole ferme ne mancano).
+- Nuova pagina `windows/agent/config_page_v0.1.1_20261022-0110.html` con la casella "nascondi".
+- Provato sulla 8093: GPU Memory nascosta e GPU Fan "non mostrare" → `hidden: true` su entrambe, `pairs`
+  vuoto; dati di prova cancellati.
+
 ## 8. (5) v0.2.4 — 2026-10-22 01:00 (sessione locale, nomi e abbinamenti utente)
 - Decisione: nomi e abbinamenti ventola→temperatura **lato server**, modificati da una pagina sul PC
   (`http://localhost:8090/config`, file `windows/agent/config_page_v0.1.0_20261022-0100.html`) e salvati in

@@ -203,4 +203,4 @@ Con `-home` l'app diventa anche la schermata Home (kiosk); `-nohome` la toglie.
   copia ora fallisce con "indirizzo già in uso" (10048) e riprova ogni 10 s.
 - Nomi di ventole/temperature/componenti e abbinamento ventola→temperatura: dal PC aprire
   `http://localhost:8090/config`, scrivere i nomi (vuoto = originale), scegliere la temperatura per ogni
-  ventola ("non mostrare" la toglie dal tablet), **Salva**. Effetto sul tablet entro 2 s.
+  ventola ("non mostrare" la toglie dal tablet; per le temperature c'è la casella "nascondi"), **Salva**. Effetto sul tablet entro 2 s.

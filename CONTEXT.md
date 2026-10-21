@@ -150,12 +150,13 @@ da Windows (`lhm.src` = `lib` Tab2Sensors / `lhm` app LHM / `win` solo Windows).
 | `sensors.hw[]` | `id, name, kind (cpu/gpu/mb/disk/ram/other), temps[{name,c}], fans[{name,rpm,pct}]` |
 | `sensors.pairs[]` | `fan, rpm, pct, fan_hw, temp, c, temp_hw, how (map/same_hw/cpu/cpu_default/mb), g`; dalla v0.2.3 `fans[].on` (rpm > 0) e niente ventole ferme della scheda madre — stesso `g` = stesso colore sull'APK |
 | `srv` | `lhm` (fonte sensori), `adb` {seriale: ok/errore}, `http` |
+| `hidden` (v0.2.5) | `true` su `fans[]`/`temps[]` nascosti dall'utente in `/config`; se manca la voce si mostra |
 | `id`, `orig` (v0.2.4) | su `sensors.hw[]`, `temps[]`, `fans[]`: id stabile; se l'utente ha dato un nome, `name` è quello e `orig` l'originale. Nomi/abbinamenti da `http://localhost:8090/config` → `fan_config.json` (decisione: lato server, non APK) |
 | `disks[].r`, `disks[].w`, `disks[].busy` (v0.2.2) | byte/s lettura/scrittura e % tempo attivo per volume (PDH LogicalDisk); omessi se il volume non ha contatori (G:) |
 | `claude` (v0.2.1) | `today_tok` (input+output+cache_creation, senza cache_read), `today_out`, `today_cache_r`, `today_msgs`, `block_tok`, `block_start`/`block_end` (epoch, solo se il blocco di 5 h è aperto), `week_tok`, `models[{m,tok}]` (oggi, max 3), `scan_ts`; null senza `~/.claude/projects` o con `--no-claude` |
 
 Stato server: ✅ attività `Tab2Monitor` installata (all'accesso, elevata) · ✅ sensori CPU/scheda madre/
-ventole verificati con admin (vedi CHANGELOG v0.2.3) · ⏳ v0.2.4 in attesa che l'utente chiuda il server
+ventole verificati con admin (vedi CHANGELOG v0.2.3) · ⏳ v0.2.5 in attesa che l'utente chiuda il server
 v0.2.2 orfano (PID 28692, elevato) · ⏳ l'utente dà nomi e abbinamenti alle ventole dalla pagina `/config` · ⏳ APK: disegnare `sensors.pairs`
 (file della sessione impostazioni APK) · ⏳ CPU del server ~25% di un core (da misurare/ridurre:
 probabile contatore PDH `GPU Engine(*)`) · ⛔ avvio prima dell'accesso: il progetto sta su G: (Google
