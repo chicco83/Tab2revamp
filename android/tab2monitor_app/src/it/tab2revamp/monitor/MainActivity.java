@@ -1,6 +1,8 @@
 // =============================================================================
 // Tab2Monitor - MainActivity + thread di polling
-// Versione: v0.4.0 - 2026-10-22 00:45
+// Versione: v0.4.1 - 2026-10-22 01:10
+//   v0.4.1: scartate le "temperature" che sono soglie fisse dei sensori (Limit, Resolution,
+//           Warning/Critical Temperature)
 //   v0.4.0: piu' GPU (campo "gpus"), sensori per componente con ventole ("sensors"),
 //           pagine a rotazione (page_sec), pannello Ventole (p_fans)
 //   v0.3.0: campo "claude" di /api/metrics (pannello utilizzo Claude), chiave p_claude
@@ -271,6 +273,12 @@ public class MainActivity extends Activity {
             String topModel; long topModelTok = -1;
         }
 
+        static boolean isTemp(String n) {                  // v0.4.1
+            String l = n.toLowerCase();
+            // anche "Warning/Critical Temperature" degli SSD NVMe: soglie, non misure
+            return !(l.contains("limit") || l.contains("resolution") || l.startsWith("warning") || l.startsWith("critical"));
+        }
+
         static float f(JSONObject o, String k) { return o == null ? Float.NaN : (float) o.optDouble(k); }
 
         static Metrics parse(JSONObject j) {
@@ -373,10 +381,17 @@ public class MainActivity extends Activity {
                     h.name = o.optString("name"); h.kind = o.optString("kind");
                     JSONArray t = o.optJSONArray("temps");
                     int nt = t != null ? t.length() : 0;
-                    h.tName = new String[nt]; h.tC = new float[nt];
-                    for (int q = 0; q < nt; q++) {
+                    // v0.4.1: "Thermal Sensor High Limit", "... Critical High Limit",
+                    // "Temperature Sensor Resolution" (moduli RAM) sono costanti, non misure:
+                    // si scartano per lasciare spazio alle temperature vere.
+                    // (v0.4.0 le copiava tutte: h.tName = new String[nt]; ... for q < nt ...)
+                    int keep = 0;
+                    for (int q = 0; q < nt; q++) if (isTemp(t.optJSONObject(q).optString("name"))) keep++;
+                    h.tName = new String[keep]; h.tC = new float[keep];
+                    for (int q = 0, z = 0; q < nt; q++) {
                         JSONObject x = t.optJSONObject(q);
-                        h.tName[q] = x.optString("name"); h.tC[q] = f(x, "c");
+                        if (!isTemp(x.optString("name"))) continue;
+                        h.tName[z] = x.optString("name"); h.tC[z] = f(x, "c"); z++;
                     }
                     JSONArray fa = o.optJSONArray("fans");
                     int nf = fa != null ? fa.length() : 0;

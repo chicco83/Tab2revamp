@@ -1,6 +1,12 @@
 # CHANGELOG — Tab2revamp
 Versione documento: v0.1.9 — 2026-10-22 01:00
 
+## 10. (2) v0.1.9 — 2026-10-22 01:15 (sessione locale, APK v0.4.1)
+- APK **v0.4.1**: provata con i **dati reali** del server v0.2.2 (Claude, I/O per disco, ventole e
+  temperature di scheda madre Nuvoton, Ryzen, RAM, SSD/HDD). Scartate le voci che sono soglie fisse e
+  non misure ("... Limit", "... Resolution", "Warning/Critical Temperature").
+- Aggiunto `android/tab2monitor_app/build_tab2monitor_v0.4.1_20261022-0110.sh` (versionCode 5).
+
 ## 10. v0.1.9 — 2026-10-22 01:00 (sessione locale, APK v0.4.0)
 - APK **Tab2Monitor v0.4.0**: pagine a rotazione ("Sistema" / "GPU e sensori") con timer nelle
   impostazioni; tocco = pagina successiva; icona ingranaggio → impostazioni; una scheda per ogni GPU

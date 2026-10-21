@@ -188,8 +188,15 @@ Drive), montato solo dopo l'accesso. ⏳ `claude`: dati dell'account (limiti di 
   elemento di `disks`; senza, mostra i totali come prima). Chiesto alla sessione «Sorgente dati Windows»
   (PDH `\LogicalDisk(X:)\Disk Read/Write Bytes/sec`). ✅ server v0.2.2 li invia (verificato con curl
   2026-10-22 01:00: C/D/E con `r`, `w`, `busy`; G:\ senza → "--"). Anche il campo `claude` arriva dal
-  server v0.2.1 (dati reali: today_tok, blocco 5 h, ecc.). Screenshot dell'APK con i dati reali ⏳
-  (adb sparito dopo un `adb root` lanciato per errore).
+  server v0.2.1 (dati reali: today_tok, blocco 5 h, ecc.). ✅ APK v0.4.1 verificata con screenshot sui
+  dati reali (2026-10-22 00:37): Claude, dischi (G: "--"), 7 ventole Nuvoton + GPU Fan, temperature di
+  scheda madre/CPU/RAM/GPU/SSD/HDD; scartate le soglie fisse (Limit/Resolution/Warning/Critical).
+- ⏳ Pagina 2: la lista delle temperature reali è più lunga della colonna (le ultime voci, es. Radeon
+  Pro VII, restano fuori). Opzioni: due sotto-colonne nel pannello, una 3ª pagina "Temperature",
+  oppure scegliere nelle impostazioni quali componenti mostrare.
+- Limiti del piano Claude (% di /usage): richiederebbero di leggere `~/.claude/.credentials.json`
+  (token OAuth) e un endpoint non documentato. **Non fatto**: decide l'utente (permesso negato alla
+  sessione Windows, che ha chiesto di non aggirarlo).
 - **Ventole animate**: ridisegnare tutta la dashboard a 10–15 fps costava ~29% CPU; ora le icone stanno
   in una View trasparente separata (`MonitorView.FanOverlay`) → 17–21%. Se serve meno: interruttore
   "Ventole animate" spento (2%), oppure ridurre a 5 fps.
