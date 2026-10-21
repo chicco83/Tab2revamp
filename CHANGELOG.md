@@ -43,6 +43,21 @@ Versione documento: v0.1.9 — 2026-10-22 01:00
   (il versionCode scende, `install -r` non basta).
 - Aperta una sessione parallela per la sorgente dati lato Windows.
 
+## 8. (5) v0.2.4 — 2026-10-22 01:00 (sessione locale, nomi e abbinamenti utente)
+- Decisione: nomi e abbinamenti ventola→temperatura **lato server**, modificati da una pagina sul PC
+  (`http://localhost:8090/config`, file `windows/agent/config_page_v0.1.0_20261022-0100.html`) e salvati in
+  `windows/agent/fan_config.json` (dati locali, fuori da git). Perché non sull'APK: ogni tocco sul tablet
+  richiede secondi e l'APK non ha input di testo; il server li applica una volta sola per APK e dashboard;
+  la configurazione sopravvive alla reinstallazione dell'APK.
+- Nuovo `windows/agent/tab2monitor_server_v0.2.4_20261022-0100.py`: `id` stabile (SensorId LHM, `win/<luid>/…`
+  per le GPU lette da Windows) su ogni hardware/temperatura/ventola; con un nome utente `name` = nome
+  scelto, `orig` = originale; `pairs` con `how` = `user` (+ `fan_id`, `temp_id`), "non mostrare" esclude la
+  ventola. `GET /config`, `GET /api/config`, `POST /api/config` (solo da 127.0.0.1: dal Wi‑Fi → 403).
+- Provato sulla 8093: rinomina MI50 e ventola 9070, abbinamento alla temperatura MI50 → JSON e pairs
+  corretti, POST dall'IP di rete 403. Dati di prova cancellati.
+- ⏳ Sulla 8090 risponde ancora il server v0.2.2 orfano (PID 28692, elevato): finché non viene chiuso
+  da un terminale amministratore il servizio non passa alla v0.2.4.
+
 ## 8. (4) v0.2.3 — 2026-10-22 00:50 (sessione locale, servizio installato dall'utente)
 - Attività `Tab2Monitor` installata dall'utente (elevata): **sensori verificati con admin**: CPU Ryzen 5 9600X
   (Tctl 55 °C, CCD1), scheda madre ASUS ROG STRIX B650-A (SuperIO Nuvoton NCT6799D: 5 temperature,

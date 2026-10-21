@@ -200,3 +200,6 @@ Con `-home` l'app diventa anche la schermata Home (kiosk); `-nohome` la toglie.
 - Riavviare il servizio senza admin: `schtasks /End /TN Tab2Monitor` e poi `schtasks /Run /TN Tab2Monitor`
   (dalla v0.2.3 il server si chiude insieme al supervisore). Non avviare anche il .cmd a mano: la seconda
   copia ora fallisce con "indirizzo già in uso" (10048) e riprova ogni 10 s.
+- Nomi di ventole/temperature/componenti e abbinamento ventola→temperatura: dal PC aprire
+  `http://localhost:8090/config`, scrivere i nomi (vuoto = originale), scegliere la temperatura per ogni
+  ventola ("non mostrare" la toglie dal tablet), **Salva**. Effetto sul tablet entro 2 s.

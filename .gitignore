@@ -13,3 +13,6 @@ android/tab2monitor_app/dist/
 windows/lhm/LibreHardwareMonitor_v*/
 # log del supervisore del server Windows
 windows/agent/logs/
+# configurazione utente scritta dal server (pagina /config): dati locali, non codice
+windows/agent/fan_config.json
+windows/agent/fan_config.json.tmp
