@@ -185,3 +185,4 @@ Con `-home` l'app diventa anche la schermata Home (kiosk); `-nohome` la toglie.
   `bash windows/agent/sensors/build_tab2sensors_v0.1.0_20261022-0040.sh`.
 - Abbinare una ventola a una temperatura: modificare `windows/agent/fan_map_*.json` (nuova versione) e
   riavviare il server.
+- v0.2.1: campo `claude` con i token di Claude Code dai log locali; `--no-claude` per disattivarlo.

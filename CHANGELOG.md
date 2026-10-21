@@ -22,6 +22,18 @@ Versione documento: v0.1.8 — 2026-10-22 00:30
   (il versionCode scende, `install -r` non basta).
 - Aperta una sessione parallela per la sorgente dati lato Windows.
 
+## 8. (2) v0.2.1 — 2026-10-22 00:30 (sessione locale, server Windows)
+- Nuovo `windows/agent/tab2monitor_server_v0.2.1_20261022-0130.py`: campo `claude` (token di Claude Code
+  di oggi, del blocco di 5 h e degli ultimi 7 giorni, modelli) contato dai log locali
+  `%USERPROFILE%\.claude\projects\**\*.jsonl`, scansione incrementale ogni 45 s, dedup per
+  message.id+requestId. Si leggono solo usage/model/timestamp; niente testo, niente credenziali.
+  Chiesto dalla sessione APK, approvato dall'utente.
+- Provato: `curl` sulla 8093 e poi sulla 8090 (riavvio fatto dal supervisore), prima scansione 1,5 s.
+- ⏳ Dati dell'account (limiti di piano): l'utente li vuole, ma leggere `.credentials.json` è stato
+  bloccato dal controllo dei permessi → decide l'utente (permesso esplicito o rinuncia).
+- Rollback: chiudere il server; il supervisore riparte con la versione più alta, quindi spostare
+  `tab2monitor_server_v0.2.1_*.py` fuori dalla cartella per tornare alla v0.2.0.
+
 ## 8. v0.2.0 — 2026-10-22 00:20 (sessione locale, server Windows)
 - Nuovo `windows/agent/tab2monitor_server_v0.2.0_20261022-0015.py`: HTTP/1.1 keep-alive, `adb reverse`
   automatico ogni 5 s, frequenza reale per core e coda CPU (PDH), carico/VRAM/temperatura per GPU
