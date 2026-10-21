@@ -1,5 +1,12 @@
 # CHANGELOG — Tab2revamp
-Versione documento: v0.1.2 — 2026-10-21 21:50 UTC
+Versione documento: v0.1.3 — 2026-10-21 22:15 UTC
+
+## 4. v0.1.3 — 2026-10-21 22:15 UTC (sessione locale)
+- Decisione utente: niente root dello stock, si passa direttamente alla ROM custom.
+- Scelta ROM: LineageOS 14.1 unofficial andi34 `lineage-14.1_espresso3g-7.1.2-20200623-1945.zip`
+  (motivi e alternative scartate in CONTEXT.md). Nessun flash eseguito.
+- TWRP 3.4.0-0 fornito dall'utente: SHA256 verificato contro twrp.me. Odin 3.14.4 non firmato.
+- Aggiunto `.gitignore` di radice: binari di flash (`*.tar`, `*.img`, `*.zip`, `Odin3*/`, `backup/`) fuori dal repo.
 
 ## 3. v0.1.2 — 2026-10-21 21:50 UTC (sessione locale, tablet su adb)
 - Prima prova reale sul tablet: GT-P5100 stock **4.2.2 JDQ39.P5100XXDMJ2** (SDK 17), senza root.

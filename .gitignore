@@ -1,0 +1,7 @@
+# Binari di flash e immagini (TWRP, Odin, ROM, backup EFS): mai nel repository
+*.tar
+*.img
+*.zip
+*.md5
+Odin3*/
+backup/

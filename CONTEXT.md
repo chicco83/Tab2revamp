@@ -1,5 +1,5 @@
 # CONTEXT — Tab2revamp
-Versione: v0.1.2 — 2026-10-21 21:50 UTC
+Versione: v0.1.3 — 2026-10-21 22:15 UTC
 
 ## Obiettivo
 Riusare un Galaxy Tab 2 10.1 (GT-P5100, lentissimo: ogni tocco richiede secondi)
@@ -34,8 +34,10 @@ psutil ── tab2monitor_server (:8090) ───┼── USB: adb reverse tcp
 | Dashboard via Wi-Fi | ✅ | tablet 192.168.1.226 → PC 192.168.1.237:8090 (rete "Pubblica", regola firewall python.exe presente); Chrome 71 ok, browser stock con artefatti |
 | Tuning impostazioni | ✅ | animazioni 0, stay-on 3, luminosità 90, landscape (`user_rotation 0`), wifi scan off |
 | Debloat via adb | ⛔ senza root | su 4.2.2 `pm disable-user` si blocca; richiede root o disattivazione manuale da Impostazioni |
-| Root | ⏳ | richiesto dall'utente 2026-10-21; richiede flash TWRP → in attesa di conferma (vedi sotto) |
-| ROM custom | ⏳ | nessun flash eseguito |
+| Root dello stock | ⛔ scartato | l'utente (2026-10-21) ha scelto di passare direttamente alla ROM custom: il root dello stock sarebbe una deviazione |
+| TWRP 3.4.0-0 | ✅ file verificato | `twrp-3.4.0-0-espresso3g.img.tar` nella cartella repo (non versionato), SHA256 `7e90f863…f789d` = quello ufficiale twrp.me |
+| Odin 3.14.4 | ⚠️ | fornito dall'utente, exe **non firmato**, non verificabile; lo esegue l'utente |
+| ROM custom | ⏳ | build scelta (sotto), download e flash **in attesa di conferma** |
 
 Misure (am start -W, TotalTime ms, avvio a freddo):
 | | prima del tuning | dopo |
@@ -68,10 +70,28 @@ recovery (altrimenti lo stock la sovrascrive) → **backup EFS** in TWRP + `adb 
 (root) SuperSU zip, oppure (refactor) wipe + ROM senza GApps.
 Alternativa senza flash per il debloat: Impostazioni → Gestione applicazioni → Disattiva.
 
+## ROM scelta (2026-10-21)
+**LineageOS 14.1 (Android 7.1.2) unofficial di Android-Andi (andi34)**, ultima build:
+`lineage-14.1_espresso3g-7.1.2-20200623-1945.zip`, 283,3 MB, MD5 `b6df6ac6041d68a4ae3ac9a65b32027b`
+- Catena di fiducia: andi34 è il manutentore del TWRP ufficiale espresso3g (gerrit.twrp.me);
+  la sua pagina https://andi34.github.io/roms_tab2_lineage.html rimanda alla cartella
+  AndroidFileHost `espresso3g-LineageOS-14.1` (flid 209384), uploader "Android-Andi".
+- Perché questa e non altre:
+  | Opzione | Esito |
+  |---|---|
+  | LineageOS 14.1 andi34 (2020) | **scelta**: maintainer noto, 7.1 → `adb reverse`, WebView/Chrome recenti, nessuna repartition |
+  | LineageOS 16.0 unofficial (XDA, 2024-25) | scartata: "ALPHA / UNSTABLE", non daily-driver |
+  | /e/OS Oreo/Pie custom (SourceForge) | scartata: build di terzi, segnalazioni di boot bloccato |
+  | Unlegacy-Android 7.1 | scartata: sito build irraggiungibile il 2026-10-21 |
+  | LineageOS 13 (6.0.1) andi34 | riserva se la 14.1 non avvia |
+- Limiti noti: **niente RIL** (3G/SMS non funzionano: irrilevante per un display Wi‑Fi),
+  fotocamera incerta; se non avvia, provare il kernel userdebug della stessa data
+  (`lineage-14.1-espresso3g-userdebug-kernel-20200421.zip`) o la build precedente.
+- Niente GApps (meno RAM occupata: oggi i servizi Google pesano ~80 MB).
+
 ## Punti aperti
-- Decidere: root dello stock (debloat) **oppure** direttamente ROM custom senza GApps
-  (il debloat diventa superfluo). Il root dello stock è una deviazione se poi si cambia ROM.
-- Fonte affidabile per Odin/Heimdall e SuperSU.
+- Conferma utente per: download della ROM (283 MB da AndroidFileHost) e flash.
+- Dopo il flash: rifare diagnose/tune v0.1.2, misurare, valutare `adb reverse` via USB.
 - Valutare app nativa Android (Canvas) solo se la pagina web risultasse lenta.
 
 ## Handoff sessione locale (v0.1.1 — 2026-10-21 19:05 UTC)

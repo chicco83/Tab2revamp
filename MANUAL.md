@@ -1,5 +1,5 @@
 # MANUAL — Tab2revamp
-Versione: v0.1.2 — 2026-10-21 21:50 UTC
+Versione: v0.1.3 — 2026-10-21 22:15 UTC
 
 Galaxy Tab 2 10.1 (GT-P5100) come display delle risorse di un PC Windows.
 
@@ -67,6 +67,9 @@ URL=http://192.168.1.10:8090 bash android/tune_v0.1.2_20261021-2150.sh   # via W
 > Fonti, versioni di TWRP/ROM ed eventuale repartition **vanno verificate al
 > momento** (i build per Tab 2 sono non ufficiali, codename `espresso3g`/`p5100`).
 
+0. Verifica file: `sha256sum twrp-3.4.0-0-espresso3g.img.tar` deve dare
+   `7e90f863da0d0a64e45acb3d4aba8a53bd32e17b36b77d965b8f1290f91f789d` (valore ufficiale twrp.me).
+   I binari (TWRP, Odin, ROM, backup) stanno nella cartella repo ma sono esclusi da `.gitignore`.
 1. **Backup**: foto/dati utente; poi in TWRP backup della partizione **EFS**
    (IMEI/rete mobile) e copiarlo sul PC. Senza EFS il 3G non funziona più.
    In TWRP (adb gira come root): `adb shell dd if=/dev/block/mmcblk0p1 of=/tmp/efs.img`
@@ -83,8 +86,11 @@ URL=http://192.168.1.10:8090 bash android/tune_v0.1.2_20261021-2150.sh   # via W
 3b. Root dello stock (opzionale): da TWRP flash dello zip SuperSU 2.82 (Magisk non supporta 4.2).
    Poi `bash android/tune_v0.1.2_20261021-2150.sh --debloat` usa `su`.
 4. Avvio in recovery (Power + Volume su) → Wipe: system, data, cache, dalvik.
-5. Flash ROM leggera — candidato: **LineageOS 14.1 (Android 7.1) unofficial per espresso3g**,
-   **senza GApps**. Android 7.1 consente `adb reverse` e WebView aggiornata.
+5. Flash ROM leggera — scelta: `lineage-14.1_espresso3g-7.1.2-20200623-1945.zip`
+   (andi34, MD5 `b6df6ac6041d68a4ae3ac9a65b32027b`), **senza GApps**. Verificare l'MD5 sul PC
+   (`md5sum`), poi in TWRP: Advanced → ADB Sideload → `adb sideload <zip>`
+   (oppure `adb push <zip> /sdcard/` e Install). Android 7.1 consente `adb reverse`.
+   Niente RIL: 3G e SMS non funzionano con questa ROM.
 6. Primo avvio, poi ripetere 2.1 → 2.3.
 7. Controllo IMEI: Impostazioni → Info → Stato.
 
