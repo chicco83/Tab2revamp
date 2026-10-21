@@ -1,5 +1,5 @@
 # CONTEXT — Tab2revamp
-Versione: v0.1.4 — 2026-10-21 23:45 UTC
+Versione: v0.1.5 — 2026-10-21 23:55 (ora locale; anche le voci precedenti marcate "UTC" sono in ora locale)
 
 ## Obiettivo
 Riusare un Galaxy Tab 2 10.1 (GT-P5100, lentissimo: ogni tocco richiede secondi)
@@ -25,6 +25,10 @@ psutil ── tab2monitor_server (:8090) ───┼── USB: adb reverse tcp
 - `windows/agent/` server Python (stdlib + psutil), endpoint `/api/metrics` e `/`.
 - `dashboard/` pagina unica, polling 1 s, aggiornamento DOM minimo.
 - `android/` script adb: `diagnose` (sola lettura) e `tune` (impostazioni, debloat, apertura dashboard).
+- `android/tab2monitor_app/` **APK nativa Tab2Monitor** (dalla v0.1.5 sostituisce Jelly + dashboard web):
+  stessa API `/api/metrics`, disegno su Canvas, prova USB (`127.0.0.1:8090` via `adb reverse`)
+  poi l'URL Wi‑Fi salvato. Build senza Gradle con `build_tab2monitor_*.sh`, installazione con
+  `android/install_tab2monitor_*.sh`.
 
 ## Stato (verificato sul tablet il 2026-10-21, sessione locale)
 | Voce | Stato | Dettaglio |
@@ -44,7 +48,10 @@ psutil ── tab2monitor_server (:8090) ───┼── USB: adb reverse tcp
 | Debloat LineageOS | ✅ | 21 app disattivate con `tune_v0.1.3` (Jelly tenuto come browser) |
 | Dashboard via USB | ✅ | `adb reverse tcp:8090` + Jelly (WebView 81), landscape; va rifatto `adb reverse` a ogni riavvio del tablet |
 | rild (RIL 3G) | ✅ disattivato | consumava ~50% CPU in un loop (`ReaderLoop IOCTL_MODEM_STATUS = 4`); aggiunto `disabled` in `/system/etc/init/rild.rc`. Rollback: `adb root; adb remount; adb push backup/lineage14.1_20200623/rild.rc.orig /system/etc/init/rild.rc` (MD5 orig `5ab3fa76…f462`) |
-| SensorService | ⏳ aperto | dopo i riavvii il thread `SensorService` di system_server occupa ~50% (un core) senza sensori attivi; nella 1ª sessione dopo il setup era a 0%. Causa non trovata (non dipende da rild né dalla rotazione automatica) |
+| SensorService | ⏳ causa trovata, fix da approvare | thread `SensorService` di system_server al ~50% (un core) con **0 connessioni attive**. `strace -p <tid>` (2026-10-21): loop di `ppoll(..., timeout 0)` su 6 fd, il 5° è **non inizializzato** (`fd=539771469`, eventi spazzatura) → ritorna subito `POLLNVAL` e il ciclo non dorme mai. Bug dell'HAL `/system/lib/hw/sensors.omap4.so` ("Galaxy Tab 2 Sensor Module", MD5 `b46bfa99…1539`); il valore dipende da memoria non inizializzata, per questo a volte era 0%. Vedi "Punti aperti" |
+| APK Tab2Monitor v0.1.0 | ✅ installata e provata | build senza Gradle (JDK di Android Studio, nessun download); via USB ✅, ripiego Wi‑Fi dopo `adb reverse --remove-all` ✅, PSS **14,5 MB** (Jelly con dashboard 64 MB PSS / ~105 MB RSS), CPU app ~3% |
+| Avvio al boot | ⏳ quasi verificato | dopo `adb reboot` il tablet ha ripreso da solo a interrogare `/api/metrics` via Wi‑Fi ogni ~2 s (connessioni da 192.168.1.234 viste sul PC); screenshot non fatto perché **adb non ha più visto il tablet** dopo il riavvio (dispositivo USB presente in Windows) |
+| Wi‑Fi tablet | ✅ acceso | era spento dopo il setup LineageOS; `svc wifi enable` → si collega da solo (2 reti salvate), IP **192.168.1.234** (DHCP; sullo stock era .226) |
 
 Misure (am start -W, TotalTime ms, avvio a freddo):
 | | prima del tuning | dopo |
@@ -103,12 +110,43 @@ Misure su LineageOS (am start -W, ms):
 | Browser (Jelly) | 1110–3132 (stock) | 2073 / 7896 | 1148 / 1265 |
 RAM: MemTotal 937 MB (stock 819), Jelly con dashboard ~105–120 MB RSS.
 
+## APK nativa Tab2Monitor (v0.1.5, 2026-10-21)
+| Scelta | Perché |
+|---|---|
+| Java puro, nessuna libreria (no AppCompat/AndroidX/Kotlin) | APK 21 KB, PSS 14,5 MB: il collo di bottiglia del tablet è la RAM |
+| Una sola `View` che disegna su Canvas, niente layout XML | gerarchia minima, un ridisegno al secondo costa quasi nulla sull'OMAP4430 |
+| Build **senza Gradle** (aapt2 → javac -source 8 → d8 → zipalign → apksigner) | Gradle/AGP scaricherebbero centinaia di MB; bastano SDK + JDK già presenti |
+| JDK = `C:\Program Files\Android\Android Studio\jbr` (OpenJDK 25) | già installato: **nessun download** (l'utente voleva essere interpellato prima) |
+| d8/apksigner via `java -cp/-jar`, non i `.bat` | i `.bat` spezzano i percorsi con spazi ("VIBE CODING") |
+| `minSdk = targetSdk = 25` | gira solo su LineageOS 14.1; nessun vincolo di background/cleartext delle API successive |
+| Orientamento `landscape` fisso | non serve il sensore di rotazione |
+| URL USB fisso + URL Wi‑Fi via `am start --es url` | niente schermata impostazioni (meno codice); dopo un riavvio `adb reverse` è perso e l'app passa da sola al Wi‑Fi |
+| Avvio al boot con `BOOT_COMPLETED`; modalità Home (`HomeAlias`) **opzionale, disattivata** | diventare la Home sostituisce Trebuchet: scelta lasciata all'utente (`install_* -home`) |
+| Versione dei sorgenti Java solo in testa al file e nel versionName | Java impone nome file = classe pubblica (eccezione alla regola 1 di CLAUDE.md); versionati nel nome: script di build/installazione e APK in `dist/` |
+| APK e cartella build fuori da git | firmata con la chiave di debug locale (`~/.android/debug.keystore`), si rigenera in pochi secondi |
+
+Rollback: `adb uninstall it.tab2revamp.monitor`, poi la dashboard web con
+`bash android/tune_v0.1.3_20261021-2315.sh` (apre Jelly).
+
 ## Punti aperti
-- SensorService al 50% dopo il boot: indagare (log HAL sensori) o conviverci.
-- `adb reverse` va ripristinato a ogni riavvio del tablet (o usare Wi‑Fi).
-- Proposta utente 2026-10-21: **APK nativa** al posto del browser (meno RAM, avvio al boot,
-  schermo intero senza barra URL). Da fare in una sessione dedicata.
-- Valutare app nativa Android (Canvas) solo se la pagina web risultasse lenta.
+- **adb non vede il tablet dopo il riavvio del 2026-10-21 ~23:55**: Windows vede "Galaxy Tab 2 3G",
+  `adb devices` vuoto anche dopo aver riavviato il server adb. Controllare sul tablet la notifica USB /
+  Opzioni sviluppatore → Debug Android / eventuale richiesta di autorizzazione; poi screenshot di
+  verifica dell'avvio automatico (`adb exec-out screencap -p > boot.png`).
+- **SensorService** (causa trovata, vedi tabella Stato). Opzioni, nessuna eseguita:
+  1. *(proposta)* disattivare l'HAL dei sensori: `adb root; adb remount;
+     adb pull /system/lib/hw/sensors.omap4.so backup/lineage14.1_20200623/`, poi
+     `adb shell mv /system/lib/hw/sensors.omap4.so /system/lib/hw/sensors.omap4.so.off` e riavvio.
+     Effetto atteso: SensorService senza sensori → 0% CPU. Si perdono rotazione e luminosità
+     automatiche (inutili per un display fisso in landscape con l'APK).
+     Rollback: rinominare indietro e riavviare (da TWRP se system_server non partisse).
+     **Serve conferma dell'utente** (modifica /system).
+  2. patch binaria dell'HAL (azzerare la pollfd non usata): fattibile ma rischiosa e da rifare a ogni flash.
+  3. conviverci: costa un core su due, l'APK resta fluida (CPU app ~3%).
+- `adb reverse` va rifatto a ogni riavvio del tablet: con l'APK non è più bloccante (ripiego Wi‑Fi).
+- Il server Python risponde in HTTP/1.0 (niente keep-alive): una connessione TCP per richiesta.
+  Accettabile a 1 Hz; eventualmente `protocol_version = "HTTP/1.1"` nel server.
+- Facoltativo: `install_tab2monitor_*.sh -home` per usarla come Home (kiosk).
 
 ## Handoff sessione locale (v0.1.1 — 2026-10-21 19:05 UTC)
 La sessione cloud non può raggiungere il PC/USB: la sessione locale va avviata dall'utente.

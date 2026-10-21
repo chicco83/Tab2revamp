@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Tab2Monitor - APK nativa (sostituisce la dashboard nel browser)
+  Versione: v0.1.0 - 2026-10-21 23:50
+  Target: Galaxy Tab 2 10.1 GT-P5100, LineageOS 14.1 (Android 7.1.2, SDK 25).
+  Scelte per la poca RAM:
+    - nessuna libreria (niente AppCompat/AndroidX), nessun layout XML: tutto su un Canvas
+    - tema di sistema Black.NoTitleBar.Fullscreen, niente anteprima di avvio
+    - orientamento "landscape" fisso: non serve l'accelerometro (WindowOrientationListener)
+  versionCode / versionName vengono imposti dallo script di build (aapt2 link).
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="it.tab2revamp.monitor">
+
+    <uses-sdk android:minSdkVersion="25" android:targetSdkVersion="25" />
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <application
+        android:label="Tab2Monitor"
+        android:icon="@drawable/ic"
+        android:allowBackup="false"
+        android:usesCleartextTraffic="true"
+        android:hardwareAccelerated="true"
+        android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:screenOrientation="landscape"
+            android:configChanges="orientation|screenSize|screenLayout|keyboard|keyboardHidden|navigation"
+            android:windowSoftInputMode="stateAlwaysHidden">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Modalita' "kiosk" opzionale: Tab2Monitor come schermata Home.
+             Disattivata di default; si attiva con
+             adb shell pm enable it.tab2revamp.monitor/.HomeAlias
+             (vedi install_tab2monitor_*.sh -home). -->
+        <activity-alias
+            android:name=".HomeAlias"
+            android:targetActivity=".MainActivity"
+            android:enabled="false"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity-alias>
+
+        <!-- Avvio al boot (funziona solo dopo il primo avvio manuale dell'app:
+             finche' non e' mai stata aperta Android la tiene in stato "stopped"). -->
+        <receiver android:name=".BootReceiver" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>

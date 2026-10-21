@@ -1,5 +1,19 @@
 # CHANGELOG — Tab2revamp
-Versione documento: v0.1.4 — 2026-10-21 23:45 UTC
+Versione documento: v0.1.5 — 2026-10-21 23:55
+
+## 6. v0.1.5 — 2026-10-21 23:55 (sessione locale, APK nativa)
+- Aggiunta APK nativa **Tab2Monitor v0.1.0** in `android/tab2monitor_app/` (package
+  `it.tab2revamp.monitor`, minSdk 25): `MainActivity` (schermo intero immersive, schermo sempre
+  acceso, polling `/api/metrics` USB → Wi‑Fi), `MonitorView` (Canvas, stesso layout della dashboard
+  web), `BootReceiver` (avvio al boot), `HomeAlias` opzionale (kiosk, disattivato).
+- Aggiunti `android/tab2monitor_app/build_tab2monitor_v0.1.0_20261021-2350.sh` (build senza Gradle,
+  JDK di Android Studio, nessun download) e `android/install_tab2monitor_v0.1.0_20261021-2350.sh`.
+- Provata sul tablet: USB ✅, ripiego Wi‑Fi ✅, PSS 14,5 MB (Jelly 64 MB). Avvio al boot: richieste
+  dal tablet viste sul PC dopo il riavvio, ma adb non ha più visto il tablet (da verificare).
+- Wi‑Fi del tablet riacceso (`svc wifi enable`), IP 192.168.1.234.
+- SensorService al 50%: causa trovata con strace (pollfd non inizializzata nell'HAL
+  `sensors.omap4.so` → `ppoll` in loop con POLLNVAL); fix proposto, non eseguito.
+- `.gitignore`: esclusi `android/tab2monitor_app/build/`, `dist/`, `*.apk`.
 
 ## 5. v0.1.4 — 2026-10-21 23:45 UTC (sessione locale, flash eseguito)
 - Backup completo stock (EFS incluso, MD5 verificati) in `backup/` (fuori da git).

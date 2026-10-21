@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Tab2Monitor - icona (vector, SDK >= 21) - v0.1.0 - 2026-10-21 23:50
+     Riquadro scuro con tre barre di carico (blu / verde / giallo). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp" android:height="48dp"
+    android:viewportWidth="48" android:viewportHeight="48">
+    <path android:fillColor="#161B22" android:pathData="M6,4h36a4,4 0,0 1,4 4v32a4,4 0,0 1,-4 4h-36a4,4 0,0 1,-4 -4v-32a4,4 0,0 1,4 -4z" />
+    <path android:fillColor="#2F81F7" android:pathData="M10,22h7v16h-7z" />
+    <path android:fillColor="#3FB950" android:pathData="M20.5,12h7v26h-7z" />
+    <path android:fillColor="#D29922" android:pathData="M31,28h7v10h-7z" />
+</vector>

@@ -1,5 +1,5 @@
 # MANUAL — Tab2revamp
-Versione: v0.1.4 — 2026-10-21 23:45 UTC
+Versione: v0.1.5 — 2026-10-21 23:55
 
 Galaxy Tab 2 10.1 (GT-P5100) come display delle risorse di un PC Windows.
 
@@ -60,6 +60,38 @@ URL=http://192.168.1.10:8090 bash android/tune_v0.1.2_20261021-2150.sh   # via W
   tablet fallisce (Windows blocca ICMP) ma l'HTTP funziona.
 - Usare **Chrome** (lo script lo apre se installato): il browser stock 4.2 lascia artefatti.
 
+### 2.4 APK nativa Tab2Monitor (consigliata, dalla v0.1.5)
+Sostituisce Jelly + dashboard web: ~15 MB di RAM invece di 60–100, schermo intero, avvio al boot.
+
+**Build** (PC, Git Bash; serve solo ciò che è già installato: Android SDK in
+`%LOCALAPPDATA%\Android\Sdk` e il JDK di Android Studio, oppure `JAVA_HOME`):
+```
+bash android/tab2monitor_app/build_tab2monitor_v0.1.0_20261021-2350.sh
+```
+Risultato: `android/tab2monitor_app/dist/Tab2Monitor_v0.1.0.apk` (non versionata in git).
+
+**Installazione** (tablet in USB, server Windows avviato):
+```
+URL=http://192.168.1.237:8090 bash android/install_tab2monitor_v0.1.0_20261021-2350.sh
+```
+Installa, fa `adb reverse`, toglie il fumetto "schermo intero", chiude Jelly, apre l'app (il primo
+avvio manuale serve perché funzioni l'avvio al boot) e salva l'URL Wi‑Fi di riserva.
+Con `-home` l'app diventa anche la schermata Home (kiosk); `-nohome` la toglie.
+
+**Uso**
+- Pallino verde = dati freschi; rosso + schede velate = nessuna risposta da più di 5 s.
+  In alto a destra "USB" o "Wi‑Fi" dice da dove arrivano i dati.
+- Ordine dei tentativi: `http://127.0.0.1:8090` (USB), poi l'URL Wi‑Fi. Dopo un riavvio del tablet
+  `adb reverse` è perso e l'app passa da sola al Wi‑Fi (il Wi‑Fi del tablet deve essere acceso).
+- Uscire: scorrere dal bordo per far comparire le barre → Home/Indietro.
+- Configurazione da PC:
+  ```
+  adb shell am start -n it.tab2revamp.monitor/.MainActivity --es url http://<IP-PC>:8090
+  adb shell am start -n it.tab2revamp.monitor/.MainActivity --ei poll_ms 2000
+  adb shell am start -n it.tab2revamp.monitor/.MainActivity --ez autostart false
+  ```
+- Disinstallare: `adb uninstall it.tab2revamp.monitor` (dashboard in Jelly con `tune_v0.1.3`).
+
 ---
 ## 3. Refactor Android (ROM custom) — da eseguire nella sessione locale
 
@@ -116,4 +148,7 @@ URL=http://192.168.1.10:8090 bash android/tune_v0.1.2_20261021-2150.sh   # via W
 | adb non vede il tablet dopo `adb root` | PowerShell: `Get-Process adb \| Stop-Process -Force`, poi `adb devices` |
 | Git Bash + `adb pull` su `/g/...` con `MSYS_NO_PATHCONV=1` | usare percorsi Windows `G:/...` |
 | Dashboard in verticale | `adb shell settings put system user_rotation 0` (Tab 2 10.1 è nativamente orizzontale) |
+| APK: "In attesa del server Tab2Monitor…" | server Windows spento, oppure `adb reverse` perso (riavvio) e Wi‑Fi del tablet spento (`adb shell svc wifi enable`) o URL Wi‑Fi non impostato (`--es url`) |
+| Build APK: `invalid flag: /g/Il` o percorso spezzato | usare lo script di build (gestisce gli spazi); non chiamare `d8.bat` a mano |
+| SensorService al 50% CPU | bug dell'HAL `sensors.omap4.so` (pollfd non inizializzata), vedi CONTEXT → Punti aperti |
 | Script tune bloccato su "disable ..." | stock < 4.3 senza root; usare v0.1.2; uccidere i `pm` orfani: `adb shell ps` → `adb shell kill <pid>` degli `app_process` dell'utente shell |

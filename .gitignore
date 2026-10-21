@@ -5,3 +5,7 @@
 *.md5
 Odin3*/
 backup/
+# APK Tab2Monitor: build intermedia e APK firmato con chiave di debug locale (si rigenera con build_tab2monitor_*.sh)
+android/tab2monitor_app/build/
+android/tab2monitor_app/dist/
+*.apk
