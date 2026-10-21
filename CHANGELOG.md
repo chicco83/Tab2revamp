@@ -6,7 +6,7 @@ Versione documento: v0.1.8 — 2026-10-22 00:30
   7 giorni, modello principale), interruttore `p_claude` nelle impostazioni. Legge il campo opzionale
   `claude` di `/api/metrics` (schema in CONTEXT.md), richiesto alla sessione «Sorgente dati Windows».
 - Aggiunto `android/tab2monitor_app/build_tab2monitor_v0.3.0_20261022-0025.sh` (versionCode 3).
-- Compilata; prova sul tablet in attesa (adb non disponibile). Rollback: `git checkout 2e6ed56 --
+- Installata e provata con dati finti (mock locale); dati reali in attesa del server. Rollback: `git checkout 2e6ed56 --
   android/tab2monitor_app/src` e build v0.2.0.
 
 ## 8. v0.1.7 — 2026-10-22 00:15 (sessione locale, APK v0.2.0)
