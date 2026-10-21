@@ -22,6 +22,14 @@ Versione documento: v0.1.8 — 2026-10-22 00:30
   (il versionCode scende, `install -r` non basta).
 - Aperta una sessione parallela per la sorgente dati lato Windows.
 
+## 8. (3) v0.2.2 — 2026-10-22 00:40 (sessione locale, server Windows)
+- Nuovo `windows/agent/tab2monitor_server_v0.2.2_20261022-0040.py`: `disks[].r`, `disks[].w` (byte/s) e
+  `disks[].busy` (% tempo attivo = 100 − % Idle Time) per volume, contatori PDH `LogicalDisk`
+  (chiesto dalla sessione APK per l'APK v0.4.0). Volumi senza contatori (G: Google Drive): campi omessi.
+- Provato: 4 s di scritture su C: → `C:\ r 143 MB/s w 338 MB/s busy 15,9%`, coerente con `disk_io`
+  totale; 8090 riavviata sulla v0.2.2 dal supervisore.
+- Rollback: spostare `tab2monitor_server_v0.2.2_*.py` fuori dalla cartella e chiudere il server.
+
 ## 8. (2) v0.2.1 — 2026-10-22 00:30 (sessione locale, server Windows)
 - Nuovo `windows/agent/tab2monitor_server_v0.2.1_20261022-0130.py`: campo `claude` (token di Claude Code
   di oggi, del blocco di 5 h e degli ultimi 7 giorni, modelli) contato dai log locali

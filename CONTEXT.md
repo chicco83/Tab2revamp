@@ -145,9 +145,10 @@ da Windows (`lhm.src` = `lib` Tab2Sensors / `lhm` app LHM / `win` solo Windows).
 | `sensors.hw[]` | `id, name, kind (cpu/gpu/mb/disk/ram/other), temps[{name,c}], fans[{name,rpm,pct}]` |
 | `sensors.pairs[]` | `fan, rpm, pct, fan_hw, temp, c, temp_hw, how (map/same_hw/cpu/mb/guess), g` — stesso `g` = stesso colore sull'APK |
 | `srv` | `lhm` (fonte sensori), `adb` {seriale: ok/errore}, `http` |
+| `disks[].r`, `disks[].w`, `disks[].busy` (v0.2.2) | byte/s lettura/scrittura e % tempo attivo per volume (PDH LogicalDisk); omessi se il volume non ha contatori (G:) |
 | `claude` (v0.2.1) | `today_tok` (input+output+cache_creation, senza cache_read), `today_out`, `today_cache_r`, `today_msgs`, `block_tok`, `block_start`/`block_end` (epoch, solo se il blocco di 5 h è aperto), `week_tok`, `models[{m,tok}]` (oggi, max 3), `scan_ts`; null senza `~/.claude/projects` o con `--no-claude` |
 
-Stato server: ✅ v0.2.1 in esecuzione sulla 8090 (supervisore avviato a mano, senza admin) ·
+Stato server: ✅ v0.2.2 in esecuzione sulla 8090 (supervisore avviato a mano, senza admin) ·
 ⏳ installare l'avvio automatico (serve UAC dell'utente) · ⏳ sensori CPU/scheda madre/ventole case
 (si vedono solo con admin) e poi compilare `fan_map_*.json` · ⏳ APK: disegnare `sensors.pairs`
 (file della sessione impostazioni APK) · ⏳ CPU del server ~25% di un core (da misurare/ridurre:
