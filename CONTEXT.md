@@ -50,7 +50,7 @@ psutil ── tab2monitor_server (:8090) ───┼── USB: adb reverse tcp
 | rild (RIL 3G) | ✅ disattivato | consumava ~50% CPU in un loop (`ReaderLoop IOCTL_MODEM_STATUS = 4`); aggiunto `disabled` in `/system/etc/init/rild.rc`. Rollback: `adb root; adb remount; adb push backup/lineage14.1_20200623/rild.rc.orig /system/etc/init/rild.rc` (MD5 orig `5ab3fa76…f462`) |
 | SensorService | ⏳ causa trovata, fix da approvare | thread `SensorService` di system_server al ~50% (un core) con **0 connessioni attive**. `strace -p <tid>` (2026-10-21): loop di `ppoll(..., timeout 0)` su 6 fd, il 5° è **non inizializzato** (`fd=539771469`, eventi spazzatura) → ritorna subito `POLLNVAL` e il ciclo non dorme mai. Bug dell'HAL `/system/lib/hw/sensors.omap4.so` ("Galaxy Tab 2 Sensor Module", MD5 `b46bfa99…1539`); il valore dipende da memoria non inizializzata, per questo a volte era 0%. Vedi "Punti aperti" |
 | APK Tab2Monitor v0.1.0 | ✅ installata e provata | build senza Gradle (JDK di Android Studio, nessun download); via USB ✅, ripiego Wi‑Fi dopo `adb reverse --remove-all` ✅, PSS **14,5 MB** (Jelly con dashboard 64 MB PSS / ~105 MB RSS), CPU app ~3% |
-| Avvio al boot | ⏳ quasi verificato | dopo `adb reboot` il tablet ha ripreso da solo a interrogare `/api/metrics` via Wi‑Fi ogni ~2 s (connessioni da 192.168.1.234 viste sul PC); screenshot non fatto perché **adb non ha più visto il tablet** dopo il riavvio (dispositivo USB presente in Windows) |
+| Avvio al boot | ✅ verificato | dopo `adb reboot` (2026-10-22 00:00): `mResumedActivity = it.tab2revamp.monitor/.MainActivity`, screenshot con dati via **Wi‑Fi** (adb reverse perso). PSS 13,9 MB. Il boot completo + ricomparsa di adb ha richiesto ~3–4 min: adb resta assente per minuti anche se Windows vede già il dispositivo USB |
 | Wi‑Fi tablet | ✅ acceso | era spento dopo il setup LineageOS; `svc wifi enable` → si collega da solo (2 reti salvate), IP **192.168.1.234** (DHCP; sullo stock era .226) |
 
 Misure (am start -W, TotalTime ms, avvio a freddo):
@@ -129,10 +129,6 @@ Rollback: `adb uninstall it.tab2revamp.monitor`, poi la dashboard web con
 `bash android/tune_v0.1.3_20261021-2315.sh` (apre Jelly).
 
 ## Punti aperti
-- **adb non vede il tablet dopo il riavvio del 2026-10-21 ~23:55**: Windows vede "Galaxy Tab 2 3G",
-  `adb devices` vuoto anche dopo aver riavviato il server adb. Controllare sul tablet la notifica USB /
-  Opzioni sviluppatore → Debug Android / eventuale richiesta di autorizzazione; poi screenshot di
-  verifica dell'avvio automatico (`adb exec-out screencap -p > boot.png`).
 - **SensorService** (causa trovata, vedi tabella Stato). Opzioni, nessuna eseguita:
   1. *(proposta)* disattivare l'HAL dei sensori: `adb root; adb remount;
      adb pull /system/lib/hw/sensors.omap4.so backup/lineage14.1_20200623/`, poi
@@ -143,6 +139,8 @@ Rollback: `adb uninstall it.tab2revamp.monitor`, poi la dashboard web con
      **Serve conferma dell'utente** (modifica /system).
   2. patch binaria dell'HAL (azzerare la pollfd non usata): fattibile ma rischiosa e da rifare a ogni flash.
   3. conviverci: costa un core su due, l'APK resta fluida (CPU app ~3%).
+  Al riavvio del 2026-10-22 00:00 SensorService era a **0%** (conferma che dipende dal caso):
+  il problema può tornare a ogni boot.
 - `adb reverse` va rifatto a ogni riavvio del tablet: con l'APK non è più bloccante (ripiego Wi‑Fi).
 - Il server Python risponde in HTTP/1.0 (niente keep-alive): una connessione TCP per richiesta.
   Accettabile a 1 Hz; eventualmente `protocol_version = "HTTP/1.1"` nel server.

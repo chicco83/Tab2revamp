@@ -1,6 +1,11 @@
 # CHANGELOG — Tab2revamp
 Versione documento: v0.1.5 — 2026-10-21 23:55
 
+## 6. (2) v0.1.5 — 2026-10-22 00:05 (sessione locale)
+- Avvio al boot dell'APK **verificato**: dopo il riavvio Tab2Monitor è in primo piano e legge i dati
+  via Wi‑Fi. adb era solo lento a ricomparire (~3–4 min dal riavvio), non un guasto.
+- SensorService a 0% in questo boot (il bug dell'HAL dipende da memoria non inizializzata).
+
 ## 6. v0.1.5 — 2026-10-21 23:55 (sessione locale, APK nativa)
 - Aggiunta APK nativa **Tab2Monitor v0.1.0** in `android/tab2monitor_app/` (package
   `it.tab2revamp.monitor`, minSdk 25): `MainActivity` (schermo intero immersive, schermo sempre
