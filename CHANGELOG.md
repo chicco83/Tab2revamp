@@ -69,7 +69,7 @@ Versione documento: v0.1.10 — 2026-10-22 01:35
 - Nuovo `windows/agent/tab2monitor_server_v0.2.6_20261022-0120.py`: top processi, `sys.procs` e
   `sys.threads` dai contatori PDH `Process(*)` e `System` (5 ms); psutil resta come ripiego.
   Formato di `procs` invariato (nomi con ".exe", % CPU divisa per le CPU logiche, mb = working set).
-- Provato: stessi processi in cima della v0.2.5 (python 2,6%, claude 1,0%…), CPU del server **1,0%** di un
+- Provato: stessi processi in cima della v0.2.5 (python 2,6%, claude 1,0%…), CPU del server **1,0%** (senza admin) e **3,1%** (servizio con admin, più sensori) di un
   core (era 31%). Messo in servizio con `schtasks /End` + `/Run`: il server v0.2.5 si è chiuso insieme al
   supervisore (correttivo della v0.2.3 verificato dal vivo).
 

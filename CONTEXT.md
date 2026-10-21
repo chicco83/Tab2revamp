@@ -158,7 +158,7 @@ da Windows (`lhm.src` = `lib` Tab2Sensors / `lhm` app LHM / `win` solo Windows).
 Stato server: ✅ attività `Tab2Monitor` installata (all'accesso, elevata) · ✅ sensori CPU/scheda madre/
 ventole verificati con admin (vedi CHANGELOG v0.2.3) · ✅ v0.2.6 in servizio sulla 8090 (orfano chiuso
 dall'utente) · ⏳ l'utente dà nomi e abbinamenti alle ventole dalla pagina `/config` · ⏳ APK: disegnare `sensors.pairs`
-(file della sessione impostazioni APK) · ✅ CPU del server ~1% di un core (v0.2.6: processi da PDH;
+(file della sessione impostazioni APK) · ✅ CPU del server ~3% di un core con admin (v0.2.6: processi da PDH;
 la causa era `psutil.process_iter`, non `GPU Engine`) · ⛔ avvio prima dell'accesso: il progetto sta su G: (Google
 Drive), montato solo dopo l'accesso. ⛔ `claude`: limiti di piano dell'account non disponibili: `.credentials.json` non contiene il login Claude (solo connettori MCP). ⛔ FanControl: vedi CHANGELOG v0.2.0.
 
