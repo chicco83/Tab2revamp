@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<!--
+  Tab2Monitor - dashboard
+  Versione: v0.1.0 - 2026-10-21 18:45 UTC
+  Target: Galaxy Tab 2 10.1 (1280x800 landscape), WebView/browser vecchi.
+  Regole di performance (il tablet e' lento):
+    - solo ES5 + XMLHttpRequest (niente fetch, let/const, arrow function)
+    - nessuna libreria esterna, nessun font web, nessuna ombra/blur/trasparenza animata
+    - aggiornamento DOM minimo: si cambiano solo width/testo degli elementi esistenti
+    - un solo <canvas> piccolo per lo storico CPU/RAM (60 punti)
+    - niente transizioni CSS (costano GPU/CPU sul SGX540)
+-->
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>Tab2Monitor</title>
+<style>
+  /* Palette scura: meno consumo e meno abbagliamento come display fisso */
+  html, body { margin:0; padding:0; background:#0d1117; color:#e6edf3;
+               font-family: sans-serif; font-size:18px; overflow:hidden; }
+  .wrap { padding:10px 14px; }
+  .hdr { height:30px; line-height:30px; font-size:16px; color:#8b949e; }
+  .hdr b { color:#e6edf3; }
+  .hdr .r { float:right; }
+  .ok { color:#3fb950; } .ko { color:#f85149; }
+  /* Griglia a 3 colonne con float (compatibile Android 4.x) */
+  .col { float:left; width:33.33%; box-sizing:border-box; padding:4px; }
+  .card { background:#161b22; border:1px solid #30363d; border-radius:6px;
+          padding:8px 10px; margin-bottom:8px; }
+  .t { font-size:14px; color:#8b949e; text-transform:uppercase; letter-spacing:1px; }
+  .big { font-size:44px; font-weight:bold; line-height:52px; }
+  .sub { font-size:15px; color:#8b949e; }
+  .bar { height:12px; background:#21262d; border-radius:3px; overflow:hidden; margin-top:4px; }
+  .bar i { display:block; height:100%; width:0; background:#2f81f7; }
+  .warn i { background:#d29922; } .crit i { background:#f85149; }
+  .cores span { display:inline-block; width:11.5%; margin:2px 0.4%; vertical-align:bottom; }
+  .cores .cb { height:46px; background:#21262d; position:relative; }
+  .cores .cb i { position:absolute; bottom:0; left:0; right:0; background:#2f81f7; height:0; }
+  .row { font-size:15px; line-height:22px; }
+  .row .v { float:right; color:#e6edf3; }
+  .clr { clear:both; }
+  canvas { display:block; width:100%; height:110px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hdr"><b id="host">--</b> &nbsp; uptime <span id="up">--</span>
+    <span class="r"><span id="st" class="ko">&#9679;</span> <span id="clk">--</span></span></div>
+
+  <div class="col">
+    <div class="card"><div class="t">CPU</div>
+      <div class="big" id="cpu">--</div><div class="sub" id="mhz">&nbsp;</div>
+      <div class="bar" id="cpub"><i></i></div></div>
+    <div class="card"><div class="t">Core</div><div class="cores" id="cores"></div></div>
+    <div class="card"><div class="t">Storico 60 s (CPU blu / RAM verde)</div>
+      <canvas id="hist" width="400" height="110"></canvas></div>
+  </div>
+
+  <div class="col">
+    <div class="card"><div class="t">RAM</div>
+      <div class="big" id="ram">--</div><div class="sub" id="ramd">&nbsp;</div>
+      <div class="bar" id="ramb"><i></i></div></div>
+    <div class="card"><div class="t">GPU <span id="gpun"></span></div>
+      <div class="big" id="gpu">--</div><div class="sub" id="gpud">LibreHardwareMonitor non attivo</div>
+      <div class="bar" id="gpub"><i></i></div></div>
+    <div class="card"><div class="t">Temperature</div><div id="temps" class="sub">--</div></div>
+  </div>
+
+  <div class="col">
+    <div class="card"><div class="t">Rete</div>
+      <div class="row">&#8595; download<span class="v" id="rx">--</span></div>
+      <div class="row">&#8593; upload<span class="v" id="tx">--</span></div></div>
+    <div class="card"><div class="t">Disco I/O</div>
+      <div class="row">lettura<span class="v" id="dr">--</span></div>
+      <div class="row">scrittura<span class="v" id="dw">--</span></div>
+      <div id="disks"></div></div>
+    <div class="card"><div class="t">Top processi (CPU)</div><div id="procs"></div></div>
+  </div>
+  <div class="clr"></div>
+</div>
+
+<script>
+// ---------------------------------------------------------------------------
+// Logica: polling di /api/metrics ogni POLL_MS; se la richiesta precedente
+// non e' finita non ne parte un'altra (il tablet non accumula richieste).
+// ---------------------------------------------------------------------------
+var POLL_MS = 1000, HIST = 60;
+var busy = false, hCpu = [], hRam = [], coreEls = [];
+
+function $(id) { return document.getElementById(id); }
+function txt(id, s) { var e = $(id); if (e.textContent !== s) e.textContent = s; }
+
+// Imposta la barra e il colore in base alle soglie (70% giallo, 90% rosso)
+function bar(id, pct) {
+  var e = $(id); if (pct == null) pct = 0;
+  e.firstChild.style.width = Math.min(100, pct) + '%';
+  e.className = 'bar' + (pct >= 90 ? ' crit' : pct >= 70 ? ' warn' : '');
+}
+function rate(b) {
+  if (b > 1048576) return (b / 1048576).toFixed(1) + ' MB/s';
+  if (b > 1024) return (b / 1024).toFixed(0) + ' KB/s';
+  return b + ' B/s';
+}
+function upt(s) {
+  var d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60);
+  return (d ? d + 'g ' : '') + h + 'h ' + m + 'm';
+}
+function rows(list) {   // genera righe "nome .... valore" (solo quando cambiano)
+  var h = '';
+  for (var i = 0; i < list.length; i++)
+    h += '<div class="row">' + list[i][0] + '<span class="v">' + list[i][1] + '</span></div>';
+  return h;
+}
+function html(id, s) { var e = $(id); if (e._h !== s) { e.innerHTML = s; e._h = s; } }
+
+function buildCores(n) {   // crea le colonnine dei core una sola volta
+  // larghezza adattiva: fino a 16 colonne per riga, oltre si va a capo
+  var c = $('cores'), h = '', w = (100 / Math.min(n, 16) - 0.8).toFixed(2);
+  for (var i = 0; i < n; i++) h += '<span style="width:' + w + '%"><div class="cb"><i></i></div></span>';
+  c.innerHTML = h; coreEls = c.getElementsByTagName('i');
+}
+
+function drawHist() {
+  var cv = $('hist'), g = cv.getContext('2d'), w = cv.width, h = cv.height;
+  g.fillStyle = '#161b22'; g.fillRect(0, 0, w, h);
+  g.strokeStyle = '#30363d'; g.beginPath(); g.moveTo(0, h / 2); g.lineTo(w, h / 2); g.stroke();
+  function line(arr, col) {
+    if (arr.length < 2) return;
+    g.strokeStyle = col; g.lineWidth = 2; g.beginPath();
+    for (var i = 0; i < arr.length; i++) {
+      var x = (HIST - arr.length + i) * w / (HIST - 1), y = h - arr[i] * h / 100;
+      if (i) g.lineTo(x, y); else g.moveTo(x, y);
+    }
+    g.stroke();
+  }
+  line(hRam, '#3fb950'); line(hCpu, '#2f81f7');
+}
+
+function render(d) {
+  txt('host', d.host || '--'); txt('up', upt(d.uptime_s));
+  txt('cpu', Math.round(d.cpu.pct) + '%'); bar('cpub', d.cpu.pct);
+  txt('mhz', d.cpu.mhz ? d.cpu.mhz + ' MHz' : ' ');
+  if (coreEls.length !== d.cpu.cores.length) buildCores(d.cpu.cores.length);
+  for (var i = 0; i < coreEls.length; i++) coreEls[i].style.height = d.cpu.cores[i] + '%';
+
+  txt('ram', Math.round(d.ram.pct) + '%'); bar('ramb', d.ram.pct);
+  txt('ramd', d.ram.used_gb + ' / ' + d.ram.tot_gb + ' GB  -  swap ' + Math.round(d.swap.pct) + '%');
+
+  var l = d.lhm;
+  if (l && l.gpu_load != null) {
+    txt('gpu', Math.round(l.gpu_load) + '%'); bar('gpub', l.gpu_load);
+    txt('gpun', l.gpu_name ? '- ' + l.gpu_name : '');
+    txt('gpud', (l.gpu_temp != null ? l.gpu_temp + ' °C' : '') +
+        (l.gpu_mem_load != null ? '  -  VRAM ' + Math.round(l.gpu_mem_load) + '%' : ''));
+  } else { txt('gpu', '--'); bar('gpub', 0); txt('gpud', 'LibreHardwareMonitor non attivo'); }
+  var t = [];
+  if (l && l.temps) for (i = 0; i < l.temps.length && i < 6; i++)
+    t.push([l.temps[i].name, l.temps[i].c + ' °C']);
+  html('temps', t.length ? rows(t) : '--');
+
+  txt('rx', rate(d.net.rx)); txt('tx', rate(d.net.tx));
+  txt('dr', rate(d.disk_io.r)); txt('dw', rate(d.disk_io.w));
+  var ds = []; for (i = 0; i < d.disks.length; i++)
+    ds.push([d.disks[i].m, Math.round(d.disks[i].pct) + '% di ' + d.disks[i].tot_gb + ' GB']);
+  html('disks', rows(ds));
+  var ps = []; for (i = 0; i < d.procs.length; i++)
+    ps.push([d.procs[i].n, d.procs[i].cpu + '%  ' + d.procs[i].mb + ' MB']);
+  html('procs', rows(ps));
+
+  hCpu.push(d.cpu.pct); hRam.push(d.ram.pct);
+  if (hCpu.length > HIST) { hCpu.shift(); hRam.shift(); }
+  drawHist();
+}
+
+function poll() {
+  if (busy) return; busy = true;
+  var x = new XMLHttpRequest();
+  x.open('GET', '/api/metrics?t=' + new Date().getTime(), true);
+  x.timeout = 3000;
+  x.onreadystatechange = function () {
+    if (x.readyState !== 4) return;
+    busy = false;
+    if (x.status === 200) {
+      try { render(JSON.parse(x.responseText)); $('st').className = 'ok'; return; } catch (e) {}
+    }
+    $('st').className = 'ko';     // pallino rosso = server non raggiungibile
+  };
+  x.send();
+}
+function clock() { var d = new Date(); txt('clk', (d.getHours() < 10 ? '0' : '') + d.getHours() + ':' + (d.getMinutes() < 10 ? '0' : '') + d.getMinutes()); }
+
+setInterval(poll, POLL_MS); setInterval(clock, 10000); poll(); clock();
+</script>
+</body>
+</html>
