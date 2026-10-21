@@ -1,5 +1,24 @@
 # CHANGELOG — Tab2revamp
-Versione documento: v0.1.10 — 2026-10-22 01:35
+Versione documento: v0.1.11 — 2026-10-22 02:05
+
+## 12. v0.1.11 — 2026-10-22 02:05 (sessione locale, APK v0.6.0)
+- APK **v0.6.0**, richiesta utente: **schermo acceso/spento in base alla presenza** rilevata dalla
+  fotocamera frontale, come opzione configurabile (spenta di default). Nuovi `PresenceService`
+  (servizio in primo piano: fotocamera frontale S5K6A1 a 160x120 / 5 fps, movimento per differenza di
+  luminanza + volti con il rilevamento hardware dell'HAL TI), `AdminReceiver` + `res/xml/device_admin.xml`
+  (solo `force-lock`, per `lockNow()`), finestra con SHOW_WHEN_LOCKED/DISMISS_KEYGUARD/TURN_SCREEN_ON,
+  oscuramento di ripiego senza amministratore. Impostazioni: interruttore, ritardo (default 120 s),
+  sensibilità, pulsante "Attiva spegnimento reale", stato. Manifest: CAMERA, WAKE_LOCK.
+- Correzione dopo la prova: spegnendo lo schermo cambia la luce e la fotocamera "vedeva" movimento
+  (riaccensione dopo 5 s) → 5 s di pausa dopo lo spegnimento e 2 fotogrammi consecutivi.
+- Provato sul tablet: fotocamera aperta (CPU app 3% + cameraserver 1%), spegnimento reale dopo il
+  ritardo ✅, riaccensione su movimento con dashboard sopra il blocco schermo in ~30 ms ✅ (evento
+  `screen_toggled 1` + `am_resume_activity`), nessun falso allarme dopo la correzione ✅.
+- Sul tablet: permesso CAMERA concesso (`pm grant`), amministratore attivato
+  (`dpm set-active-admin`), opzione presenza **attiva** con ritardo 120 s.
+- Aggiunto `android/tab2monitor_app/build_tab2monitor_v0.6.0_20261022-0200.sh` (versionCode 8).
+- Rollback: `adb shell dpm remove-active-admin it.tab2revamp.monitor/.AdminReceiver`, poi
+  `git checkout 0e78597 -- android/tab2monitor_app` e build v0.5.1 (uninstall + install).
 
 ## 11. (2) v0.1.10 — 2026-10-22 01:45 (sessione locale, APK v0.5.1)
 - APK **v0.5.1**: salta temperature e ventole con `"hidden": true` (scelta "non mostrare" nella pagina

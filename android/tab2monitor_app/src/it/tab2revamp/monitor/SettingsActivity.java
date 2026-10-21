@@ -1,6 +1,8 @@
 // =============================================================================
 // Tab2Monitor - SettingsActivity (pannello impostazioni)
-// Versione: v0.4.0 - 2026-10-22 00:45
+// Versione: v0.6.0 - 2026-10-22 02:00
+//   v0.6.0: sezione "Presenza (fotocamera frontale)": interruttore, ritardo di spegnimento,
+//           sensibilita', attivazione amministratore dispositivo, stato del rilevamento
 //   v0.4.0: campo "cambio pagina ogni N secondi" (page_sec), pannello Ventole; si apre
 //           anche toccando l'ingranaggio in alto a destra
 //   v0.2.0 - 2026-10-22 00:10: prima versione
@@ -21,6 +23,7 @@
 package it.tab2revamp.monitor;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Typeface;
 import android.os.Bundle;
@@ -38,6 +41,7 @@ import android.widget.TextView;
 public class SettingsActivity extends Activity {
     private SharedPreferences prefs;
     private EditText url, poll, pageSec, busyPct, busySec;   // v0.4.0: + pageSec, soglie GPU
+    private EditText offSec, sens;                     // v0.6.0: presenza
     private LinearLayout ll;
 
     @Override
@@ -77,6 +81,33 @@ public class SettingsActivity extends Activity {
         label("Pagina GPU sotto carico: resta visibile per (secondi)");
         busySec = field(String.valueOf(prefs.getInt("gpu_busy_sec", 60)), "60", InputType.TYPE_CLASS_NUMBER);
 
+        // ---- v0.6.0: presenza con la fotocamera frontale
+        header("Presenza (fotocamera frontale)");
+        toggle("presence", "Spegni lo schermo quando non c'e' nessuno e riaccendilo al passaggio", false);
+        label("Spegni dopo (secondi senza movimento ne' volti, minimo 10)");
+        offSec = field(String.valueOf(prefs.getInt("presence_off_sec", 120)), "120", InputType.TYPE_CLASS_NUMBER);
+        label("Sensibilita' al movimento (decimi di % dell'immagine: 20 = 2%; piu' basso = piu' sensibile)");
+        sens = field(String.valueOf(prefs.getInt("presence_sens", 20)), "20", InputType.TYPE_CLASS_NUMBER);
+        final boolean adm = PresenceService.adminActive(this);
+        label(adm ? "Spegnimento reale: attivo (amministratore dispositivo)"
+                  : "Spegnimento reale non attivo: senza, lo schermo viene solo oscurato");
+        if (!adm) {
+            Button adminBtn = new Button(this);
+            adminBtn.setText("Attiva spegnimento reale (amministratore dispositivo)");
+            adminBtn.setOnClickListener(new View.OnClickListener() {
+                public void onClick(View v) {
+                    Intent i = new Intent(android.app.admin.DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN);
+                    i.putExtra(android.app.admin.DevicePolicyManager.EXTRA_DEVICE_ADMIN,
+                            new android.content.ComponentName(SettingsActivity.this, AdminReceiver.class));
+                    i.putExtra(android.app.admin.DevicePolicyManager.EXTRA_ADD_EXPLANATION,
+                            "Serve solo per spegnere lo schermo quando la fotocamera non vede nessuno.");
+                    startActivity(i);
+                }
+            });
+            ll.addView(adminBtn);
+        }
+        label("Stato: " + PresenceService.status);
+
         Button close = new Button(this);
         close.setText("Chiudi e torna alla dashboard");
         close.setOnClickListener(new View.OnClickListener() {
@@ -103,6 +134,8 @@ public class SettingsActivity extends Activity {
         try { ps = Math.max(0, Integer.parseInt(pageSec.getText().toString().trim())); }
         catch (NumberFormatException ignored) { }
         // 2026-10-22 v0.4.0 (era: prefs.edit().putString("wifi_url", u).putInt("poll_ms", ms).apply();)
+        prefs.edit().putInt("presence_off_sec", num(offSec, 120, 10, 86400))      // v0.6.0
+                .putInt("presence_sens", num(sens, 20, 1, 500)).apply();
         prefs.edit().putString("wifi_url", u).putInt("poll_ms", ms).putInt("page_sec", ps)
                 .putInt("gpu_busy_pct", num(busyPct, 30, 1, 100)).putInt("gpu_busy_sec", num(busySec, 60, 1, 3600))
                 .apply();
@@ -133,15 +166,22 @@ public class SettingsActivity extends Activity {
         ll.addView(tv);
     }
 
-    private void toggle(final String key, String text) {
+    // v0.6.0: interruttore con default esplicito (presence parte spento)
+    private void toggle(String key, String text) { toggle(key, text, true); }
+
+    private void toggle(final String key, String text, boolean def) {
         Switch s = new Switch(this);
         s.setText(text);
         s.setTextSize(TypedValue.COMPLEX_UNIT_SP, 19);
         s.setPadding(0, dp(10), 0, dp(10));
-        s.setChecked(prefs.getBoolean(key, true));          // tutto acceso di default
+        s.setChecked(prefs.getBoolean(key, def));           // v0.6.0: default dal chiamante (era true)
         s.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             public void onCheckedChanged(CompoundButton b, boolean on) {
                 prefs.edit().putBoolean(key, on).apply();
+                // v0.6.0: la presenza richiede il permesso fotocamera (runtime, API 23+)
+                if (on && key.equals("presence") && checkSelfPermission(android.Manifest.permission.CAMERA)
+                        != android.content.pm.PackageManager.PERMISSION_GRANTED)
+                    requestPermissions(new String[]{android.Manifest.permission.CAMERA}, 1);
             }
         });
         ll.addView(s);

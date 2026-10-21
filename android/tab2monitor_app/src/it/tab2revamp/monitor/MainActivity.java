@@ -1,6 +1,9 @@
 // =============================================================================
 // Tab2Monitor - MainActivity + thread di polling
-// Versione: v0.5.1 - 2026-10-22 01:45
+// Versione: v0.6.0 - 2026-10-22 02:00
+//   v0.6.0: presenza con fotocamera frontale (PresenceService): avvia/ferma il servizio
+//           secondo l'opzione "presence", oscuramento di ripiego (dim) e finestra visibile
+//           sopra la schermata di blocco (dopo lockNow lo schermo si riaccende sulla dashboard)
 //   v0.5.1: voci con "hidden": true (scelta "non mostrare" in http://<PC>:8090/config) saltate
 //   v0.5.0: "box per hardware": temperature e ventole raggruppate per componente
 //           (CPU, scheda madre, RAM, dischi, ...) usando anche sensors.pairs per spostare
@@ -69,10 +72,12 @@ public class MainActivity extends Activity {
     //           "p_claude"};
     static final String[] BOOL_KEYS = {"autostart", "src_usb", "src_wifi",
             "p_cpu", "p_cores", "p_hist", "p_ram", "p_gpu", "p_temps", "p_net", "p_disk", "p_procs",
-            "p_claude", "p_fans", "anim_fans"};
+            "p_claude", "p_fans", "anim_fans", "presence"};      // v0.6.0: + presence (default false)
     static final int DEF_PAGE_SEC = 15;   // v0.4.0: secondi per pagina (0 = niente rotazione)
 
     private MonitorView view;
+    private View blackout;                              // v0.6.0: velo nero dell'oscuramento
+    private static MainActivity current;                // v0.6.0: per PresenceService.dim()
     private Poller poller;
     private SharedPreferences prefs;
 
@@ -80,8 +85,14 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle b) {
         super.onCreate(b);
         prefs = getSharedPreferences(PREFS, 0);
+        // v0.6.0: + SHOW_WHEN_LOCKED / DISMISS_KEYGUARD / TURN_SCREEN_ON: quando PresenceService
+        // riaccende lo schermo dopo lockNow() si vede subito la dashboard, non il blocco schermo.
+        // (v0.5.x: solo KEEP_SCREEN_ON | FULLSCREEN)
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
-                | WindowManager.LayoutParams.FLAG_FULLSCREEN);
+                | WindowManager.LayoutParams.FLAG_FULLSCREEN
+                | WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED
+                | WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD
+                | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON);
         view = new MonitorView(this);
         // pressione lunga ovunque -> impostazioni (un tocco breve non fa nulla:
         // evita aperture accidentali su un display fisso)
@@ -98,6 +109,13 @@ public class MainActivity extends Activity {
         view.overlay = ov;
         root.addView(view);
         root.addView(ov);
+        blackout = new View(this);                       // v0.6.0
+        blackout.setBackgroundColor(0xff000000);
+        blackout.setVisibility(View.GONE);
+        blackout.setOnClickListener(new View.OnClickListener() {   // tocco = riaccendi
+            public void onClick(View v) { dim(false); PresenceService.lastPresenceAt = SystemClock.uptimeMillis(); }
+        });
+        root.addView(blackout);
         setContentView(root);
         applyIntent(getIntent());
     }
@@ -118,6 +136,8 @@ public class MainActivity extends Activity {
         if (i.hasExtra("page_sec")) e.putInt("page_sec", Math.max(0, i.getIntExtra("page_sec", DEF_PAGE_SEC)));
         if (i.hasExtra("gpu_busy_pct")) e.putInt("gpu_busy_pct", i.getIntExtra("gpu_busy_pct", 30));
         if (i.hasExtra("gpu_busy_sec")) e.putInt("gpu_busy_sec", i.getIntExtra("gpu_busy_sec", 60));
+        if (i.hasExtra("presence_off_sec")) e.putInt("presence_off_sec", Math.max(10, i.getIntExtra("presence_off_sec", 120)));   // v0.6.0
+        if (i.hasExtra("presence_sens")) e.putInt("presence_sens", Math.max(1, i.getIntExtra("presence_sens", 20)));
         // 2026-10-22 v0.2.0: oltre ad "autostart" si accettano tutti gli interruttori del
         // pannello impostazioni (src_usb, src_wifi, p_cpu, p_gpu, ...), es. --ez p_gpu false
         // (riga v0.1.0 sostituita:
@@ -137,12 +157,32 @@ public class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        current = this;
         hideBars();
         restartPoller();
+        // v0.6.0: servizio di presenza acceso/spento secondo l'opzione (serve il permesso CAMERA)
+        Intent ps = new Intent(this, PresenceService.class);
+        if (prefs.getBoolean("presence", false)
+                && checkSelfPermission(android.Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED)
+            startService(ps);
+        else stopService(ps);
+    }
+
+    // v0.6.0: oscuramento di ripiego (senza amministratore dispositivo): velo nero + luminosita'
+    // minima della finestra; chiamato da PresenceService sul thread UI
+    static void dim(boolean on) {
+        MainActivity a = current;
+        if (a == null) return;
+        a.blackout.setVisibility(on ? View.VISIBLE : View.GONE);
+        WindowManager.LayoutParams lp = a.getWindow().getAttributes();
+        lp.screenBrightness = on ? 0f : WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE;
+        a.getWindow().setAttributes(lp);
+        if (on) a.stopPoller(); else if (a.poller == null) a.restartPoller();
     }
 
     @Override
     protected void onPause() {
+        if (current == this) current = null;            // v0.6.0
         stopPoller();
         super.onPause();
     }

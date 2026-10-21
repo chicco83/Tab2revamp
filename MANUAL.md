@@ -1,5 +1,5 @@
 # MANUAL — Tab2revamp
-Versione: v0.1.10 — 2026-10-22 01:35
+Versione: v0.1.11 — 2026-10-22 02:05
 
 Galaxy Tab 2 10.1 (GT-P5100) come display delle risorse di un PC Windows.
 
@@ -66,9 +66,9 @@ Sostituisce Jelly + dashboard web: ~15 MB di RAM invece di 60–100, schermo int
 **Build** (PC, Git Bash; serve solo ciò che è già installato: Android SDK in
 `%LOCALAPPDATA%\Android\Sdk` e il JDK di Android Studio, oppure `JAVA_HOME`):
 ```
-bash android/tab2monitor_app/build_tab2monitor_v0.5.1_20261022-0145.sh
+bash android/tab2monitor_app/build_tab2monitor_v0.6.0_20261022-0200.sh
 ```
-Risultato: `android/tab2monitor_app/dist/Tab2Monitor_v0.5.1.apk` (non versionata in git).
+Risultato: `android/tab2monitor_app/dist/Tab2Monitor_v0.6.0.apk` (non versionata in git).
 Lo script di installazione prende l'APK con la versione più alta in `dist/`.
 
 **Installazione** (tablet in USB, server Windows avviato):
@@ -104,6 +104,19 @@ Con `-home` l'app diventa anche la schermata Home (kiosk); `-nohome` la toglie.
   oggi, output, letti da cache, 7 giorni, modello più usato). Richiede un server che invii il campo
   `claude`; altrimenti mostra "dati non disponibili". Si spegne da Impostazioni → "Claude" o
   `--ez p_claude false`. Non mostra la % del limite del piano claude.ai.
+- **Presenza** (v0.6.0, opzione "Presenza (fotocamera frontale)" nelle impostazioni, spenta di default):
+  la fotocamera frontale guarda se c'è movimento o un volto; dopo N secondi senza nessuno (default 120)
+  lo schermo si spegne, al primo movimento/volto si riaccende sulla dashboard.
+  Per lo spegnimento **reale** serve "Attiva spegnimento reale" (amministratore dispositivo); senza,
+  lo schermo diventa solo nero a luminosità minima (un tocco lo riaccende). Da PC:
+  ```
+  adb shell pm grant it.tab2revamp.monitor android.permission.CAMERA
+  adb shell dpm set-active-admin it.tab2revamp.monitor/.AdminReceiver
+  adb shell am start -n it.tab2revamp.monitor/.MainActivity --ez presence true --ei presence_off_sec 120 --ei presence_sens 20
+  ```
+  Disattivare: interruttore nelle impostazioni o `--ez presence false`; togliere l'amministratore:
+  `adb shell dpm remove-active-admin it.tab2revamp.monitor/.AdminReceiver` (va fatto prima di
+  disinstallare l'APK). Log: `adb logcat -s Tab2Presence`. Al buio il movimento non viene visto.
 - Uscire: scorrere dal bordo per far comparire le barre → Home/Indietro.
 - Configurazione da PC:
   ```
@@ -114,7 +127,8 @@ Con `-home` l'app diventa anche la schermata Home (kiosk); `-nohome` la toglie.
   adb shell am start -n it.tab2revamp.monitor/.SettingsActivity
   ```
   Chiavi booleane: `src_usb`, `src_wifi`, `p_cpu`, `p_cores`, `p_hist`, `p_ram`, `p_gpu`, `p_temps`, `p_net`, `p_disk`, `p_procs`, `p_claude`, `p_fans`, `anim_fans`.
-  Intere (`--ei`): `poll_ms`, `page_sec`, `gpu_busy_pct`, `gpu_busy_sec`.
+  Intere (`--ei`): `poll_ms`, `page_sec`, `gpu_busy_pct`, `gpu_busy_sec`, `presence_off_sec`, `presence_sens`.
+  Booleana con default falso: `presence`.
 - Disinstallare: `adb uninstall it.tab2revamp.monitor` (dashboard in Jelly con `tune_v0.1.3`).
 
 ---

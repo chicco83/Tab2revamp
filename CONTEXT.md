@@ -1,5 +1,5 @@
 # CONTEXT — Tab2revamp
-Versione: v0.1.10 — 2026-10-22 01:35
+Versione: v0.1.11 — 2026-10-22 02:05
 
 ## Obiettivo
 Riusare un Galaxy Tab 2 10.1 (GT-P5100, lentissimo: ogni tocco richiede secondi)
@@ -198,6 +198,20 @@ Drive), montato solo dopo l'accesso. ⛔ `claude`: limiti di piano dell'account 
   loro scheda. Verificato con i dati reali: tutto visibile. Le ventole seguono `sensors.pairs` (con il
   server v0.2.3 quelle che girano passano al box CPU: da verificare quando la v0.2.3 è attiva).
   Se in futuro i box non ci stanno, l'ultimo mostra solo le righe che entrano.
+- **Presenza con la fotocamera frontale** (APK v0.6.0, 2026-10-22) ✅ provata: spegnimento reale con
+  `DevicePolicyManager.lockNow()` (app amministratore dispositivo, solo policy force-lock), riaccensione
+  con wakelock ACQUIRE_CAUSES_WAKEUP + finestra SHOW_WHEN_LOCKED. Scelte:
+  | Scelta | Perché |
+  |---|---|
+  | movimento (differenza fotogrammi) **o** volto (hardware HAL TI, max 35 volti) | il volto da solo non scatta se si passa di lato; il movimento da solo non vede chi sta fermo davanti |
+  | 160x120 a 5 fps, griglia 40x30 | costo minimo: 3% CPU app + 1% cameraserver |
+  | servizio in primo piano + PARTIAL_WAKE_LOCK | a schermo spento l'Activity è in pausa; il tablet è sempre in carica |
+  | lockNow (amministratore) e non solo luminosità 0 | l'utente ha chiesto di spegnere lo schermo; senza amministratore resta il ripiego "oscurato" |
+  | 5 s di pausa dopo lo spegnimento + 2 fotogrammi consecutivi | falso allarme osservato: il cambio di luce allo spegnimento sembrava movimento |
+  Limiti: al buio il movimento non si vede (la fotocamera non ha IR); da verificare con l'utente la
+  riaccensione al passaggio di una persona (nella prova la riaccensione c'era, ma per il falso allarme).
+  L'utente (2026-10-22): "le risorse sul tablet non mi interessano, è dedicato solo all'APK" → il costo in
+  CPU di animazioni/fotocamera non è un vincolo.
 - Nomi e abbinamenti delle ventole: decisi dall'utente nella pagina `http://localhost:8090/config`
   (server v0.2.4); l'APK mostra `name` e usa `pairs`. Per "non mostrare" l'APK v0.5.1 legge
   `"hidden": true` su fans[]/temps[] ⏳ campo da aggiungere al server (richiesto 2026-10-22 01:40).
