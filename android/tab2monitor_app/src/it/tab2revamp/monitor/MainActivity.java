@@ -1,6 +1,7 @@
 // =============================================================================
 // Tab2Monitor - MainActivity + thread di polling
-// Versione: v0.2.0 - 2026-10-22 00:10
+// Versione: v0.3.0 - 2026-10-22 00:25
+//   v0.3.0: campo "claude" di /api/metrics (pannello utilizzo Claude), chiave p_claude
 //   v0.2.0: sorgenti USB/Wi-Fi e pannelli attivabili dal pannello impostazioni
 //           (SettingsActivity, si apre tenendo premuto lo schermo)
 //   v0.1.0 - 2026-10-21 23:50: prima versione
@@ -47,8 +48,12 @@ public class MainActivity extends Activity {
     static final String PREFS = "tab2monitor";
     static final String USB_URL = "http://127.0.0.1:8090";
     // Interruttori booleani (default true) impostabili dal pannello o con "am start --ez"
+    // 2026-10-22 v0.3.0: + "p_claude". Versione v0.2.0 sostituita:
+    //   static final String[] BOOL_KEYS = {"autostart", "src_usb", "src_wifi",
+    //           "p_cpu", "p_cores", "p_hist", "p_ram", "p_gpu", "p_temps", "p_net", "p_disk", "p_procs"};
     static final String[] BOOL_KEYS = {"autostart", "src_usb", "src_wifi",
-            "p_cpu", "p_cores", "p_hist", "p_ram", "p_gpu", "p_temps", "p_net", "p_disk", "p_procs"};
+            "p_cpu", "p_cores", "p_hist", "p_ram", "p_gpu", "p_temps", "p_net", "p_disk", "p_procs",
+            "p_claude"};
 
     private MonitorView view;
     private Poller poller;
@@ -231,6 +236,16 @@ public class MainActivity extends Activity {
         long rx, tx, dr, dw;
         String[] diskM = new String[0]; float[] diskPct = new float[0]; float[] diskTot = new float[0];
         String[] procN = new String[0]; float[] procCpu = new float[0]; int[] procMb = new int[0];
+        Claude claude;                                     // v0.3.0: null se il server non lo invia
+
+        // Utilizzo Claude (schema concordato con la sessione "Sorgente dati Windows");
+        // -1 = campo assente
+        static final class Claude {
+            long todayTok = -1, todayOut = -1, todayCacheR = -1, weekTok = -1, blockTok = -1;
+            long blockStart, blockEnd;
+            int todayMsgs;
+            String topModel; long topModelTok = -1;
+        }
 
         static float f(JSONObject o, String k) { return o == null ? Float.NaN : (float) o.optDouble(k); }
 
@@ -270,6 +285,19 @@ public class MainActivity extends Activity {
                     JSONObject o = ps.optJSONObject(i);
                     m.procN[i] = o.optString("n"); m.procCpu[i] = f(o, "cpu"); m.procMb[i] = o.optInt("mb");
                 }
+            }
+            JSONObject cl = j.optJSONObject("claude");         // v0.3.0
+            if (cl != null) {
+                Claude k = new Claude();
+                k.todayTok = cl.optLong("today_tok", -1); k.todayOut = cl.optLong("today_out", -1);
+                k.todayCacheR = cl.optLong("today_cache_r", -1); k.weekTok = cl.optLong("week_tok", -1);
+                k.todayMsgs = cl.optInt("today_msgs");
+                k.blockTok = cl.optLong("block_tok", -1);
+                k.blockStart = cl.optLong("block_start"); k.blockEnd = cl.optLong("block_end");
+                JSONArray ms = cl.optJSONArray("models");
+                JSONObject m0 = ms != null && ms.length() > 0 ? ms.optJSONObject(0) : null;
+                if (m0 != null) { k.topModel = m0.optString("m"); k.topModelTok = m0.optLong("tok", -1); }
+                m.claude = k;
             }
             JSONObject l = j.optJSONObject("lhm");             // null se LHM non attivo
             if (l != null) {

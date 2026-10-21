@@ -1,5 +1,5 @@
 # MANUAL — Tab2revamp
-Versione: v0.1.7 — 2026-10-22 00:15
+Versione: v0.1.8 — 2026-10-22 00:30
 
 Galaxy Tab 2 10.1 (GT-P5100) come display delle risorse di un PC Windows.
 
@@ -66,9 +66,9 @@ Sostituisce Jelly + dashboard web: ~15 MB di RAM invece di 60–100, schermo int
 **Build** (PC, Git Bash; serve solo ciò che è già installato: Android SDK in
 `%LOCALAPPDATA%\Android\Sdk` e il JDK di Android Studio, oppure `JAVA_HOME`):
 ```
-bash android/tab2monitor_app/build_tab2monitor_v0.2.0_20261022-0010.sh
+bash android/tab2monitor_app/build_tab2monitor_v0.3.0_20261022-0025.sh
 ```
-Risultato: `android/tab2monitor_app/dist/Tab2Monitor_v0.2.0.apk` (non versionata in git).
+Risultato: `android/tab2monitor_app/dist/Tab2Monitor_v0.3.0.apk` (non versionata in git).
 Lo script di installazione prende l'APK con la versione più alta in `dist/`.
 
 **Installazione** (tablet in USB, server Windows avviato):
@@ -89,6 +89,10 @@ Con `-home` l'app diventa anche la schermata Home (kiosk); `-nohome` la toglie.
   temperature, rete, disco, processi), avvio al boot, intervallo di aggiornamento (ms).
   "Chiudi" o Indietro → la dashboard rilegge tutto subito. I pannelli spenti lasciano spazio agli altri;
   se tutte le sorgenti sono spente compare "Nessuna sorgente dati attiva".
+- **Pannello Claude** (v0.3.0): token consumati da Claude Code sul PC (blocco 5 h con orario di fine,
+  oggi, output, letti da cache, 7 giorni, modello più usato). Richiede un server che invii il campo
+  `claude`; altrimenti mostra "dati non disponibili". Si spegne da Impostazioni → "Claude" o
+  `--ez p_claude false`. Non mostra la % del limite del piano claude.ai.
 - Uscire: scorrere dal bordo per far comparire le barre → Home/Indietro.
 - Configurazione da PC:
   ```
@@ -98,7 +102,7 @@ Con `-home` l'app diventa anche la schermata Home (kiosk); `-nohome` la toglie.
   adb shell am start -n it.tab2revamp.monitor/.MainActivity --ez p_gpu false --ez src_usb false
   adb shell am start -n it.tab2revamp.monitor/.SettingsActivity
   ```
-  Chiavi: `src_usb`, `src_wifi`, `p_cpu`, `p_cores`, `p_hist`, `p_ram`, `p_gpu`, `p_temps`, `p_net`, `p_disk`, `p_procs`.
+  Chiavi: `src_usb`, `src_wifi`, `p_cpu`, `p_cores`, `p_hist`, `p_ram`, `p_gpu`, `p_temps`, `p_net`, `p_disk`, `p_procs`, `p_claude`.
 - Disinstallare: `adb uninstall it.tab2revamp.monitor` (dashboard in Jelly con `tune_v0.1.3`).
 
 ---

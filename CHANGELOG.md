@@ -1,5 +1,13 @@
 # CHANGELOG — Tab2revamp
-Versione documento: v0.1.7 — 2026-10-22 00:15
+Versione documento: v0.1.8 — 2026-10-22 00:30
+
+## 9. v0.1.8 — 2026-10-22 00:30 (sessione locale, APK v0.3.0)
+- APK **Tab2Monitor v0.3.0**: pannello "Claude - utilizzo" (blocco 5 h, oggi, output, cache letta,
+  7 giorni, modello principale), interruttore `p_claude` nelle impostazioni. Legge il campo opzionale
+  `claude` di `/api/metrics` (schema in CONTEXT.md), richiesto alla sessione «Sorgente dati Windows».
+- Aggiunto `android/tab2monitor_app/build_tab2monitor_v0.3.0_20261022-0025.sh` (versionCode 3).
+- Compilata; prova sul tablet in attesa (adb non disponibile). Rollback: `git checkout 2e6ed56 --
+  android/tab2monitor_app/src` e build v0.2.0.
 
 ## 8. v0.1.7 — 2026-10-22 00:15 (sessione locale, APK v0.2.0)
 - APK **Tab2Monitor v0.2.0**: pannello impostazioni (`SettingsActivity`, pressione lunga sulla

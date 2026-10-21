@@ -1,6 +1,7 @@
 // =============================================================================
 // Tab2Monitor - MonitorView (disegno su Canvas)
-// Versione: v0.2.0 - 2026-10-22 00:10
+// Versione: v0.3.0 - 2026-10-22 00:25
+//   v0.3.0: pannello "Claude" (utilizzo token da Claude Code sul PC), id 9, colonna 2
 //   v0.2.0: pannelli attivabili (PANEL_KEYS), colonne vuote eliminate, schermate
 //           "nessuna sorgente" / "tutti i pannelli spenti"
 //   v0.1.0 - 2026-10-21 23:50: layout fisso a 3 colonne
@@ -39,15 +40,22 @@ public class MonitorView extends View {
 
     // 2026-10-22 v0.2.0: pannelli attivabili dal pannello impostazioni.
     // Indici: 0 CPU, 1 core, 2 storico, 3 RAM, 4 GPU, 5 temperature, 6 rete, 7 disco, 8 processi
+    // 2026-10-22 v0.3.0: + "p_claude" (id 9). Versione v0.2.0 sostituita:
+    //   static final String[] PANEL_KEYS = {"p_cpu", "p_cores", "p_hist", "p_ram", "p_gpu",
+    //           "p_temps", "p_net", "p_disk", "p_procs"};
     static final String[] PANEL_KEYS = {"p_cpu", "p_cores", "p_hist", "p_ram", "p_gpu",
-            "p_temps", "p_net", "p_disk", "p_procs"};
+            "p_temps", "p_net", "p_disk", "p_procs", "p_claude"};
     static final String[] PANEL_LABELS = {"CPU (totale e frequenza)", "Core (un istogramma per core)",
             "Storico 60 s (CPU / RAM)", "RAM e swap", "GPU (LibreHardwareMonitor)",
             "Temperature (LibreHardwareMonitor)", "Rete (download / upload)",
-            "Disco I/O e spazio dischi", "Top processi per CPU"};
+            "Disco I/O e spazio dischi", "Top processi per CPU",
+            "Claude - utilizzo account (token da Claude Code sul PC)"};
     // Colonne come nella dashboard web
-    static final int[][] COLS = {{0, 1, 2}, {3, 4, 5}, {6, 7, 8}};
-    private boolean[] panelOn = {true, true, true, true, true, true, true, true, true};
+    // 2026-10-22 v0.3.0: Claude (9) tra GPU e temperature. Versione v0.2.0 sostituita:
+    //   static final int[][] COLS = {{0, 1, 2}, {3, 4, 5}, {6, 7, 8}};
+    //   private boolean[] panelOn = {true, true, true, true, true, true, true, true, true};
+    static final int[][] COLS = {{0, 1, 2}, {3, 4, 9, 5}, {6, 7, 8}};
+    private boolean[] panelOn = {true, true, true, true, true, true, true, true, true, true};
 
     private final Paint fill = new Paint(), stroke = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint text = new Paint(Paint.ANTI_ALIAS_FLAG), big = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -227,6 +235,7 @@ public class MonitorView extends View {
             case 0: case 1: case 3: case 4: return 170 * u;
             case 6: return 104 * u;
             case 7: return (104 + 26 * Math.min(m.diskM.length, 6)) * u;
+            case 9: return 210 * u;                          // v0.3.0: Claude, 6 righe
             default: return -1;                              // storico, temperature, processi
         }
     }
@@ -296,6 +305,9 @@ public class MonitorView extends View {
                             pct(m.diskPct[i]) + " di " + num1(m.diskTot[i]) + " GB");
                 break;
             }
+            case 9:                                          // v0.3.0
+                claudeCard(cv, x, y, w, h);
+                break;
             case 8: {
                 card(cv, x, y, w, h, "Top processi (CPU)");
                 int np = Math.min(m.procN.length, (int) ((h - 44 * u) / (26 * u)));
@@ -390,6 +402,39 @@ public class MonitorView extends View {
         if (s == null) return "";
         int n = text.breakText(s, true, Math.max(0, max), null);
         return n >= s.length() ? s : s.substring(0, Math.max(0, n - 1)) + "…";
+    }
+
+    // ------------------------------------------------- pannello Claude (v0.3.0)
+    // Dati dal campo "claude" di /api/metrics (server Windows, che legge i log locali di
+    // Claude Code: ~/.claude/projects/*.jsonl). Sono token consumati da Claude Code su quel PC,
+    // non la percentuale del limite del piano (non esposta da nessuna API pubblica).
+    private void claudeCard(Canvas cv, float x, float y, float w, float h) {
+        MainActivity.Metrics.Claude c = m.claude;
+        card(cv, x, y, w, h, "Claude - utilizzo (Claude Code)");
+        if (c == null) {
+            row(cv, x, y + 60 * u, w, "dati non disponibili", "");
+            row(cv, x, y + 86 * u, w, "il server non invia ancora il campo \"claude\"", "");
+            return;
+        }
+        String blk = "Blocco 5 h";
+        if (c.blockEnd > 0) {
+            cal.setTimeInMillis(c.blockEnd * 1000L);
+            blk += "  (fino alle " + two(cal.get(Calendar.HOUR_OF_DAY)) + ":" + two(cal.get(Calendar.MINUTE)) + ")";
+        }
+        row(cv, x, y + 60 * u, w, blk, c.blockEnd > 0 ? tok(c.blockTok) : "nessuno attivo");
+        row(cv, x, y + 86 * u, w, "Oggi  (" + c.todayMsgs + " risposte)", tok(c.todayTok));
+        row(cv, x, y + 112 * u, w, "Oggi - output", tok(c.todayOut));
+        row(cv, x, y + 138 * u, w, "Oggi - letti da cache", tok(c.todayCacheR));
+        row(cv, x, y + 164 * u, w, "Ultimi 7 giorni", tok(c.weekTok));
+        row(cv, x, y + 190 * u, w, c.topModel != null ? c.topModel : "modello: --",
+                c.topModel != null ? tok(c.topModelTok) : "");
+    }
+
+    private static String tok(long t) {
+        if (t < 0) return "--";
+        if (t >= 1000000) return (Math.round(t / 100000f) / 10f) + " M";
+        if (t >= 1000) return Math.round(t / 1000f) + " k";
+        return String.valueOf(t);
     }
 
     // ---------------------------------------------------------------- formati

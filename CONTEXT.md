@@ -1,5 +1,5 @@
 # CONTEXT — Tab2revamp
-Versione: v0.1.7 — 2026-10-22 00:15 (ora locale; anche le voci precedenti marcate "UTC" sono in ora locale)
+Versione: v0.1.8 — 2026-10-22 00:30 (ora locale; anche le voci precedenti marcate "UTC" sono in ora locale)
 
 ## Obiettivo
 Riusare un Galaxy Tab 2 10.1 (GT-P5100, lentissimo: ogni tocco richiede secondi)
@@ -51,6 +51,7 @@ psutil ── tab2monitor_server (:8090) ───┼── USB: adb reverse tcp
 | SensorService | ✅ risolto (HAL sensori disattivato, 2026-10-22) | thread `SensorService` di system_server al ~50% (un core) con **0 connessioni attive**. `strace -p <tid>` (2026-10-21): loop di `ppoll(..., timeout 0)` su 6 fd, il 5° è **non inizializzato** (`fd=539771469`, eventi spazzatura) → ritorna subito `POLLNVAL` e il ciclo non dorme mai. Bug dell'HAL `/system/lib/hw/sensors.omap4.so` ("Galaxy Tab 2 Sensor Module", MD5 `b46bfa99…1539`); il valore dipende da memoria non inizializzata, per questo a volte era 0%. **Fix approvato dall'utente ed eseguito**: HAL rinominato in `sensors.omap4.so.off`, backup in `backup/lineage14.1_20200623/sensors.omap4.so.orig` (MD5 uguale). Dopo il riavvio: boot ~40 s, `dumpsys sensorservice` = "No Sensors on the device", nessun crash, nessun thread SensorService in `top`, Tab2Monitor riavviata da sola. Si perdono rotazione/luminosità automatiche (voluto). Rollback: `adb root; adb remount; adb shell mv /system/lib/hw/sensors.omap4.so.off /system/lib/hw/sensors.omap4.so; adb reboot` (oppure `adb push backup/lineage14.1_20200623/sensors.omap4.so.orig /system/lib/hw/sensors.omap4.so`, MD5 `b46bfa99…1539`) |
 | APK Tab2Monitor v0.1.0 | ✅ installata e provata | build senza Gradle (JDK di Android Studio, nessun download); via USB ✅, ripiego Wi‑Fi dopo `adb reverse --remove-all` ✅, PSS **14,5 MB** (Jelly con dashboard 64 MB PSS / ~105 MB RSS), CPU app ~3% |
 | APK Tab2Monitor v0.2.0 — pannello impostazioni | ✅ installata e provata (2026-10-22) | pressione lunga sulla dashboard → `SettingsActivity`: interruttori per le sorgenti (USB, Wi‑Fi + URL) e per ognuno dei 9 pannelli, avvio al boot, intervallo. Provato: apertura con pressione lunga, 3 pannelli spenti → colonne ricomposte, nessun crash. APK 25 KB |
+| APK Tab2Monitor v0.3.0 — pannello Claude | ⏳ compilata, non ancora provata sul tablet | pannello "Claude - utilizzo" (id 9, chiave `p_claude`, colonna 2 tra GPU e temperature), disattivabile come gli altri; senza campo `claude` dal server mostra "dati non disponibili". Prova prevista con un mock locale (porta 8091 + `adb reverse tcp:8090 tcp:8091`); adb assente dopo `adb root` |
 | Avvio al boot | ✅ verificato | dopo `adb reboot` (2026-10-22 00:00): `mResumedActivity = it.tab2revamp.monitor/.MainActivity`, screenshot con dati via **Wi‑Fi** (adb reverse perso). PSS 13,9 MB. Il boot completo + ricomparsa di adb ha richiesto ~3–4 min: adb resta assente per minuti anche se Windows vede già il dispositivo USB |
 | Wi‑Fi tablet | ✅ acceso | era spento dopo il setup LineageOS; `svc wifi enable` → si collega da solo (2 reti salvate), IP **192.168.1.234** (DHCP; sullo stock era .226) |
 
@@ -140,6 +141,22 @@ Rollback: `adb uninstall it.tab2revamp.monitor`, poi la dashboard web con
 - Facoltativo: `install_tab2monitor_*.sh -home` per usarla come Home (kiosk).
 - APK v0.2.0: una colonna senza pannelli "elastici" (storico/temperature/processi) lascia spazio vuoto
   sotto; valutare se allungare i pannelli rimasti.
+- **Pannello Claude** (richiesta utente 2026-10-22): APK pronta; il campo `claude` di `/api/metrics`
+  è chiesto alla sessione «Sorgente dati Windows» (messaggio del 2026-10-22 00:20). Fonte: log locali
+  di Claude Code `%USERPROFILE%\.claude\projects\**\*.jsonl` (`message.usage` per risposta,
+  deduplicati per `message.id`). **Scelte**: niente credenziali/OAuth (`.credentials.json` non va letto),
+  niente API non documentate → si vedono i **token usati da Claude Code su quel PC**, non la % del
+  limite del piano claude.ai (non esposta da API pubbliche) né l'uso da claude.ai web/app. Schema:
+```
+"claude": {                      // null / assente se il server non ha la fonte
+  "today_tok": int,              // input+output+cache_creation di oggi (ora locale), senza cache_read
+  "today_out": int, "today_cache_r": int, "today_msgs": int,
+  "block_tok": int, "block_start": epoch, "block_end": epoch,   // finestra 5 h corrente
+  "week_tok": int,               // ultimi 7 giorni
+  "models": [{"m": "claude-opus-5-5", "tok": int}],             // oggi, max 3
+  "scan_ts": epoch
+}
+```
 - Altre funzioni APK richieste dall'utente il 2026-10-22: «aggiungere altre funzioni», la prima era il
   pannello impostazioni (fatto); le prossime da definire.
 - Sessione parallela «Sorgente dati Windows per Tab2Monitor» (server `windows/agent/`) aperta il
