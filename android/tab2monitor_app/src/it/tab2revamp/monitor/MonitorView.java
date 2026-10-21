@@ -1,6 +1,9 @@
 // =============================================================================
 // Tab2Monitor - MonitorView (disegno su Canvas)
-// Versione: v0.9.0 - 2026-10-22 03:10
+// Versione: v0.9.1 - 2026-10-22 03:50
+//   v0.9.1: intestazione con la BATTERIA del tablet: livello %, temperatura (unica temperatura in
+//           gradi esposta dal GT-P5100: il kernel non ha sensori CPU leggibili, la EMIF da' solo un
+//           livello), freccia carica/scarica (rossa se scarica col cavo collegato).
 //   v0.9.0: ANIMAZIONI FLUIDE. Tra un campione e il successivo (= intervallo di polling) i valori
 //           di CPU, RAM, core e GPU (anelli, numeri, colonnine) passano dal vecchio al nuovo con
 //           un'accelerazione morbida (easeInOut) e i grafici (storico, mini-grafici) scorrono a
@@ -95,6 +98,8 @@ public class MonitorView extends View {
     // v0.9.0: carico del tablet
     private long tIdle, tTotal;
     private int tabCpu = -1, tabRam = -1;
+    private int battPct = -1, battTemp10 = -1, battStatus;   // v0.9.1 (temperatura in decimi di grado)
+    private boolean battPlugged;
     private final android.app.ActivityManager.MemoryInfo memInfo = new android.app.ActivityManager.MemoryInfo();
     private final byte[] statBuf = new byte[256];
     // v0.9.0: livelli. pass 0 = tutto (animazioni spente), 1 = solo parte fissa, 2 = solo animata
@@ -333,6 +338,17 @@ public class MonitorView extends View {
                 getContext().getSystemService(Context.ACTIVITY_SERVICE);
         am.getMemoryInfo(memInfo);
         tabRam = memInfo.totalMem > 0 ? Math.round(100f * (1 - memInfo.availMem / (float) memInfo.totalMem)) : -1;
+        // v0.9.1: batteria dall'intent "sticky" ACTION_BATTERY_CHANGED (nessun permesso richiesto)
+        android.content.Intent b = getContext().registerReceiver(null,
+                new android.content.IntentFilter(android.content.Intent.ACTION_BATTERY_CHANGED));
+        if (b != null) {
+            int lvl = b.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1);
+            int sc = b.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, 100);
+            battPct = lvl < 0 ? -1 : Math.round(100f * lvl / sc);
+            battTemp10 = b.getIntExtra(android.os.BatteryManager.EXTRA_TEMPERATURE, -1);
+            battStatus = b.getIntExtra(android.os.BatteryManager.EXTRA_STATUS, 0);
+            battPlugged = b.getIntExtra(android.os.BatteryManager.EXTRA_PLUGGED, 0) != 0;
+        }
     }
 
     // Chiamato dal thread UI: m == null -> server non raggiungibile
@@ -424,8 +440,21 @@ public class MonitorView extends View {
         // v0.9.0: carico del tablet, piccolissimo, a sinistra del pallino di stato
         if (tabCpu >= 0 || tabRam >= 0) {
             text.setTextSize(12 * u); text.setColor(DIM); text.setTextAlign(Paint.Align.RIGHT);
+            // v0.9.1: + batteria. Prima: solo "tablet  CPU x%  RAM y%"
+            float bx = dotX - 14 * u;
+            if (battPct >= 0) {
+                boolean chg = battStatus == android.os.BatteryManager.BATTERY_STATUS_CHARGING
+                        || battStatus == android.os.BatteryManager.BATTERY_STATUS_FULL;
+                String bt = "batt " + battPct + "% " + (chg ? "\u25b2" : "\u25bc")
+                        + (battTemp10 > 0 ? "  " + Math.round(battTemp10 / 10f) + "\u00b0C" : "");
+                // rosso: cavo collegato ma la batteria scende (alimentatore troppo debole, es. USB del PC)
+                text.setColor(!chg && battPlugged ? RED : battPct <= 20 ? YELLOW : DIM);
+                cv.drawText(bt, bx, hy - 1 * u, text);
+                bx -= text.measureText(bt) + 12 * u;
+                text.setColor(DIM);
+            }
             cv.drawText("tablet  CPU " + (tabCpu < 0 ? "--" : tabCpu + "%") + "  RAM " + (tabRam < 0 ? "--" : tabRam + "%"),
-                    dotX - 14 * u, hy - 1 * u, text);
+                    bx, hy - 1 * u, text);
             text.setTextSize(17 * u);
         }
         }                                                    // fine intestazione (v0.9.0)

@@ -15,6 +15,16 @@ Versione documento: v0.1.14 — 2026-10-22 01:35 (ora del PC)
   background) → avvio automatico solo in modalità Home.
 - Nessun file di codice modificato. Rollback: `git rm PIANO_INSTALLER_v0.1.0_20261022-0135.md`.
 
+## 14. (2) v0.1.13 — 2026-10-22 03:55 (sessione locale, APK v0.9.1 + misure batteria)
+- APK **v0.9.1**: nell'intestazione la batteria del tablet (livello, freccia carica/scarica, temperatura);
+  rossa se il cavo è collegato ma la batteria scende. Aggiunto `build_tab2monitor_v0.9.1_20261022-0350.sh`.
+- Temperature del tablet: l'unica in gradi è quella della batteria (32 °C); il kernel non espone la CPU
+  OMAP4 (nessun thermal_zone, niente omap_temp_sensor), la EMIF dà solo un livello (3 = normale).
+- **Batteria sulla USB del PC**: schermo acceso −730 mA (~ −10%/h), schermo spento +80…+156 mA
+  (~ +2%/h); stato sempre "Discharging" (USB 500 mA). In pari solo con schermo spento ≥ 83% del tempo.
+- Nessun nodo del kernel per sospendere la carica (solo nodi Samsung `charging_source`,
+  `batt_lp_charging`, scrivibili da root, non pensati per questo): l'app non può limitare la carica da sola.
+
 ## 14. v0.1.13 — 2026-10-22 03:35 (sessione locale, APK v0.9.0)
 - APK **v0.9.0** (richieste utente):
   - **animazioni fluide**: anelli, numeri, colonnine dei core e indicatori GPU passano al nuovo valore

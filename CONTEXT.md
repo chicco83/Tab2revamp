@@ -227,6 +227,9 @@ Drive), montato solo dopo l'accesso. ⛔ `claude`: limiti di piano dell'account 
   (Bitmap fissa + parte animata). ⏳ Ancora non a 60 fps: ~28 fps mediani sul OMAP4430/SGX540; margini
   possibili: niente gradienti nuovi a ogni frame (shader in cache), meno anti-aliasing sulle aree.
   Gauge check all'accensione ✅ (avvio verificato). Carico del tablet nell'intestazione ✅.
+- **Batteria / carica** (2026-10-22): sulla USB del PC il tablet si scarica a schermo acceso (−730 mA) e si
+  carica piano a schermo spento (+150 mA). Il kernel non permette di sospendere la carica. ⏳ Decisione
+  dell'utente sulle opzioni (caricatore 2 A + presa smart comandata dall'app, oppure USB del PC + presenza).
 - **Installer** per altri PC/tablet: pianificato nella sessione dedicata «Piano installer Tab2Monitor»
   (2026-10-22): vedere il suo `PIANO_INSTALLER_*.md` quando pronto.
 - Nomi e abbinamenti delle ventole: decisi dall'utente nella pagina `http://localhost:8090/config`
