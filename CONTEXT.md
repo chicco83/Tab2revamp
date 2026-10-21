@@ -133,6 +133,26 @@ RAM: MemTotal 937 MB (stock 819), Jelly con dashboard ~105–120 MB RSS.
 Rollback: `adb uninstall it.tab2revamp.monitor`, poi la dashboard web con
 `bash android/tune_v0.1.3_20261021-2315.sh` (apre Jelly).
 
+## API /api/metrics — campi aggiunti in v0.2.0 (server 2026-10-22)
+I campi v0.1.0 restano identici. `lhm` non è più null senza LHM: viene riempito con la GPU principale
+da Windows (`lhm.src` = `lib` Tab2Sensors / `lhm` app LHM / `win` solo Windows).
+| Campo | Contenuto |
+|---|---|
+| `cpu.mhz_cores[]`, `cpu.mhz_now`, `cpu.mhz_max` | MHz reali per core (base × % Processor Performance) |
+| `cpu.queue` | coda processore |
+| `sys.procs`, `sys.threads` | numero processi e thread |
+| `gpus[]` | `name, luid, load, mem_mb, mem_tot_mb, mem_pct, temp, fan_rpm, power_pct, src` per scheda |
+| `sensors.hw[]` | `id, name, kind (cpu/gpu/mb/disk/ram/other), temps[{name,c}], fans[{name,rpm,pct}]` |
+| `sensors.pairs[]` | `fan, rpm, pct, fan_hw, temp, c, temp_hw, how (map/same_hw/cpu/mb/guess), g` — stesso `g` = stesso colore sull'APK |
+| `srv` | `lhm` (fonte sensori), `adb` {seriale: ok/errore}, `http` |
+
+Stato server v0.2.0: ✅ in esecuzione sulla 8090 (supervisore avviato a mano, senza admin) ·
+⏳ installare l'avvio automatico (serve UAC dell'utente) · ⏳ sensori CPU/scheda madre/ventole case
+(si vedono solo con admin) e poi compilare `fan_map_*.json` · ⏳ APK: disegnare `sensors.pairs`
+(file della sessione impostazioni APK) · ⏳ CPU del server ~25% di un core (da misurare/ridurre:
+probabile contatore PDH `GPU Engine(*)`) · ⛔ avvio prima dell'accesso: il progetto sta su G: (Google
+Drive), montato solo dopo l'accesso. ⛔ FanControl: vedi CHANGELOG v0.2.0.
+
 ## Punti aperti
 - SensorService: ✅ risolto disattivando l'HAL (vedi tabella Stato). Scartate: patch binaria dell'HAL (rischiosa, da rifare a ogni flash) e conviverci (un core su due sprecato). Attenzione: un reflash della ROM ripristina l'HAL → rifare il rename.
 - `adb reverse` va rifatto a ogni riavvio del tablet: con l'APK non è più bloccante (ripiego Wi‑Fi).

@@ -22,6 +22,23 @@ Versione documento: v0.1.8 — 2026-10-22 00:30
   (il versionCode scende, `install -r` non basta).
 - Aperta una sessione parallela per la sorgente dati lato Windows.
 
+## 8. v0.2.0 — 2026-10-22 00:20 (sessione locale, server Windows)
+- Nuovo `windows/agent/tab2monitor_server_v0.2.0_20261022-0015.py`: HTTP/1.1 keep-alive, `adb reverse`
+  automatico ogni 5 s, frequenza reale per core e coda CPU (PDH), carico/VRAM/temperatura per GPU
+  (PDH + DXGI + D3DKMT, anche la MI50 "Radeon Pro VII" a 35 °C, senza admin), tutte le temperature e
+  ventole raggruppate per hardware con abbinamento ventola→temperatura (`sensors.pairs`, `fan_map_*.json`).
+- Sensori via `Tab2Sensors.exe` (`windows/agent/sensors/Tab2Sensors.cs`, compilato con csc di Windows)
+  che usa `LibreHardwareMonitorLib.dll` v0.9.6 in `windows/lhm/` (scaricata da GitHub, SHA256
+  `086d9f1b…c001` verificato, esclusa da git): nessuna app LHM da tenere aperta.
+- Avvio automatico: `install_tab2monitor_service_v0.2.0_20261022-0055.cmd` (attività pianificata
+  all'accesso, privilegi elevati, supervisore `tab2monitor_service_v0.2.0_*.py`). **Non ancora installata.**
+- Provato dal vivo: `/api/metrics` v0.2.0 sulla 8090, keep-alive (curl "Reusing existing connection"),
+  `adb reverse --remove-all` → rifatto da solo in ≤5 s, tablet connesso. Campi v0.1.0 invariati.
+- FanControl valutato e scartato: closed source, interfaccia sopra la stessa LibreHardwareMonitorLib,
+  i plugin aggiungono sensori a FanControl ma non li esportano; servirebbe un altro client sempre aperto.
+- Rollback: `start_tab2monitor_v0.1.0_20261021-1845.cmd` (il server v0.1.0 resta nella cartella;
+  per farlo scegliere dal .cmd v0.2.0 spostare il file v0.2.0).
+
 ## 7. v0.1.6 — 2026-10-22 00:10 (sessione locale, modifica /system approvata dall'utente)
 - HAL sensori disattivato: `/system/lib/hw/sensors.omap4.so` → `sensors.omap4.so.off`
   (backup `backup/lineage14.1_20200623/sensors.omap4.so.orig`, MD5 `b46bfa9921fa7a8ccf09a29d7b251539`).

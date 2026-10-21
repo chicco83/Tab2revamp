@@ -9,3 +9,7 @@ backup/
 android/tab2monitor_app/build/
 android/tab2monitor_app/dist/
 *.apk
+# LibreHardwareMonitor (binari scaricati da GitHub + Tab2Sensors.exe compilato, config/log scritti da LHM)
+windows/lhm/LibreHardwareMonitor_v*/
+# log del supervisore del server Windows
+windows/agent/logs/

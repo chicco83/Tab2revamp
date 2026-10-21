@@ -175,3 +175,13 @@ Con `-home` l'app diventa anche la schermata Home (kiosk); `-nohome` la toglie.
 | Build APK: `invalid flag: /g/Il` o percorso spezzato | usare lo script di build (gestisce gli spazi); non chiamare `d8.bat` a mano |
 | SensorService al 50% CPU | bug dell'HAL `sensors.omap4.so` (pollfd non inizializzata): disattivarlo, sez. 3 punto 6c |
 | Script tune bloccato su "disable ..." | stock < 4.3 senza root; usare v0.1.2; uccidere i `pm` orfani: `adb shell ps` → `adb shell kill <pid>` degli `app_process` dell'utente shell |
+
+## Server Windows v0.2.0 (2026-10-22)
+- Avvio manuale: `windows/agent/start_tab2monitor_v0.2.0_20261022-0055.cmd` (tasto destro → Esegui come
+  amministratore per CPU/scheda madre/ventole). `adb reverse` lo rifà il server da solo.
+- Avvio automatico all'accesso: doppio clic su `install_tab2monitor_service_v0.2.0_20261022-0055.cmd`
+  (UAC). Togliere: stesso .cmd con `-Remove`. Log: `windows/agent/logs/tab2monitor_service.log`.
+- Sensori: dopo un nuovo download di LHM in `windows/lhm/LibreHardwareMonitor_vX/` ricompilare
+  `bash windows/agent/sensors/build_tab2sensors_v0.1.0_20261022-0040.sh`.
+- Abbinare una ventola a una temperatura: modificare `windows/agent/fan_map_*.json` (nuova versione) e
+  riavviare il server.

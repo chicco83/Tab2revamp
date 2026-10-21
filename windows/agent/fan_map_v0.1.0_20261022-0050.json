@@ -1,0 +1,6 @@
+{
+  "_versione": "v0.1.0 - 2026-10-22 00:50 (ora locale)",
+  "_cosa": "Abbina a mano una ventola alla temperatura che la governa. Chiave: 'nome ventola' oppure 'hardware|nome ventola' (come in /api/metrics -> sensors.hw). Valore: 'hardware|nome temperatura'. Le chiavi che iniziano con _ sono commenti.",
+  "_esempio": "\"Fan #3\": \"AMD Radeon Pro VII|GPU\"  (ventola su header della scheda madre che raffredda la MI50)",
+  "_nota": "I nomi reali delle ventole della scheda madre si vedono solo con il server avviato come amministratore (driver PawnIO): compilare questa mappa dopo."
+}
