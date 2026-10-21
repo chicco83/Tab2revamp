@@ -1,5 +1,5 @@
 # CONTEXT — Tab2revamp
-Versione: v0.1.12 — 2026-10-22 02:55
+Versione: v0.1.13 — 2026-10-22 03:35
 
 ## Obiettivo
 Riusare un Galaxy Tab 2 10.1 (GT-P5100, lentissimo: ogni tocco richiede secondi)
@@ -223,6 +223,12 @@ Drive), montato solo dopo l'accesso. ⛔ `claude`: limiti di piano dell'account 
   | voce Pico italiana sul flusso "allarme" | unico motore TTS senza GApps; il flusso allarme suona anche con volume media a 0 |
   | soglia per sensore con chiave `thr|<hardware>|<sensore>` | i nomi arrivano già rinominati dal server (/config): rinominare un sensore azzera la sua soglia personale |
   | allarmi spenti di default | evitare voci notturne non volute |
+- **Animazioni v0.9.0** ✅: valori interpolati + grafici a scorrimento continuo; disegno a due livelli
+  (Bitmap fissa + parte animata). ⏳ Ancora non a 60 fps: ~28 fps mediani sul OMAP4430/SGX540; margini
+  possibili: niente gradienti nuovi a ogni frame (shader in cache), meno anti-aliasing sulle aree.
+  Gauge check all'accensione ✅ (avvio verificato). Carico del tablet nell'intestazione ✅.
+- **Installer** per altri PC/tablet: pianificato nella sessione dedicata «Piano installer Tab2Monitor»
+  (2026-10-22): vedere il suo `PIANO_INSTALLER_*.md` quando pronto.
 - Nomi e abbinamenti delle ventole: decisi dall'utente nella pagina `http://localhost:8090/config`
   (server v0.2.4); l'APK mostra `name` e usa `pairs`. Per "non mostrare" l'APK v0.5.1 legge
   `"hidden": true` su fans[]/temps[] ⏳ campo da aggiungere al server (richiesto 2026-10-22 01:40).

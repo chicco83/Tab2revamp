@@ -1,5 +1,5 @@
 # MANUAL — Tab2revamp
-Versione: v0.1.12 — 2026-10-22 02:55
+Versione: v0.1.13 — 2026-10-22 03:35
 
 Galaxy Tab 2 10.1 (GT-P5100) come display delle risorse di un PC Windows.
 
@@ -66,9 +66,9 @@ Sostituisce Jelly + dashboard web: ~15 MB di RAM invece di 60–100, schermo int
 **Build** (PC, Git Bash; serve solo ciò che è già installato: Android SDK in
 `%LOCALAPPDATA%\Android\Sdk` e il JDK di Android Studio, oppure `JAVA_HOME`):
 ```
-bash android/tab2monitor_app/build_tab2monitor_v0.8.0_20261022-0245.sh
+bash android/tab2monitor_app/build_tab2monitor_v0.9.0_20261022-0310.sh
 ```
-Risultato: `android/tab2monitor_app/dist/Tab2Monitor_v0.8.0.apk` (non versionata in git).
+Risultato: `android/tab2monitor_app/dist/Tab2Monitor_v0.9.0.apk` (non versionata in git).
 Lo script di installazione prende l'APK con la versione più alta in `dist/`.
 
 **Installazione** (tablet in USB, server Windows avviato):
@@ -124,6 +124,10 @@ Con `-home` l'app diventa anche la schermata Home (kiosk); `-nohome` la toglie.
   voce italiana quando un sensore supera la soglia; soglia generale + una casella per ogni sensore
   (vuoto = generale, 0 = mai). "Prova voce" per sentire l'audio. Serve il motore **Pico**: se è stato
   disattivato, `adb shell pm enable com.svox.pico` (il debloat `tune_v0.1.4` non lo tocca più).
+- **Animazioni** (v0.9.0): "Animazioni fluide" (valori e grafici scorrono invece di scattare) e
+  "Gauge check all'accensione" (indicatori al massimo e ritorno alla lettura reale quando lo schermo
+  si accende) nelle impostazioni, entrambe attive di default. In alto a destra, in piccolo, il carico
+  di CPU e RAM del tablet.
 - Uscire: scorrere dal bordo per far comparire le barre → Home/Indietro.
 - Configurazione da PC:
   ```
@@ -135,7 +139,7 @@ Con `-home` l'app diventa anche la schermata Home (kiosk); `-nohome` la toglie.
   ```
   Chiavi booleane: `src_usb`, `src_wifi`, `p_cpu`, `p_cores`, `p_hist`, `p_ram`, `p_gpu`, `p_temps`, `p_net`, `p_disk`, `p_procs`, `p_claude`, `p_fans`, `anim_fans`.
   Intere (`--ei`): `poll_ms`, `page_sec`, `gpu_busy_pct`, `gpu_busy_sec`, `presence_off_sec`, `presence_sens`.
-  Booleane con default falso: `presence`, `alarm_on`; `load_wake` (default vero).
+  Booleane con default falso: `presence`, `alarm_on`; `load_wake`, `anim_smooth`, `gauge_check` (default vero).
   Soglie (`--ei`): `th_cpu`, `th_gpu`, `th_ram`, `th_vram`, `alarm_def`.
 - Disinstallare: `adb uninstall it.tab2revamp.monitor` (dashboard in Jelly con `tune_v0.1.3`).
 

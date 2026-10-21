@@ -1,6 +1,23 @@
 // =============================================================================
 // Tab2Monitor - MonitorView (disegno su Canvas)
-// Versione: v0.7.0 - 2026-10-22 02:30
+// Versione: v0.9.0 - 2026-10-22 03:10
+//   v0.9.0: ANIMAZIONI FLUIDE. Tra un campione e il successivo (= intervallo di polling) i valori
+//           di CPU, RAM, core e GPU (anelli, numeri, colonnine) passano dal vecchio al nuovo con
+//           un'accelerazione morbida (easeInOut) e i grafici (storico, mini-grafici) scorrono a
+//           sinistra in modo continuo (lineare) con il nuovo punto che entra da destra.
+//           Ridisegno con postInvalidateOnAnimation() (vsync) solo mentre l'animazione e' in corso;
+//           interruttore "anim_smooth" nelle impostazioni (spento = comportamento v0.8.0).
+//           + carico del TABLET (CPU da /proc/stat, RAM da ActivityManager) in piccolo
+//           nell'intestazione, accanto a "USB"/"Wi-Fi" (richiesta utente).
+//           DUE LIVELLI (2a stesura): ridisegnare tutto a ogni frame costava ~53 ms/frame e 47%
+//           CPU. Ora la parte fissa (schede, testi, elenchi, intestazione) si disegna una volta per
+//           campione su una Bitmap (pass 1); a ogni frame si copia la Bitmap e sopra si disegnano
+//           solo gli elementi animati: anelli, numeri principali, colonnine dei core, grafici (pass 2).
+//           GAUGE CHECK (richiesta utente): all'accensione dello schermo tutti gli indicatori
+//           salgono al 100% (0,7 s) e riscendono alla lettura reale (0,9 s), come il test
+//           delle lancette di un cruscotto. Interruttore "gauge_check".
+//           Anelli: il gradiente torna verde vicino all'inizio, cosi' il cappuccio arrotondato
+//           di un anello quasi vuoto non e' piu' rosso.
 //   v0.7.0: GRAFICA ispirata ai pannelli hardware commerciali (ricerca 2026-10-22: AIDA64
 //           SensorPanel, NZXT Kraken LCD, Corsair Xeneon Edge, Lian Li Universal Screen,
 //           Thermalright Trofeo Vision, temi Turing Smart Screen):
@@ -68,6 +85,31 @@ public class MonitorView extends View {
     static final int[] GPU_ACC = {AMD_RED, ORANGE, VIOLET, CYAN};
     private int accent = BLUE;                           // accento della scheda che si sta disegnando
     private final Matrix mx = new Matrix();
+    // v0.9.0: animazioni fluide. p* = valori di partenza, d* = valori mostrati in questo frame
+    private boolean smooth = true;
+    private int animMs = 1000;
+    private long animStart;
+    private float pCpu, pRam, dCpu, dRam, eLin = 1, eEase = 1;
+    private float[] pCores = new float[0], dCores = new float[0];
+    private float[] pGl = new float[0], pGm = new float[0], dGl = new float[0], dGm = new float[0];
+    // v0.9.0: carico del tablet
+    private long tIdle, tTotal;
+    private int tabCpu = -1, tabRam = -1;
+    private final android.app.ActivityManager.MemoryInfo memInfo = new android.app.ActivityManager.MemoryInfo();
+    private final byte[] statBuf = new byte[256];
+    // v0.9.0: livelli. pass 0 = tutto (animazioni spente), 1 = solo parte fissa, 2 = solo animata
+    private int pass;
+    private android.graphics.Bitmap base;
+    private Canvas baseCv;
+    private boolean baseDirty = true;
+    private boolean st() { return pass != 2; }
+    // v0.9.0: gauge check
+    static final int SWEEP_UP = 700, SWEEP_DOWN = 900;
+    private boolean sweepOn = true, sweepPending = true;
+    private long sweepAt;
+    void setGaugeCheck(boolean on) { sweepOn = on; if (!on) { sweepPending = false; sweepAt = 0; } }
+    void gaugeCheck() { if (sweepOn) { sweepPending = true; invalidate(); } }
+    private boolean dy() { return pass != 1; }
     static final int HIST = 60;
 
     // 2026-10-22 v0.2.0: pannelli attivabili dal pannello impostazioni.
@@ -185,6 +227,7 @@ public class MonitorView extends View {
             if (pageOn(p)) { page = p; break; }
         }
         pageAt = SystemClock.uptimeMillis();
+        baseDirty = true;                                    // v0.9.0
         invalidate();
     }
 
@@ -210,13 +253,98 @@ public class MonitorView extends View {
         on = all;
         urls = u; panelOn = on; pageSec = sec; pageAt = SystemClock.uptimeMillis(); animFans = anim;
         gpuBusyPct = busyPct; gpuBusySec = busySec;
+        baseDirty = true;                                    // v0.9.0
         if (u.length == 0) { m = null; src = null; }       // nessuna sorgente: schermata d'avviso
         invalidate();
     }
 
+    // v0.9.0: animazione fluida accesa/spenta e durata (= intervallo di polling)
+    void setAnim(boolean on, int ms) { smooth = on; animMs = Math.max(200, ms); }
+
+    // v0.9.0: avanzamento dell'animazione (lineare per lo scorrimento, easeInOut per i valori)
+    private void step() {
+        float t = !smooth ? 1 : Math.min(1, (SystemClock.uptimeMillis() - animStart) / (float) animMs);
+        eLin = t;
+        eEase = t < 0.5f ? 2 * t * t : 1 - (-2 * t + 2) * (-2 * t + 2) / 2;
+    }
+
+    private static float lerp(float a, float b, float e) {
+        if (Float.isNaN(a)) return b;
+        if (Float.isNaN(b)) return b;
+        return a + (b - a) * e;
+    }
+
+    // Calcola i valori mostrati (d*) tra i valori di partenza (p*) e quelli del campione m
+    private void sync() {
+        if (m == null) return;
+        dCpu = lerp(pCpu, m.cpu, eEase); dRam = lerp(pRam, m.ram, eEase);
+        int nc = m.cores.length;
+        if (dCores.length != nc) dCores = new float[nc];
+        for (int i = 0; i < nc; i++) dCores[i] = pCores.length == nc ? lerp(pCores[i], m.cores[i], eEase) : m.cores[i];
+        int ng = m.gpus.length;
+        if (dGl.length != ng) { dGl = new float[ng]; dGm = new float[ng]; }
+        for (int i = 0; i < ng; i++) {
+            boolean same = pGl.length == ng;
+            dGl[i] = same ? lerp(pGl[i], m.gpus[i].load, eEase) : m.gpus[i].load;
+            dGm[i] = same ? lerp(pGm[i], m.gpus[i].memPct, eEase) : m.gpus[i].memPct;
+        }
+        // v0.9.0: gauge check -> 0 -> 100 (salita) poi 100 -> valore reale (discesa)
+        if (sweepPending && sweepOn) { sweepPending = false; sweepAt = SystemClock.uptimeMillis(); }
+        if (sweepAt > 0) {
+            long t = SystemClock.uptimeMillis() - sweepAt;
+            if (t >= SWEEP_UP + SWEEP_DOWN) { sweepAt = 0; return; }
+            boolean up = t < SWEEP_UP;
+            float k = up ? t / (float) SWEEP_UP : (t - SWEEP_UP) / (float) SWEEP_DOWN;
+            k = k < 0.5f ? 2 * k * k : 1 - (-2 * k + 2) * (-2 * k + 2) / 2;
+            dCpu = sw(up, k, dCpu); dRam = sw(up, k, dRam);
+            for (int i = 0; i < dCores.length; i++) dCores[i] = sw(up, k, dCores[i]);
+            for (int i = 0; i < dGl.length; i++) { dGl[i] = sw(up, k, dGl[i]); dGm[i] = sw(up, k, dGm[i]); }
+        }
+    }
+
+    private static float sw(boolean up, float k, float real) {
+        if (Float.isNaN(real)) real = 0;
+        return up ? 100 * k : 100 + (real - 100) * k;
+    }
+
+    // v0.9.0: carico del tablet. CPU = 1 - delta(idle+iowait)/delta(totale) dalla riga "cpu" di
+    // /proc/stat (leggibile dalle app fino ad Android 7.x); RAM = 1 - availMem/totalMem.
+    private void tabletLoad() {
+        java.io.FileInputStream in = null;
+        try {
+            in = new java.io.FileInputStream("/proc/stat");
+            int n = in.read(statBuf);
+            String[] f = new String(statBuf, 0, Math.max(0, n)).split("\n")[0].trim().split("\\s+");
+            long total = 0, idle = 0;
+            for (int i = 1; i < f.length && i <= 8; i++) {
+                long v = Long.parseLong(f[i]);
+                total += v;
+                if (i == 4 || i == 5) idle += v;             // idle, iowait
+            }
+            if (tTotal > 0 && total > tTotal)
+                tabCpu = Math.round(100f * (1 - (idle - tIdle) / (float) (total - tTotal)));
+            tIdle = idle; tTotal = total;
+        } catch (Exception e) {
+            tabCpu = -1;
+        } finally {
+            if (in != null) try { in.close(); } catch (java.io.IOException ignored) { }
+        }
+        android.app.ActivityManager am = (android.app.ActivityManager)
+                getContext().getSystemService(Context.ACTIVITY_SERVICE);
+        am.getMemoryInfo(memInfo);
+        tabRam = memInfo.totalMem > 0 ? Math.round(100f * (1 - memInfo.availMem / (float) memInfo.totalMem)) : -1;
+    }
+
     // Chiamato dal thread UI: m == null -> server non raggiungibile
     void update(MainActivity.Metrics nm, String from) {
+        baseDirty = true;                                    // v0.9.0: nuovo campione -> livello fisso
         if (nm != null) {
+            // v0.9.0: si riparte da cio' che e' a schermo adesso (anche a meta' animazione)
+            step(); sync();
+            pCpu = m != null ? dCpu : nm.cpu; pRam = m != null ? dRam : nm.ram;
+            pCores = dCores.clone(); pGl = dGl.clone(); pGm = dGm.clone();
+            animStart = SystemClock.uptimeMillis();
+            tabletLoad();                                    // v0.9.0
             m = nm; src = from; lastOk = SystemClock.uptimeMillis();
             if (hLen == HIST) {
                 System.arraycopy(hCpu, 1, hCpu, 0, HIST - 1);
@@ -231,6 +359,7 @@ public class MonitorView extends View {
     @Override
     protected void onSizeChanged(int w, int h, int ow, int oh) {
         u = h / 800f;
+        baseDirty = true;                                    // v0.9.0
         stroke.setStrokeWidth(Math.max(1, u));
         line.setStrokeWidth(2 * u);
     }
@@ -238,14 +367,41 @@ public class MonitorView extends View {
     // ---------------------------------------------------------------- disegno
     @Override
     protected void onDraw(Canvas cv) {
-        float W = getWidth(), H = getHeight(), pad = 12 * u, gap = 10 * u;
-        boolean fresh = m != null && SystemClock.uptimeMillis() - lastOk < 5000;
         long now = SystemClock.uptimeMillis();               // v0.4.0: animazione ventole
         frameDt = lastFrame == 0 ? 0 : Math.min(0.5f, (now - lastFrame) / 1000f);
-        lastFrame = now; fanIdx = 0; fanSpinning = false;
+        lastFrame = now;
+        step(); sync();                                      // v0.9.0
+        if (!smooth || m == null) {
+            pass = 0; drawScene(cv);
+            if (sweepAt > 0) postInvalidateOnAnimation();   // v0.9.0: gauge check anche senza fluide
+            return;
+        }
+        // v0.9.0: livello fisso su Bitmap, ridisegnato solo quando cambia qualcosa
+        int W = getWidth(), H = getHeight();
+        if (base == null || base.getWidth() != W || base.getHeight() != H) {
+            base = android.graphics.Bitmap.createBitmap(W, H, android.graphics.Bitmap.Config.ARGB_8888);
+            baseCv = new Canvas(base);
+            baseDirty = true;
+        }
+        if (baseDirty) {
+            baseDirty = false;
+            base.eraseColor(0);
+            pass = 1; drawScene(baseCv);
+        }
+        cv.drawBitmap(base, 0, 0, null);
+        pass = 2; drawScene(cv);
+        pass = 0;
+        if (eLin < 1 || sweepAt > 0) postInvalidateOnAnimation();   // v0.9.0: + gauge check
+    }
+
+    private void drawScene(Canvas cv) {
+        float W = getWidth(), H = getHeight(), pad = 12 * u, gap = 10 * u;
+        boolean fresh = m != null && SystemClock.uptimeMillis() - lastOk < 5000;
+        if (st()) { fanIdx = 0; fanSpinning = false; }
 
         // Intestazione: host, uptime | stato, sorgente, ora
         float hy = pad + 22 * u;
+        if (st()) {                                          // v0.9.0: intestazione = livello fisso
         big.setTextSize(20 * u); big.setColor(FG); big.setTextAlign(Paint.Align.LEFT);
         String host = m != null ? m.host : "Tab2Monitor";
         cv.drawText(host, pad, hy, big);
@@ -265,8 +421,16 @@ public class MonitorView extends View {
         float dotX = tr - text.measureText(where + "   " + clk) - 12 * u;
         fill.setColor(fresh ? GREEN : RED);
         cv.drawCircle(dotX, hy - 6 * u, 7 * u, fill);
+        // v0.9.0: carico del tablet, piccolissimo, a sinistra del pallino di stato
+        if (tabCpu >= 0 || tabRam >= 0) {
+            text.setTextSize(12 * u); text.setColor(DIM); text.setTextAlign(Paint.Align.RIGHT);
+            cv.drawText("tablet  CPU " + (tabCpu < 0 ? "--" : tabCpu + "%") + "  RAM " + (tabRam < 0 ? "--" : tabRam + "%"),
+                    dotX - 14 * u, hy - 1 * u, text);
+            text.setTextSize(17 * u);
+        }
+        }                                                    // fine intestazione (v0.9.0)
 
-        if (m == null) { drawWaiting(cv, W, H); return; }
+        if (m == null) { if (st()) drawWaiting(cv, W, H); return; }
 
         float top = pad + 40 * u, bottom = H - pad;
         // 2026-10-22 v0.2.0: layout a pannelli attivabili (vedi layoutColumn / drawPanel).
@@ -279,14 +443,14 @@ public class MonitorView extends View {
         //           layoutColumn(cv, COLS[c], x, top, cw, bottom - top, gap); x += cw + gap; }
         int npages = 0;
         for (int p = 0; p < PAGES.length; p++) if (pageOn(p)) npages++;
-        if (npages == 0) { drawCentered(cv, W, H, "Tutti i pannelli sono spenti",
+        if (npages == 0) { if (st()) drawCentered(cv, W, H, "Tutti i pannelli sono spenti",
                 "tocca l'ingranaggio o tieni premuto per aprire le impostazioni"); return; }
         if (!pageOn(page)) nextPage();
         // v0.4.0: durata della pagina GPU allungata se una scheda e' sotto carico
         // (prima stesura: sempre pageSec)
         int dur = page == GPU_PAGE && gpuBusy() ? Math.max(pageSec, gpuBusySec) : pageSec;
-        if (pageSec > 0 && npages > 1 && SystemClock.uptimeMillis() - pageAt >= dur * 1000L) nextPage();
-        drawPageIndicator(cv, W, hy);
+        if (st() && pageSec > 0 && npages > 1 && SystemClock.uptimeMillis() - pageAt >= dur * 1000L) nextPage();
+        if (st()) drawPageIndicator(cv, W, hy);
         int[][] cols = PAGES[page];
         // v0.5.0: colonne con peso (il box per hardware vale 2). Era: larghezza uguale per tutte.
         int ncol = 0, weight = 0;
@@ -349,10 +513,10 @@ public class MonitorView extends View {
         //    row(cv, x3, y + (60 + 26 * i) * u, cw, m.procN[i], num1(m.procCpu[i]) + "%  " + m.procMb[i] + " MB");
 
         // dati vecchi (> 5 s): velo scuro sopra le schede
-        if (!fresh) { fill.setColor(0x990d1117); cv.drawRect(0, top, W, H, fill); }
+        if (!fresh && st()) { fill.setColor(0x990d1117); cv.drawRect(0, top, W, H, fill); }
         // v0.4.0: ventole che girano -> prossimo frame tra ~66 ms (solo su questa pagina)
         // (prima stesura: if (fanSpinning && fresh) postInvalidateDelayed(FAN_FRAME_MS);)
-        if (overlay != null) overlay.commit(fanIdx, animFans && fresh);
+        if (overlay != null && st()) overlay.commit(fanIdx, animFans && fresh);
     }
 
     private void drawWaiting(Canvas cv, float W, float H) {
@@ -459,7 +623,7 @@ public class MonitorView extends View {
             //                  bigCard(cv, x, y, w, "RAM", pct(m.ram), "<GB> - swap", m.ram)
             case 0:
                 accent = CYAN;
-                heroCard(cv, x, y, w, "CPU - carico", m.cpu, Float.isNaN(m.mhz) ? "" : (int) m.mhz + " MHz",
+                heroCard(cv, x, y, w, "CPU - carico", dCpu, Float.isNaN(m.mhz) ? "" : (int) m.mhz + " MHz",
                         hCpu, Float.isNaN(m.cpuTemp) ? null : Math.round(m.cpuTemp) + "\u00b0",
                         Float.isNaN(m.cpuTemp) ? "carico" : "temp. CPU");
                 break;
@@ -473,7 +637,7 @@ public class MonitorView extends View {
                 break;
             case 3:
                 accent = VIOLET;
-                heroCard(cv, x, y, w, "RAM - occupata", m.ram,
+                heroCard(cv, x, y, w, "RAM - occupata", dRam,
                         num1(m.ramUsed) + " / " + num1(m.ramTot) + " GB  -  swap " + pct(m.swap),
                         hRam, num1(m.ramUsed), "GB usati");
                 break;
@@ -546,6 +710,7 @@ public class MonitorView extends View {
     // 2026-10-22 v0.7.0: striscia colorata (accento del componente) e titolo colorato in grassetto,
     // bordo piu' discreto. Versione v0.1.0-v0.6.0: bordo BORDER, titolo grigio DIM.
     private void card(Canvas cv, float x, float y, float w, float h, String title) {
+        if (!st()) return;                                   // v0.9.0: livello fisso
         rf.set(x, y, x + w, y + h);
         fill.setColor(CARD); cv.drawRoundRect(rf, 8 * u, 8 * u, fill);
         stroke.setColor(0xff252b33); cv.drawRoundRect(rf, 8 * u, 8 * u, stroke);
@@ -567,20 +732,25 @@ public class MonitorView extends View {
         card(cv, x, y, w, h, title);
         // numero + unita'
         String num = Float.isNaN(val) ? "--" : String.valueOf(Math.round(val));
-        big.setTextSize(64 * u); big.setColor(FG); big.setTextAlign(Paint.Align.LEFT);
-        cv.drawText(num, x + 14 * u, y + 88 * u, big);
-        float nw = big.measureText(num);
-        big.setTextSize(28 * u); big.setColor(DIM);
-        cv.drawText("%", x + 18 * u + nw, y + 88 * u, big);
-        text.setTextSize(16 * u); text.setColor(DIM); text.setTextAlign(Paint.Align.LEFT);
+        if (dy()) {                                          // v0.9.0: numero = livello animato
+            big.setTextSize(64 * u); big.setColor(FG); big.setTextAlign(Paint.Align.LEFT);
+            cv.drawText(num, x + 14 * u, y + 88 * u, big);
+            float nw = big.measureText(num);
+            big.setTextSize(28 * u); big.setColor(DIM);
+            cv.drawText("%", x + 18 * u + nw, y + 88 * u, big);
+        }
         float leftW = gx - r - 16 * u - x - 14 * u;
-        cv.drawText(fit(sub, leftW), x + 14 * u, y + 116 * u, text);
+        if (st()) {
+            text.setTextSize(16 * u); text.setColor(DIM); text.setTextAlign(Paint.Align.LEFT);
+            cv.drawText(fit(sub, leftW), x + 14 * u, y + 116 * u, text);
+        }
         spark(cv, hist, x + 14 * u, y + 126 * u, leftW, 32 * u, accent);
         ring(cv, gx, gy, r, val, center, centerLab);
     }
 
     // Anello a gradiente (verde -> giallo -> rosso), estremi arrotondati, testo al centro
     private void ring(Canvas cv, float cx, float cy, float r, float p, String center, String lab) {
+        if (!dy()) return;                                   // v0.9.0: livello animato
         if (Float.isNaN(p)) p = 0;
         p = Math.max(0, Math.min(100, p));
         float old = line.getStrokeWidth();
@@ -602,7 +772,9 @@ public class MonitorView extends View {
     // Gradiente angolare: posizione 0 = 135 gradi (inizio dell'arco), 0.75 = fine (405 gradi)
     private SweepGradient sweep(float cx, float cy) {
         SweepGradient g = new SweepGradient(cx, cy,
-                new int[]{GREEN, GREEN, YELLOW, RED, RED}, new float[]{0f, 0.35f, 0.55f, 0.72f, 1f});
+                // v0.9.0: ultimo tratto di nuovo verde (era: {G, G, Y, R, R} su {0, .35, .55, .72, 1}):
+                // il cappuccio arrotondato all'inizio dell'arco cade a ~0,99 e risultava rosso
+                new int[]{GREEN, GREEN, YELLOW, RED, RED, GREEN}, new float[]{0f, 0.35f, 0.55f, 0.72f, 0.8f, 1f});
         mx.setRotate(135, cx, cy);
         g.setLocalMatrix(mx);
         return g;
@@ -610,12 +782,21 @@ public class MonitorView extends View {
 
     // Mini-grafico (sparkline) con area sfumata del colore del componente
     private void spark(Canvas cv, float[] a, float gx, float gy, float gw, float gh, int col) {
+        if (!dy()) return;                                   // v0.9.0: livello animato
         if (a == null || hLen < 2) return;
+        // v0.9.0: scorrimento continuo. Ogni punto parte un passo a destra e arriva al suo posto
+        // in un intervallo di polling; l'ultimo punto sale/scende dal valore precedente al nuovo.
+        // Il tratto fuori dal riquadro e' tagliato con clipRect.
+        // (v0.7.0: px = gx + (HIST - hLen + i) * gw / (HIST - 1), nessun clip)
+        cv.save();
+        cv.clipRect(gx, gy - 4 * u, gx + gw, gy + gh + 1);
         path.rewind();
-        float x0 = 0, px = 0;
+        float x0 = 0, px = 0, shift = 1 - eLin, stepW = gw / (HIST - 1);
         for (int i = 0; i < hLen; i++) {
-            float v = Float.isNaN(a[i]) ? 0 : Math.max(0, Math.min(100, a[i]));
-            px = gx + (HIST - hLen + i) * gw / (HIST - 1);
+            float raw = a[i];
+            if (i == hLen - 1) raw = lerp(a[i - 1], a[i], eEase);
+            float v = Float.isNaN(raw) ? 0 : Math.max(0, Math.min(100, raw));
+            px = gx + (HIST - hLen + i + shift) * stepW;
             float py = gy + gh - v * gh / 100f;
             if (i == 0) { path.moveTo(px, py); x0 = px; } else path.lineTo(px, py);
         }
@@ -626,6 +807,7 @@ public class MonitorView extends View {
                 col & 0x00ffffff, Shader.TileMode.CLAMP));
         cv.drawPath(path, fill);
         fill.setShader(null);
+        cv.restore();                                        // v0.9.0
     }
 
     // (v0.1.0-v0.6.0) Scheda con numero grande, sottotitolo e barra; ora usata solo come ripiego
@@ -645,6 +827,7 @@ public class MonitorView extends View {
     // Indicatore a lancetta: arco di 270 gradi (traccia + valore colorato a soglie), lancetta,
     // valore % al centro se label != null (sotto, l'etichetta).
     private void gauge(Canvas cv, float cx, float cy, float r, float p, String label) {
+        if (!st()) return;                                   // v0.9.0 (solo nella scheda di ripiego)
         if (Float.isNaN(p)) p = 0;
         p = Math.max(0, Math.min(100, p));
         float old = line.getStrokeWidth();
@@ -671,6 +854,7 @@ public class MonitorView extends View {
     // Termometro: bulbo + stelo riempito in proporzione (0-100 °C), colore a soglie
     // (< 60 blu, < 80 giallo, oltre rosso). (x, y) = linea di base del testo della riga.
     private void thermo(Canvas cv, float x, float y, float c) {
+        if (!st()) return;                                   // v0.9.0
         float cx = x + 6 * u, top = y - 18 * u, bulbY = y - 2 * u, sw = 5 * u;
         int col = Float.isNaN(c) ? DIM : c >= 80 ? RED : c >= 60 ? YELLOW : BLUE;
         rf.set(cx - sw / 2, top, cx + sw / 2, bulbY);
@@ -684,6 +868,7 @@ public class MonitorView extends View {
     // Ventola a 3 pale che ruota: velocita' visiva proporzionale agli RPM
     // (1 giro reale = 1/10 di giro disegnato per 1000 RPM -> fino a ~1 giro/s a 3000 RPM)
     private void fan(Canvas cv, float cx, float cy, float r, float rpm) {
+        if (!st()) return;                                   // v0.9.0: registrazione nel livello fisso
         if (overlay != null) {                       // 2a stesura: solo registrazione
             if (fanIdx < FanOverlay.MAX) overlay.set(fanIdx++, cx, cy, r, rpm);
             return;
@@ -764,6 +949,7 @@ public class MonitorView extends View {
     }
 
     private void bar(Canvas cv, float x, float y, float w, float h, float p) {
+        if (!st()) return;                                   // v0.9.0
         if (Float.isNaN(p)) p = 0;
         p = Math.max(0, Math.min(100, p));
         fill.setColor(TRACK); cv.drawRect(x, y, x + w, y + h, fill);
@@ -781,9 +967,10 @@ public class MonitorView extends View {
             int perRow = Math.min(n, 16), rows = (n + 15) / 16;
             float ax = x + 12 * u, aw = w - 24 * u, ay = y + 40 * u, ah = h - 52 * u, rg = 6 * u;
             float bh = (ah - (rows - 1) * rg) / rows, slot = aw / perRow, bw = slot * 0.8f;
-            for (int i = 0; i < n; i++) {
+            for (int i = 0; i < n && dy(); i++) {               // v0.9.0: colonnine = livello animato
                 float bx = ax + (i % 16) * slot + (slot - bw) / 2, by = ay + (i / 16) * (bh + rg);
-                float p = Math.max(0, Math.min(100, m.cores[i]));
+                // v0.9.0: valore interpolato (era: m.cores[i])
+                float p = Math.max(0, Math.min(100, i < dCores.length ? dCores[i] : m.cores[i]));
                 fill.setColor(TRACK); cv.drawRect(bx, by, bx + bw, by + bh, fill);
                 fill.setColor(level(p)); cv.drawRect(bx, by + bh * (1 - p / 100f), bx + bw, by + bh, fill);
             }
@@ -795,7 +982,7 @@ public class MonitorView extends View {
         card(cv, x, y, w, h, "Storico 60 s (CPU ciano / RAM viola)");   // v0.7.0 (era: blu / verde)
         float gx = x + 12 * u, gw = w - 24 * u, gy = y + 40 * u, gh = h - 52 * u;
         stroke.setColor(BORDER);
-        cv.drawLine(gx, gy + gh / 2, gx + gw, gy + gh / 2, stroke);
+        if (st()) cv.drawLine(gx, gy + gh / 2, gx + gw, gy + gh / 2, stroke);   // v0.9.0
         // v0.7.0: aree sfumate con i colori dei componenti (era: poly() GREEN / BLUE, solo linea)
         spark(cv, hRam, gx, gy, gw, gh, VIOLET);
         spark(cv, hCpu, gx, gy, gw, gh, CYAN);
@@ -815,6 +1002,7 @@ public class MonitorView extends View {
 
     // Riga "etichetta ........ valore" (etichetta accorciata se non ci sta)
     private void row(Canvas cv, float x, float y, float w, String l, String v) {
+        if (!st()) return;                                   // v0.9.0
         text.setTextSize(17 * u); text.setColor(FG); text.setTextAlign(Paint.Align.RIGHT);
         cv.drawText(v, x + w - 12 * u, y, text);
         float vw = text.measureText(v);
@@ -850,13 +1038,17 @@ public class MonitorView extends View {
         float gr = Math.min(46 * u, Math.min(w / 4 - 10 * u, (h - 120 * u) / 2));
         float gy = y + 44 * u + gr;
         // v0.7.0: anelli a gradiente con il valore al centro (era: gauge(...) a lancetta)
-        ring(cv, x + w / 4, gy, gr, g.load, pct(g.load), null);
-        ring(cv, x + 3 * w / 4, gy, gr, g.memPct, pct(g.memPct), null);
+        // v0.9.0: valori interpolati (era: g.load / g.memPct)
+        float gl = i < dGl.length ? dGl[i] : g.load, gm = i < dGm.length ? dGm[i] : g.memPct;
+        ring(cv, x + w / 4, gy, gr, gl, pct(gl), null);
+        ring(cv, x + 3 * w / 4, gy, gr, gm, pct(gm), null);
         text.setTextSize(16 * u); text.setColor(DIM); text.setTextAlign(Paint.Align.CENTER);
-        cv.drawText("Carico", x + w / 4, gy + gr + 24 * u, text);
-        cv.drawText("VRAM", x + 3 * w / 4, gy + gr + 24 * u, text);
+        if (st()) {                                          // v0.9.0: etichette = livello fisso
+            cv.drawText("Carico", x + w / 4, gy + gr + 24 * u, text);
+            cv.drawText("VRAM", x + 3 * w / 4, gy + gr + 24 * u, text);
+        }
         text.setTextSize(16 * u); text.setColor(DIM); text.setTextAlign(Paint.Align.CENTER);
-        if (!Float.isNaN(g.memTotMb))
+        if (!Float.isNaN(g.memTotMb) && st())
             cv.drawText(num1(g.memMb / 1024f) + " / " + num1(g.memTotMb / 1024f) + " GB",
                     x + 3 * w / 4, gy + gr + 44 * u, text);
         float ry = gy + gr + 72 * u, end = y + h - 8 * u;
@@ -919,6 +1111,7 @@ public class MonitorView extends View {
     // Dischi con lettura/scrittura propria (richiesta utente 2026-10-22: capire quale disco
     // e' attivo). Pallino verde = disco con I/O in questo secondo.
     private void disksCard(Canvas cv, float x, float y, float w, float h) {
+        if (!st()) return;                                   // v0.9.0: tutto fisso
         card(cv, x, y, w, h, "Dischi - I/O per disco");
         int nd = Math.min(m.diskM.length, 6);
         for (int i = 0; i < nd; i++) {
@@ -989,6 +1182,7 @@ public class MonitorView extends View {
     }
 
     private void hwHeader(Canvas cv, float x, float y, float w, String name) {
+        if (!st()) return;                                   // v0.9.0
         text.setTextSize(16 * u); text.setColor(BLUE); text.setTextAlign(Paint.Align.LEFT);
         cv.drawText(fit(name, w - 24 * u), x + 12 * u, y, text);
     }

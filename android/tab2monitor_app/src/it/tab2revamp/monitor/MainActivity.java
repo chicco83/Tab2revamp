@@ -1,6 +1,8 @@
 // =============================================================================
 // Tab2Monitor - MainActivity + thread di polling
-// Versione: v0.8.0 - 2026-10-22 02:45
+// Versione: v0.9.0 - 2026-10-22 03:10
+//   v0.9.0: animazioni fluide (chiave anim_smooth, durata = poll_ms); gauge check all'accensione
+//           dello schermo (chiave gauge_check, receiver SCREEN_ON + fine oscuramento)
 //   v0.8.0: servizio avviato anche solo per gli allarmi vocali (alarm_on); chiavi load_wake,
 //           alarm_on; extra interi th_cpu, th_gpu, th_ram, th_vram, alarm_def
 //   v0.7.0: Metrics.cpuTemp (prima temperatura dell'hardware "cpu") per l'anello della CPU
@@ -76,7 +78,8 @@ public class MainActivity extends Activity {
     static final String[] BOOL_KEYS = {"autostart", "src_usb", "src_wifi",
             "p_cpu", "p_cores", "p_hist", "p_ram", "p_gpu", "p_temps", "p_net", "p_disk", "p_procs",
             "p_claude", "p_fans", "anim_fans", "presence",       // v0.6.0: + presence (default false)
-            "load_wake", "alarm_on"};                            // v0.8.0 (alarm_on default false)
+            "load_wake", "alarm_on",                             // v0.8.0 (alarm_on default false)
+            "anim_smooth", "gauge_check"};                       // v0.9.0
     static final int DEF_PAGE_SEC = 15;   // v0.4.0: secondi per pagina (0 = niente rotazione)
 
     private MonitorView view;
@@ -123,6 +126,8 @@ public class MainActivity extends Activity {
         root.addView(blackout);
         setContentView(root);
         applyIntent(getIntent());
+        // v0.9.0: gauge check a ogni accensione dello schermo
+        registerReceiver(screenOn, new android.content.IntentFilter(Intent.ACTION_SCREEN_ON));
     }
 
     @Override
@@ -178,6 +183,16 @@ public class MainActivity extends Activity {
         else stopService(ps);
     }
 
+    private final android.content.BroadcastReceiver screenOn = new android.content.BroadcastReceiver() {
+        public void onReceive(android.content.Context c, Intent i) { view.gaugeCheck(); }
+    };
+
+    @Override
+    protected void onDestroy() {
+        unregisterReceiver(screenOn);                       // v0.9.0
+        super.onDestroy();
+    }
+
     // v0.6.0: oscuramento di ripiego (senza amministratore dispositivo): velo nero + luminosita'
     // minima della finestra; chiamato da PresenceService sul thread UI
     static void dim(boolean on) {
@@ -188,6 +203,7 @@ public class MainActivity extends Activity {
         lp.screenBrightness = on ? 0f : WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE;
         a.getWindow().setAttributes(lp);
         if (on) a.stopPoller(); else if (a.poller == null) a.restartPoller();
+        if (!on) a.view.gaugeCheck();                       // v0.9.0
     }
 
     @Override
@@ -226,6 +242,8 @@ public class MainActivity extends Activity {
         boolean[] on = new boolean[MonitorView.PANEL_KEYS.length];
         for (int i = 0; i < on.length; i++) on[i] = prefs.getBoolean(MonitorView.PANEL_KEYS[i], true);
         // 2026-10-22 v0.4.0 (era: view.setConfig(urls, on);)
+        view.setAnim(prefs.getBoolean("anim_smooth", true), prefs.getInt("poll_ms", 1000));   // v0.9.0
+        view.setGaugeCheck(prefs.getBoolean("gauge_check", true));
         view.setConfig(urls, on, prefs.getInt("page_sec", DEF_PAGE_SEC), prefs.getBoolean("anim_fans", true),
                 prefs.getInt("gpu_busy_pct", 30), prefs.getInt("gpu_busy_sec", 60));
         if (urls.length == 0) return;          // nessuna sorgente: niente thread, solo il messaggio

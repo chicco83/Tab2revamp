@@ -1,5 +1,25 @@
 # CHANGELOG — Tab2revamp
-Versione documento: v0.1.12 — 2026-10-22 02:55
+Versione documento: v0.1.13 — 2026-10-22 03:35
+
+## 14. v0.1.13 — 2026-10-22 03:35 (sessione locale, APK v0.9.0)
+- APK **v0.9.0** (richieste utente):
+  - **animazioni fluide**: anelli, numeri, colonnine dei core e indicatori GPU passano al nuovo valore
+    con easeInOut nell'intervallo di polling; storico e mini-grafici scorrono a sinistra in modo continuo;
+    ridisegno a vsync (`postInvalidateOnAnimation`) solo durante l'animazione; interruttore `anim_smooth`.
+  - **due livelli di disegno**: la parte fissa (schede, testi, elenchi, intestazione) su una Bitmap
+    ridisegnata una volta per campione, la parte animata sopra a ogni frame. Misure (gfxinfo, 10 s):
+    tutto ridisegnato a ogni frame 53 ms/frame mediani, 47% CPU → due livelli 36 ms (pag. 1, 32% CPU)
+    e 34 ms (pag. 2, 19% CPU).
+  - **carico del tablet** (CPU da `/proc/stat`, RAM da ActivityManager) in piccolo accanto a "USB".
+  - **gauge check** all'accensione dello schermo (SCREEN_ON e fine oscuramento): indicatori a 100% in
+    0,7 s e ritorno al valore reale in 0,9 s; interruttore `gauge_check`. Verificato l'avvio
+    dell'animazione (fotogramma a +0,5 s con tutti i valori ~0); il picco al 100% non è catturabile con
+    screencap (troppo lento), da vedere dal vivo.
+  - anelli: il gradiente torna verde alla fine, così il cappuccio di un anello quasi vuoto non è rosso.
+- Aggiunto `android/tab2monitor_app/build_tab2monitor_v0.9.0_20261022-0310.sh` (versionCode 11).
+- Aperta la sessione «Piano installer Tab2Monitor (PC + tablet)» (richiesta utente: installer per altri
+  PC e altri tablet, in sessione dedicata).
+- Rollback: `git checkout 09cbb05 -- android/tab2monitor_app` e build v0.8.0 (uninstall + install).
 
 ## 13. v0.1.12 — 2026-10-22 02:55 (sessione locale, APK v0.7.0 + v0.8.0)
 - **APK v0.7.0 — grafica**: ricerca online dei pannelli hardware commerciali (AIDA64 SensorPanel,

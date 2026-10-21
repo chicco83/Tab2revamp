@@ -1,6 +1,7 @@
 // =============================================================================
 // Tab2Monitor - SettingsActivity (pannello impostazioni)
-// Versione: v0.8.0 - 2026-10-22 02:45
+// Versione: v0.9.0 - 2026-10-22 03:10
+//   v0.9.0: interruttore "Animazioni fluide"
 //   v0.8.0: sezione "Carico" (riaccensione con CPU/GPU/RAM/VRAM oltre soglia) e sezione
 //           "Allarmi temperatura (voce)": soglia generale + soglia per ogni sensore
 //           (vuoto = generale, 0 = nessun allarme), pulsante "Prova voce"
@@ -76,6 +77,8 @@ public class SettingsActivity extends Activity {
         header("Generale");
         toggle("autostart", "Avvio automatico all'accensione del tablet");
         toggle("anim_fans", "Ventole animate (velocita' come gli RPM reali; spente = meno CPU)");   // v0.4.0
+        toggle("anim_smooth", "Animazioni fluide di valori e grafici (spente = aggiornamento a scatti, meno CPU)");   // v0.9.0
+        toggle("gauge_check", "Gauge check all'accensione dello schermo (indicatori al massimo e ritorno)");     // v0.9.0
         label("Intervallo di aggiornamento (ms, minimo 500)");
         poll = field(String.valueOf(prefs.getInt("poll_ms", 1000)), "1000", InputType.TYPE_CLASS_NUMBER);
         // v0.4.0
