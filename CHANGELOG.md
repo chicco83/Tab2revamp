@@ -1,5 +1,9 @@
 # CHANGELOG — Tab2revamp
-Versione documento: v0.1.0 — 2026-10-21 18:45 UTC
+Versione documento: v0.1.1 — 2026-10-21 19:05 UTC
+
+## 2. v0.1.1 — 2026-10-21 19:05 UTC (sessione cloud)
+- CONTEXT.md: aggiunte istruzioni e prompt di handoff per la sessione locale con adb
+  (la sessione cloud non puo' avviare sessioni sul PC dell'utente).
 
 ## 1. v0.1.0 — 2026-10-21 18:45 UTC (sessione cloud)
 - Analisi: scartati spacedesk e postmarketOS, scelta Android leggero + dashboard web.

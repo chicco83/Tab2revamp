@@ -1,5 +1,5 @@
 # CONTEXT — Tab2revamp
-Versione: v0.1.0 — 2026-10-21 18:45 UTC
+Versione: v0.1.1 — 2026-10-21 19:05 UTC
 
 ## Obiettivo
 Riusare un Galaxy Tab 2 10.1 (GT-P5100, lentissimo: ogni tocco richiede secondi)
@@ -34,3 +34,19 @@ psutil ── tab2monitor_server (:8090) ───┼── USB: adb reverse tcp
 ## Punti aperti
 - ROM esatta e TWRP per espresso3g da verificare al momento del flash (fonti, versione, eventuale repartition).
 - Valutare app nativa Android (Canvas) solo se la pagina web risultasse lenta.
+
+## Handoff sessione locale (v0.1.1 — 2026-10-21 19:05 UTC)
+La sessione cloud non può raggiungere il PC/USB: la sessione locale va avviata dall'utente.
+1. PC Windows con tablet in USB (Debug USB autorizzato), `adb` e Git for Windows installati.
+2. `git clone https://github.com/chicco83/Tab2revamp` → `cd Tab2revamp` → `git checkout ccr-734baad4-t02ry6`
+3. Nella cartella: `claude remote-control` (o Claude Desktop sulla cartella).
+4. Prompt da incollare:
+```
+Leggi CLAUDE.md, CONTEXT.md, MANUAL.md. Tablet GT-P5100 collegato via adb.
+1) adb devices
+2) bash android/diagnose_v0.1.0_20261021-1845.sh e analizza il log
+3) avvia windows/agent/start_tab2monitor_v0.1.0_20261021-1845.cmd
+4) URL=http://<IP-PC>:8090 bash android/tune_v0.1.0_20261021-1845.sh --debloat  (stock 4.x -> Wi-Fi), misura la reattivita'
+5) NON flashare nulla senza mia conferma: proponi TWRP/ROM esatte per espresso3g con fonti verificate e procedura di backup EFS.
+Aggiorna CONTEXT/CHANGELOG/MANUAL, commit per nome dei file toccati, pull --rebase, push.
+```
