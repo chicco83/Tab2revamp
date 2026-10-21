@@ -1,5 +1,17 @@
 # CHANGELOG — Tab2revamp
-Versione documento: v0.1.9 — 2026-10-22 01:00
+Versione documento: v0.1.10 — 2026-10-22 01:35
+
+## 11. v0.1.10 — 2026-10-22 01:35 (sessione locale, APK v0.5.0)
+- APK **v0.5.0**, richiesta utente: temperature **in box per hardware assieme alle relative ventole**.
+  Pagina 2 = schede GPU (con tutti i loro sensori: GPU Core/Memory/Hot Spot, ventola, potenza) +
+  box su due sotto-colonne: "CPU - <nome>", "Scheda madre - <nome>", "RAM" (tutti i DIMM), "Dischi"
+  (riga = nome del disco), altri hardware ciascuno nel suo box. Le ventole vanno nel box dell'hardware
+  collegato secondo `sensors.pairs` (es. ventole della scheda madre → CPU con il server v0.2.3).
+  Raggruppamento fatto nel thread di polling (`Metrics.buildBoxes`), non in `onDraw`.
+- Scheda GPU alta fino a 360u (era 280u: la 9070 XT perdeva ventola e potenza).
+- Aggiunto `android/tab2monitor_app/build_tab2monitor_v0.5.0_20261022-0130.sh` (versionCode 6).
+- Provata sul tablet con i dati reali (server v0.2.2): tutti i sensori visibili, nessun taglio.
+- Rollback: `git checkout 690ff87 -- android/tab2monitor_app` e build v0.4.1.
 
 ## 10. (2) v0.1.9 — 2026-10-22 01:15 (sessione locale, APK v0.4.1)
 - APK **v0.4.1**: provata con i **dati reali** del server v0.2.2 (Claude, I/O per disco, ventole e

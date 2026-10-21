@@ -1,6 +1,9 @@
 // =============================================================================
 // Tab2Monitor - MainActivity + thread di polling
-// Versione: v0.4.1 - 2026-10-22 01:10
+// Versione: v0.5.0 - 2026-10-22 01:30
+//   v0.5.0: "box per hardware": temperature e ventole raggruppate per componente
+//           (CPU, scheda madre, RAM, dischi, ...) usando anche sensors.pairs per spostare
+//           ogni ventola nel box dell'hardware che raffredda; GPU con tutti i propri sensori
 //   v0.4.1: scartate le "temperature" che sono soglie fisse dei sensori (Limit, Resolution,
 //           Warning/Critical Temperature)
 //   v0.4.0: piu' GPU (campo "gpus"), sensori per componente con ventole ("sensors"),
@@ -45,6 +48,9 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.ByteArrayOutputStream;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -263,6 +269,7 @@ public class MainActivity extends Activity {
         Claude claude;                                     // v0.3.0: null se il server non lo invia
         Gpu[] gpus = new Gpu[0];                           // v0.4.0
         Hw[] hw = new Hw[0];                               // v0.4.0
+        Box[] boxes = new Box[0];                          // v0.5.0: un box per hardware
 
         // Utilizzo Claude (schema concordato con la sessione "Sorgente dati Windows");
         // -1 = campo assente
@@ -409,11 +416,109 @@ public class MainActivity extends Activity {
                 h.fName = new String[0]; h.fRpm = new float[0]; h.fPct = new float[0];
                 m.hw = new Hw[]{h};
             }
+            buildBoxes(m, se != null ? se.optJSONArray("pairs") : null);   // v0.5.0
             return m;
         }
 
+        // ---------------------------------------------------------------------
+        // v0.5.0: raggruppa temperature e ventole in box per hardware (fatto qui, nel thread
+        // di polling, cosi' onDraw non alloca nulla).
+        //  - GPU (kind "gpu" con lo stesso nome di una voce di "gpus"): i sensori vanno nella
+        //    scheda della GPU; senza corrispondenza diventano un box normale
+        //  - CPU -> "CPU - <nome>", scheda madre -> "Scheda madre - <nome>"
+        //  - RAM (kind "ram", o "other" con temperature "DIMM ...") -> un solo box "RAM"
+        //  - dischi (kind "disk") -> un solo box "Dischi" (riga = nome del disco)
+        //  - tutto il resto -> un box con il nome dell'hardware
+        // Ventole: se sensors.pairs collega la ventola a una temperatura di un ALTRO hardware
+        // (es. ventola della scheda madre -> CPU), la ventola va nel box di quell'hardware.
+        static void buildBoxes(Metrics m, JSONArray pairs) {
+            HashMap<String, String> fanTo = new HashMap<String, String>();     // "hw|fan" -> hw temp
+            if (pairs != null) for (int i = 0; i < pairs.length(); i++) {
+                JSONObject p = pairs.optJSONObject(i);
+                if (p == null) continue;
+                String fh = p.optString("fan_hw"), th = p.optString("temp_hw");
+                if (th.length() > 0 && !th.equals(fh)) fanTo.put(fh + "|" + p.optString("fan"), th);
+            }
+            LinkedHashMap<String, Box> byKey = new LinkedHashMap<String, Box>();
+            HashMap<String, Object> owner = new HashMap<String, Object>();       // nome hw -> Box o Gpu
+            // ordine dei box: CPU, scheda madre, RAM, dischi, altri
+            String[] order = {"cpu", "mb", "ram", "disk", ""};
+            for (String ord : order) for (Hw h : m.hw) {
+                String k = group(h);
+                if (!k.equals(ord) && !(ord.length() == 0 && !k.equals("cpu") && !k.equals("mb")
+                        && !k.equals("ram") && !k.equals("disk"))) continue;
+                Gpu g = "gpu".equals(h.kind) ? gpuNamed(m, h.name) : null;
+                if (g != null) { owner.put(h.name, g); continue; }
+                String key = k.equals("ram") ? "RAM" : k.equals("disk") ? "Dischi" : h.name;
+                Box b = byKey.get(key);
+                if (b == null) {
+                    b = new Box();
+                    b.title = k.equals("cpu") ? "CPU - " + h.name : k.equals("mb") ? "Scheda madre - " + h.name
+                            : key.equals("RAM") || key.equals("Dischi") ? key : h.name;
+                    byKey.put(key, b);
+                }
+                owner.put(h.name, b);
+            }
+            // temperature
+            for (Hw h : m.hw) {
+                Object o = owner.get(h.name);
+                for (int q = 0; q < h.tName.length; q++) {
+                    String lab = h.tName[q];
+                    if ("disk".equals(group(h)))                 // "Dischi": riga = nome del disco
+                        lab = q == 0 ? h.name : "  " + h.tName[q];
+                    if (o instanceof Gpu) ((Gpu) o).add(false, lab, h.tC[q], Float.NaN);
+                    else if (o instanceof Box) ((Box) o).add(false, lab, h.tC[q], Float.NaN);
+                }
+            }
+            // ventole, eventualmente spostate nel box dell'hardware collegato
+            for (Hw h : m.hw) for (int q = 0; q < h.fName.length; q++) {
+                String to = fanTo.get(h.name + "|" + h.fName[q]);
+                Object o = to != null && owner.containsKey(to) ? owner.get(to) : owner.get(h.name);
+                boolean moved = to != null && owner.containsKey(to);
+                String lab = moved && "mb".equals(h.kind) ? h.fName[q] + " (scheda madre)" : h.fName[q];
+                if (o instanceof Gpu) ((Gpu) o).add(true, lab, h.fRpm[q], h.fPct[q]);
+                else if (o instanceof Box) ((Box) o).add(true, lab, h.fRpm[q], h.fPct[q]);
+            }
+            ArrayList<Box> out = new ArrayList<Box>();
+            for (Box b : byKey.values()) if (b.n() > 0) { b.seal(); out.add(b); }
+            m.boxes = out.toArray(new Box[out.size()]);
+            for (Gpu g : m.gpus) g.seal();
+        }
+
+        static String group(Hw h) {
+            String k = h.kind == null ? "" : h.kind;
+            if (k.equals("other") && h.tName.length > 0 && h.tName[0].startsWith("DIMM")) return "ram";
+            return k;
+        }
+
+        static Gpu gpuNamed(Metrics m, String name) {
+            for (Gpu g : m.gpus) if (g.name.equals(name)) return g;
+            return null;
+        }
+
+        // Righe di un box (temperatura o ventola), accumulate in liste e poi "sigillate" in array
+        static class Rows {
+            final ArrayList<Object[]> tmp = new ArrayList<Object[]>();
+            boolean[] fan = new boolean[0]; String[] lab = new String[0];
+            float[] val = new float[0], pct = new float[0];
+            void add(boolean isFan, String l, float v, float p) { tmp.add(new Object[]{isFan, l, v, p}); }
+            int n() { return tmp.size() + lab.length; }
+            int fans() { int c = 0; for (boolean b : fan) if (b) c++; return c; }
+            void seal() {
+                int k = tmp.size();
+                fan = new boolean[k]; lab = new String[k]; val = new float[k]; pct = new float[k];
+                for (int i = 0; i < k; i++) {                       // prima le temperature, poi le ventole
+                    Object[] r = tmp.get(i);
+                    fan[i] = (Boolean) r[0]; lab[i] = (String) r[1]; val[i] = (Float) r[2]; pct[i] = (Float) r[3];
+                }
+                tmp.clear();
+            }
+        }
+
+        static final class Box extends Rows { String title; }
+
         // v0.4.0: GPU (campo "gpus") e componenti con sensori (campo "sensors.hw")
-        static final class Gpu {
+        static final class Gpu extends Rows {               // v0.5.0: + righe dei sensori
             String name;
             float load, memMb = Float.NaN, memTotMb = Float.NaN, memPct = Float.NaN;
             float temp = Float.NaN, fanRpm = Float.NaN, powerPct = Float.NaN;

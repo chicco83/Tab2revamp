@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   Tab2Monitor - APK nativa (sostituisce la dashboard nel browser)
-  Versione: v0.4.0 - 2026-10-22 00:45  (v0.4.0: pagine, GPU multiple, ventole, icone - manifest invariato; v0.3.0: pannello Claude; v0.2.0: + SettingsActivity; v0.1.0 - 2026-10-21 23:50)
+  Versione: v0.5.0 - 2026-10-22 01:30  (v0.5.0: box per hardware - manifest invariato; v0.4.0: pagine, GPU multiple, ventole, icone - manifest invariato; v0.3.0: pannello Claude; v0.2.0: + SettingsActivity; v0.1.0 - 2026-10-21 23:50)
   Target: Galaxy Tab 2 10.1 GT-P5100, LineageOS 14.1 (Android 7.1.2, SDK 25).
   Scelte per la poca RAM:
     - nessuna libreria (niente AppCompat/AndroidX), nessun layout XML: tutto su un Canvas

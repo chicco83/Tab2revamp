@@ -1,5 +1,5 @@
 # MANUAL — Tab2revamp
-Versione: v0.1.9 — 2026-10-22 01:00
+Versione: v0.1.10 — 2026-10-22 01:35
 
 Galaxy Tab 2 10.1 (GT-P5100) come display delle risorse di un PC Windows.
 
@@ -66,9 +66,9 @@ Sostituisce Jelly + dashboard web: ~15 MB di RAM invece di 60–100, schermo int
 **Build** (PC, Git Bash; serve solo ciò che è già installato: Android SDK in
 `%LOCALAPPDATA%\Android\Sdk` e il JDK di Android Studio, oppure `JAVA_HOME`):
 ```
-bash android/tab2monitor_app/build_tab2monitor_v0.4.1_20261022-0110.sh
+bash android/tab2monitor_app/build_tab2monitor_v0.5.0_20261022-0130.sh
 ```
-Risultato: `android/tab2monitor_app/dist/Tab2Monitor_v0.4.1.apk` (non versionata in git).
+Risultato: `android/tab2monitor_app/dist/Tab2Monitor_v0.5.0.apk` (non versionata in git).
 Lo script di installazione prende l'APK con la versione più alta in `dist/`.
 
 **Installazione** (tablet in USB, server Windows avviato):
@@ -85,7 +85,8 @@ Con `-home` l'app diventa anche la schermata Home (kiosk); `-nohome` la toglie.
 - Ordine dei tentativi: `http://127.0.0.1:8090` (USB), poi l'URL Wi‑Fi. Dopo un riavvio del tablet
   `adb reverse` è perso e l'app passa da sola al Wi‑Fi (il Wi‑Fi del tablet deve essere acceso).
 - **Pagine** (v0.4.0): 1 "Sistema" (CPU, core, storico, RAM, Claude, rete, dischi, processi),
-  2 "GPU e sensori" (una scheda per GPU con carico e VRAM, temperature per componente, ventole).
+  2 "GPU e sensori" (una scheda per GPU con carico, VRAM e tutti i suoi sensori; poi un box per
+  hardware - CPU, scheda madre, RAM, dischi, ... - con le sue temperature e le sue ventole).
   Cambiano da sole ogni `page_sec` secondi (impostazioni, default 15; 0 = ferme); **tocco** = pagina
   successiva. La pagina GPU resta 60 s se una GPU supera il 30% (entrambi i valori nelle impostazioni).
   Pallini e nome della pagina al centro dell'intestazione.

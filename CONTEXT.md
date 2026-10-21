@@ -1,5 +1,5 @@
 # CONTEXT — Tab2revamp
-Versione: v0.1.9 — 2026-10-22 01:00
+Versione: v0.1.10 — 2026-10-22 01:35
 
 ## Obiettivo
 Riusare un Galaxy Tab 2 10.1 (GT-P5100, lentissimo: ogni tocco richiede secondi)
@@ -192,9 +192,11 @@ Drive), montato solo dopo l'accesso. ⛔ `claude`: limiti di piano dell'account 
   server v0.2.1 (dati reali: today_tok, blocco 5 h, ecc.). ✅ APK v0.4.1 verificata con screenshot sui
   dati reali (2026-10-22 00:37): Claude, dischi (G: "--"), 7 ventole Nuvoton + GPU Fan, temperature di
   scheda madre/CPU/RAM/GPU/SSD/HDD; scartate le soglie fisse (Limit/Resolution/Warning/Critical).
-- ⏳ Pagina 2: la lista delle temperature reali è più lunga della colonna (le ultime voci, es. Radeon
-  Pro VII, restano fuori). Opzioni: due sotto-colonne nel pannello, una 3ª pagina "Temperature",
-  oppure scegliere nelle impostazioni quali componenti mostrare.
+- ✅ Pagina 2 (APK v0.5.0, 2026-10-22): scelta dell'utente = **un box per hardware con le sue
+  temperature e ventole** (CPU, scheda madre, RAM, dischi, altri), GPU con tutti i propri sensori nella
+  loro scheda. Verificato con i dati reali: tutto visibile. Le ventole seguono `sensors.pairs` (con il
+  server v0.2.3 quelle che girano passano al box CPU: da verificare quando la v0.2.3 è attiva).
+  Se in futuro i box non ci stanno, l'ultimo mostra solo le righe che entrano.
 - Limiti del piano Claude (% di /usage): richiederebbero di leggere `~/.claude/.credentials.json`
   (token OAuth) e un endpoint non documentato. **Non fatto**: decide l'utente (permesso negato alla
   sessione Windows, che ha chiesto di non aggirarlo).

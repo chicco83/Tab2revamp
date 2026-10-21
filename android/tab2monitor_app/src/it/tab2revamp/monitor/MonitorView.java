@@ -1,6 +1,9 @@
 // =============================================================================
 // Tab2Monitor - MonitorView (disegno su Canvas)
-// Versione: v0.4.0 - 2026-10-22 00:45
+// Versione: v0.5.0 - 2026-10-22 01:30
+//   v0.5.0: pagina 2 = schede GPU (con tutti i loro sensori) + BOX PER HARDWARE (CPU, scheda
+//           madre, RAM, dischi, ...) ognuno con le sue temperature e le sue ventole, disposti
+//           su due sotto-colonne; sostituiscono i pannelli separati Temperature / Ventole
 //   v0.4.0: PAGINE a rotazione (timer page_sec dalle impostazioni, tocco = pagina successiva),
 //           icona ingranaggio -> impostazioni, tutte le GPU (una scheda per GPU),
 //           temperature e ventole raggruppate per componente (campo "sensors");
@@ -66,10 +69,10 @@ public class MonitorView extends View {
     static final String[] PANEL_LABELS = {"CPU (totale e frequenza)  [pag. 1]",
             "Core (un istogramma per core)  [pag. 1]", "Storico 60 s (CPU / RAM)  [pag. 1]",
             "RAM e swap  [pag. 1]", "GPU - tutte le schede  [pag. 2]",
-            "Temperature per componente  [pag. 2]", "Rete (download / upload)  [pag. 1]",
+            "Temperature (box per hardware)  [pag. 2]", "Rete (download / upload)  [pag. 1]",
             "Disco I/O e spazio dischi  [pag. 1]", "Top processi per CPU  [pag. 1]",
             "Claude - utilizzo account (token da Claude Code sul PC)  [pag. 1]",
-            "Ventole (RPM e %)  [pag. 2]"};
+            "Ventole (box per hardware)  [pag. 2]"};
     // Colonne come nella dashboard web
     // 2026-10-22 v0.3.0: Claude (9) tra GPU e temperature. Versione v0.2.0 sostituita:
     //   static final int[][] COLS = {{0, 1, 2}, {3, 4, 5}, {6, 7, 8}};
@@ -77,11 +80,16 @@ public class MonitorView extends View {
     // 2026-10-22 v0.4.0: pagine di colonne. Versione v0.3.0 sostituita:
     //   static final int[][] COLS = {{0, 1, 2}, {3, 4, 9, 5}, {6, 7, 8}};
     //   private boolean[] panelOn = {true, true, true, true, true, true, true, true, true, true};
+    // 2026-10-22 v0.5.0: pagina 2 = GPU | box per hardware (id 11, largo 2 colonne, acceso se
+    // p_temps o p_fans). Versione v0.4.0 sostituita:
+    //   {{4}, {5}, {10}}};                       // 2 GPU e sensori
+    //   private boolean[] panelOn = {true, true, true, true, true, true, true, true, true, true, true};
+    static final int BOXES = 11;
     static final int[][][] PAGES = {
             {{0, 1, 2}, {3, 9}, {6, 7, 8}},          // 1 Sistema
-            {{4}, {5}, {10}}};                       // 2 GPU e sensori
+            {{4}, {BOXES}}};                         // 2 GPU e sensori
     static final String[] PAGE_NAMES = {"Sistema", "GPU e sensori"};
-    private boolean[] panelOn = {true, true, true, true, true, true, true, true, true, true, true};
+    private boolean[] panelOn = {true, true, true, true, true, true, true, true, true, true, true, true};
     private int page;                        // pagina mostrata
     private long pageAt;                     // uptimeMillis dell'ultimo cambio pagina
     private int pageSec = 15;                // 0 = niente rotazione automatica
@@ -176,6 +184,11 @@ public class MonitorView extends View {
     // 2026-10-22 v0.2.0 (era: void setUrls(String[] u) { urls = u; })
     // 2026-10-22 v0.4.0: + secondi per pagina (era: void setConfig(String[] u, boolean[] on))
     void setConfig(String[] u, boolean[] on, int sec, boolean anim, int busyPct, int busySec) {
+        // v0.5.0: panelOn ha una voce in piu' (BOXES) calcolata da temperature/ventole
+        boolean[] all = new boolean[BOXES + 1];
+        System.arraycopy(on, 0, all, 0, Math.min(on.length, BOXES));
+        all[BOXES] = all[5] || all[10];
+        on = all;
         urls = u; panelOn = on; pageSec = sec; pageAt = SystemClock.uptimeMillis(); animFans = anim;
         gpuBusyPct = busyPct; gpuBusySec = busySec;
         if (u.length == 0) { m = null; src = null; }       // nessuna sorgente: schermata d'avviso
@@ -256,11 +269,14 @@ public class MonitorView extends View {
         if (pageSec > 0 && npages > 1 && SystemClock.uptimeMillis() - pageAt >= dur * 1000L) nextPage();
         drawPageIndicator(cv, W, hy);
         int[][] cols = PAGES[page];
-        int ncol = 0;
-        for (int[] col : cols) if (colOn(col)) ncol++;
-        float cw = (W - 2 * pad - (ncol - 1) * gap) / ncol, x = pad;
+        // v0.5.0: colonne con peso (il box per hardware vale 2). Era: larghezza uguale per tutte.
+        int ncol = 0, weight = 0;
+        for (int[] col : cols) if (colOn(col)) { ncol++; weight += colWeight(col); }
+        float unit = (W - 2 * pad - (weight - 1) * gap) / weight, x = pad;
         for (int[] col : cols) {
             if (!colOn(col)) continue;
+            int wgt = colWeight(col);
+            float cw = unit * wgt + (wgt - 1) * gap;
             layoutColumn(cv, col, x, top, cw, bottom - top, gap);
             x += cw + gap;
         }
@@ -345,6 +361,11 @@ public class MonitorView extends View {
 
     // ------------------------------------------------- pannelli (v0.2.0)
     // 2026-10-22 v0.4.0 (era: colOn(int c) su COLS[c])
+    private static int colWeight(int[] col) {           // v0.5.0
+        for (int id : col) if (id == BOXES) return 2;
+        return 1;
+    }
+
     private boolean colOn(int[] col) {
         for (int id : col) if (panelOn[id]) return true;
         return false;
@@ -432,6 +453,9 @@ public class MonitorView extends View {
                 break;
             case 10:                                         // v0.4.0
                 fansCard(cv, x, y, w, h);
+                break;
+            case BOXES:                                      // v0.5.0
+                hwBoxes(cv, x, y, w, h);
                 break;
             case -4: {   // v0.3.0, sostituito da gpuStack (una sola GPU da "lhm")
                 boolean gpu = !Float.isNaN(m.gpuLoad);
@@ -702,7 +726,8 @@ public class MonitorView extends View {
             row(cv, x, y + 60 * u, w, "nessun dato GPU dal server", "");
             return;
         }
-        float gap = 10 * u, gh = Math.min(280 * u, (h - (n - 1) * gap) / n);
+        // v0.5.0: max 360u (era 280u: con tutti i sensori la 9070 XT perdeva ventola e potenza)
+        float gap = 10 * u, gh = Math.min(360 * u, (h - (n - 1) * gap) / n);
         for (int i = 0; i < n; i++) gpuCard(cv, x, y + i * (gh + gap), w, gh, i);
     }
 
@@ -719,6 +744,11 @@ public class MonitorView extends View {
             cv.drawText(num1(g.memMb / 1024f) + " / " + num1(g.memTotMb / 1024f) + " GB",
                     x + 3 * w / 4, gy + gr + 44 * u, text);
         float ry = gy + gr + 72 * u, end = y + h - 8 * u;
+        if (g.lab.length > 0) {                          // v0.5.0: tutti i sensori della GPU
+            ry = sensorRows(cv, g, x, ry, w, end);
+            if (ry <= end) rowIcon(cv, x, ry, w, "Potenza", pct(g.powerPct));
+            return;
+        }
         if (ry <= end) {
             thermo(cv, x + 12 * u, ry, g.temp);
             rowIcon(cv, x, ry, w, "Temperatura", Float.isNaN(g.temp) ? "--" : num1(g.temp) + " °C");
@@ -788,6 +818,55 @@ public class MonitorView extends View {
             row(cv, x + 20 * u, ry + 24 * u, w - 20 * u,
                     "↓ " + (r < 0 ? "--" : rate(r)), "↑ " + (wr < 0 ? "--" : rate(wr)));
         }
+    }
+
+    // ------------------------------------------------ box per hardware (v0.5.0)
+    // Box impilati su due sotto-colonne: ognuno va nella sotto-colonna piu' bassa.
+    // Un box che non ci sta per intero mostra le righe che entrano.
+    private final float[] subY = new float[2];
+    private void hwBoxes(Canvas cv, float x, float y, float w, float h) {
+        if (m.boxes.length == 0) {
+            card(cv, x, y, w, h, "Sensori");
+            row(cv, x, y + 60 * u, w, "nessun sensore dal server", "");
+            return;
+        }
+        float gap = 10 * u, sw = (w - gap) / 2, bottom = y + h;
+        subY[0] = subY[1] = y;
+        for (MainActivity.Metrics.Box b : m.boxes) {
+            int vis = 0, fans = 0;
+            for (int i = 0; i < b.lab.length; i++) if (rowOn(b.fan[i])) { vis++; if (b.fan[i]) fans++; }
+            if (vis == 0) continue;
+            float bh = (44 + 28 * (vis - fans) + 32 * fans + 4) * u;
+            int c = subY[0] <= subY[1] ? 0 : 1;
+            float by = subY[c], avail = bottom - by;
+            if (avail < 80 * u) continue;                  // sotto-colonna piena
+            bh = Math.min(bh, avail);
+            float bx = x + c * (sw + gap);
+            card(cv, bx, by, sw, bh, b.title);
+            sensorRows(cv, b, bx, by + 60 * u, sw, by + bh - 8 * u);
+            subY[c] = by + bh + gap;
+        }
+    }
+
+    private boolean rowOn(boolean isFan) { return isFan ? panelOn[10] : panelOn[5]; }
+
+    // Righe temperatura (termometro) e ventola (icona animata); restituisce la y successiva
+    private float sensorRows(Canvas cv, MainActivity.Metrics.Rows r, float x, float ry, float w, float end) {
+        for (int i = 0; i < r.lab.length && ry <= end; i++) {
+            if (!rowOn(r.fan[i])) continue;
+            if (r.fan[i]) {
+                float v = r.val[i];
+                fan(cv, x + 20 * u, ry - 6 * u, 11 * u, v);
+                rowIcon(cv, x + 6 * u, ry, w - 6 * u, r.lab[i],
+                        (Float.isNaN(v) ? "--" : Math.round(v) + " RPM") + (Float.isNaN(r.pct[i]) ? "" : "  " + pct(r.pct[i])));
+                ry += 32 * u;
+            } else {
+                thermo(cv, x + 14 * u, ry, r.val[i]);
+                rowIcon(cv, x, ry, w, r.lab[i], num1(r.val[i]) + " °C");
+                ry += 28 * u;
+            }
+        }
+        return ry;
     }
 
     private void hwHeader(Canvas cv, float x, float y, float w, String name) {
