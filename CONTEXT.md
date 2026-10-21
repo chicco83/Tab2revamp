@@ -197,6 +197,9 @@ Drive), montato solo dopo l'accesso. ⛔ `claude`: limiti di piano dell'account 
   loro scheda. Verificato con i dati reali: tutto visibile. Le ventole seguono `sensors.pairs` (con il
   server v0.2.3 quelle che girano passano al box CPU: da verificare quando la v0.2.3 è attiva).
   Se in futuro i box non ci stanno, l'ultimo mostra solo le righe che entrano.
+- Nomi e abbinamenti delle ventole: decisi dall'utente nella pagina `http://localhost:8090/config`
+  (server v0.2.4); l'APK mostra `name` e usa `pairs`. Per "non mostrare" l'APK v0.5.1 legge
+  `"hidden": true` su fans[]/temps[] ⏳ campo da aggiungere al server (richiesto 2026-10-22 01:40).
 - Limiti del piano Claude (% di /usage): richiederebbero di leggere `~/.claude/.credentials.json`
   (token OAuth) e un endpoint non documentato. **Non fatto**: decide l'utente (permesso negato alla
   sessione Windows, che ha chiesto di non aggirarlo).

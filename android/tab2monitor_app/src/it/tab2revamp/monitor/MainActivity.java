@@ -1,6 +1,7 @@
 // =============================================================================
 // Tab2Monitor - MainActivity + thread di polling
-// Versione: v0.5.0 - 2026-10-22 01:30
+// Versione: v0.5.1 - 2026-10-22 01:45
+//   v0.5.1: voci con "hidden": true (scelta "non mostrare" in http://<PC>:8090/config) saltate
 //   v0.5.0: "box per hardware": temperature e ventole raggruppate per componente
 //           (CPU, scheda madre, RAM, dischi, ...) usando anche sensors.pairs per spostare
 //           ogni ventola nel box dell'hardware che raffredda; GPU con tutti i propri sensori
@@ -280,6 +281,11 @@ public class MainActivity extends Activity {
             String topModel; long topModelTok = -1;
         }
 
+        // v0.5.1: temperatura da mostrare = misura vera e non nascosta dall'utente
+        static boolean shown(JSONObject x) {
+            return x != null && !x.optBoolean("hidden", false) && isTemp(x.optString("name"));
+        }
+
         static boolean isTemp(String n) {                  // v0.4.1
             String l = n.toLowerCase();
             // anche "Warning/Critical Temperature" degli SSD NVMe: soglie, non misure
@@ -393,19 +399,23 @@ public class MainActivity extends Activity {
                     // si scartano per lasciare spazio alle temperature vere.
                     // (v0.4.0 le copiava tutte: h.tName = new String[nt]; ... for q < nt ...)
                     int keep = 0;
-                    for (int q = 0; q < nt; q++) if (isTemp(t.optJSONObject(q).optString("name"))) keep++;
+                    // v0.5.1: anche "hidden": true -> scartata (vedi shown())
+                    for (int q = 0; q < nt; q++) if (shown(t.optJSONObject(q))) keep++;
                     h.tName = new String[keep]; h.tC = new float[keep];
                     for (int q = 0, z = 0; q < nt; q++) {
                         JSONObject x = t.optJSONObject(q);
-                        if (!isTemp(x.optString("name"))) continue;
+                        if (!shown(x)) continue;                 // v0.5.1 (era: !isTemp(name))
                         h.tName[z] = x.optString("name"); h.tC[z] = f(x, "c"); z++;
                     }
                     JSONArray fa = o.optJSONArray("fans");
-                    int nf = fa != null ? fa.length() : 0;
+                    int nf0 = fa != null ? fa.length() : 0, nf = 0;
+                    // v0.5.1: ventole con "hidden": true saltate (prima: tutte, nf = fa.length())
+                    for (int q = 0; q < nf0; q++) if (!fa.optJSONObject(q).optBoolean("hidden", false)) nf++;
                     h.fName = new String[nf]; h.fRpm = new float[nf]; h.fPct = new float[nf];
-                    for (int q = 0; q < nf; q++) {
+                    for (int q = 0, z = 0; q < nf0; q++) {
                         JSONObject x = fa.optJSONObject(q);
-                        h.fName[q] = x.optString("name"); h.fRpm[q] = f(x, "rpm"); h.fPct[q] = f(x, "pct");
+                        if (x.optBoolean("hidden", false)) continue;
+                        h.fName[z] = x.optString("name"); h.fRpm[z] = f(x, "rpm"); h.fPct[z] = f(x, "pct"); z++;
                     }
                     m.hw[i] = h;
                 }

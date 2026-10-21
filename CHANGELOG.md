@@ -1,6 +1,13 @@
 # CHANGELOG — Tab2revamp
 Versione documento: v0.1.10 — 2026-10-22 01:35
 
+## 11. (2) v0.1.10 — 2026-10-22 01:45 (sessione locale, APK v0.5.1)
+- APK **v0.5.1**: salta temperature e ventole con `"hidden": true` (scelta "non mostrare" nella pagina
+  `http://<PC>:8090/config` del server v0.2.4, che gestisce anche i nomi personalizzati: l'APK mostra
+  sempre `name`). Campo `hidden` chiesto alla sessione «Sorgente dati Windows»: finché manca, si
+  mostra tutto. Installata, avvio ok; **filtro non ancora provato** (il server non invia `hidden`).
+- Aggiunto `android/tab2monitor_app/build_tab2monitor_v0.5.1_20261022-0145.sh` (versionCode 7).
+
 ## 11. v0.1.10 — 2026-10-22 01:35 (sessione locale, APK v0.5.0)
 - APK **v0.5.0**, richiesta utente: temperature **in box per hardware assieme alle relative ventole**.
   Pagina 2 = schede GPU (con tutti i loro sensori: GPU Core/Memory/Hot Spot, ventola, potenza) +
