@@ -1,6 +1,9 @@
 // =============================================================================
 // Tab2Monitor - MainActivity + thread di polling
-// Versione: v0.6.0 - 2026-10-22 02:00
+// Versione: v0.8.0 - 2026-10-22 02:45
+//   v0.8.0: servizio avviato anche solo per gli allarmi vocali (alarm_on); chiavi load_wake,
+//           alarm_on; extra interi th_cpu, th_gpu, th_ram, th_vram, alarm_def
+//   v0.7.0: Metrics.cpuTemp (prima temperatura dell'hardware "cpu") per l'anello della CPU
 //   v0.6.0: presenza con fotocamera frontale (PresenceService): avvia/ferma il servizio
 //           secondo l'opzione "presence", oscuramento di ripiego (dim) e finestra visibile
 //           sopra la schermata di blocco (dopo lockNow lo schermo si riaccende sulla dashboard)
@@ -72,12 +75,14 @@ public class MainActivity extends Activity {
     //           "p_claude"};
     static final String[] BOOL_KEYS = {"autostart", "src_usb", "src_wifi",
             "p_cpu", "p_cores", "p_hist", "p_ram", "p_gpu", "p_temps", "p_net", "p_disk", "p_procs",
-            "p_claude", "p_fans", "anim_fans", "presence"};      // v0.6.0: + presence (default false)
+            "p_claude", "p_fans", "anim_fans", "presence",       // v0.6.0: + presence (default false)
+            "load_wake", "alarm_on"};                            // v0.8.0 (alarm_on default false)
     static final int DEF_PAGE_SEC = 15;   // v0.4.0: secondi per pagina (0 = niente rotazione)
 
     private MonitorView view;
     private View blackout;                              // v0.6.0: velo nero dell'oscuramento
     private static MainActivity current;                // v0.6.0: per PresenceService.dim()
+    static volatile Metrics lastMetrics;                 // v0.8.0: per l'elenco sensori nelle impostazioni
     private Poller poller;
     private SharedPreferences prefs;
 
@@ -138,6 +143,8 @@ public class MainActivity extends Activity {
         if (i.hasExtra("gpu_busy_sec")) e.putInt("gpu_busy_sec", i.getIntExtra("gpu_busy_sec", 60));
         if (i.hasExtra("presence_off_sec")) e.putInt("presence_off_sec", Math.max(10, i.getIntExtra("presence_off_sec", 120)));   // v0.6.0
         if (i.hasExtra("presence_sens")) e.putInt("presence_sens", Math.max(1, i.getIntExtra("presence_sens", 20)));
+        for (String k : new String[]{"th_cpu", "th_gpu", "th_ram", "th_vram", "alarm_def"})   // v0.8.0
+            if (i.hasExtra(k)) e.putInt(k, i.getIntExtra(k, 0));
         // 2026-10-22 v0.2.0: oltre ad "autostart" si accettano tutti gli interruttori del
         // pannello impostazioni (src_usb, src_wifi, p_cpu, p_gpu, ...), es. --ez p_gpu false
         // (riga v0.1.0 sostituita:
@@ -161,10 +168,13 @@ public class MainActivity extends Activity {
         hideBars();
         restartPoller();
         // v0.6.0: servizio di presenza acceso/spento secondo l'opzione (serve il permesso CAMERA)
+        // v0.8.0: il servizio serve per la presenza (con permesso CAMERA) oppure per gli allarmi.
+        // Versione v0.6.0: solo presence && CAMERA
         Intent ps = new Intent(this, PresenceService.class);
-        if (prefs.getBoolean("presence", false)
-                && checkSelfPermission(android.Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED)
-            startService(ps);
+        boolean cam = prefs.getBoolean("presence", false)
+                && checkSelfPermission(android.Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED;
+        if (!cam && prefs.getBoolean("presence", false)) prefs.edit().putBoolean("presence", false).apply();
+        if (cam || prefs.getBoolean("alarm_on", false)) startService(ps);
         else stopService(ps);
     }
 
@@ -261,6 +271,7 @@ public class MainActivity extends Activity {
                     } catch (Exception ignored) { /* prova l'URL successivo */ }
                 }
                 if (!running) break;
+                if (m != null) lastMetrics = m;           // v0.8.0
                 final Metrics fm = m; final String fs = src;
                 view.post(new Runnable() { public void run() { view.update(fm, fs); } });
                 // se il server non risponde si riprova piu' piano (3 s)
@@ -311,6 +322,7 @@ public class MainActivity extends Activity {
         Gpu[] gpus = new Gpu[0];                           // v0.4.0
         Hw[] hw = new Hw[0];                               // v0.4.0
         Box[] boxes = new Box[0];                          // v0.5.0: un box per hardware
+        float cpuTemp = Float.NaN;                         // v0.7.0: es. "Core (Tctl/Tdie)"
 
         // Utilizzo Claude (schema concordato con la sessione "Sorgente dati Windows");
         // -1 = campo assente
@@ -529,6 +541,8 @@ public class MainActivity extends Activity {
                 if (o instanceof Gpu) ((Gpu) o).add(true, lab, h.fRpm[q], h.fPct[q]);
                 else if (o instanceof Box) ((Box) o).add(true, lab, h.fRpm[q], h.fPct[q]);
             }
+            for (Hw h : m.hw)                              // v0.7.0
+                if ("cpu".equals(h.kind) && h.tC.length > 0 && Float.isNaN(m.cpuTemp)) m.cpuTemp = h.tC[0];
             ArrayList<Box> out = new ArrayList<Box>();
             for (Box b : byKey.values()) if (b.n() > 0) { b.seal(); out.add(b); }
             m.boxes = out.toArray(new Box[out.size()]);

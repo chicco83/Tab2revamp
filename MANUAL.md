@@ -1,5 +1,5 @@
 # MANUAL — Tab2revamp
-Versione: v0.1.11 — 2026-10-22 02:05
+Versione: v0.1.12 — 2026-10-22 02:55
 
 Galaxy Tab 2 10.1 (GT-P5100) come display delle risorse di un PC Windows.
 
@@ -66,9 +66,9 @@ Sostituisce Jelly + dashboard web: ~15 MB di RAM invece di 60–100, schermo int
 **Build** (PC, Git Bash; serve solo ciò che è già installato: Android SDK in
 `%LOCALAPPDATA%\Android\Sdk` e il JDK di Android Studio, oppure `JAVA_HOME`):
 ```
-bash android/tab2monitor_app/build_tab2monitor_v0.6.0_20261022-0200.sh
+bash android/tab2monitor_app/build_tab2monitor_v0.8.0_20261022-0245.sh
 ```
-Risultato: `android/tab2monitor_app/dist/Tab2Monitor_v0.6.0.apk` (non versionata in git).
+Risultato: `android/tab2monitor_app/dist/Tab2Monitor_v0.8.0.apk` (non versionata in git).
 Lo script di installazione prende l'APK con la versione più alta in `dist/`.
 
 **Installazione** (tablet in USB, server Windows avviato):
@@ -117,6 +117,13 @@ Con `-home` l'app diventa anche la schermata Home (kiosk); `-nohome` la toglie.
   Disattivare: interruttore nelle impostazioni o `--ez presence false`; togliere l'amministratore:
   `adb shell dpm remove-active-admin it.tab2revamp.monitor/.AdminReceiver` (va fatto prima di
   disinstallare l'APK). Log: `adb logcat -s Tab2Presence`. Al buio il movimento non viene visto.
+- **Carico** (v0.8.0, impostazioni → "Carico"): se CPU, GPU, RAM o VRAM superano la soglia lo schermo
+  si riaccende e resta acceso finché il carico dura (anche senza nessuno davanti). "Adesso: ..." mostra
+  cosa sta tenendo acceso lo schermo.
+- **Allarmi temperatura** (v0.8.0, impostazioni → "Allarmi temperatura (voce)", spenti di default):
+  voce italiana quando un sensore supera la soglia; soglia generale + una casella per ogni sensore
+  (vuoto = generale, 0 = mai). "Prova voce" per sentire l'audio. Serve il motore **Pico**: se è stato
+  disattivato, `adb shell pm enable com.svox.pico` (il debloat `tune_v0.1.4` non lo tocca più).
 - Uscire: scorrere dal bordo per far comparire le barre → Home/Indietro.
 - Configurazione da PC:
   ```
@@ -128,7 +135,8 @@ Con `-home` l'app diventa anche la schermata Home (kiosk); `-nohome` la toglie.
   ```
   Chiavi booleane: `src_usb`, `src_wifi`, `p_cpu`, `p_cores`, `p_hist`, `p_ram`, `p_gpu`, `p_temps`, `p_net`, `p_disk`, `p_procs`, `p_claude`, `p_fans`, `anim_fans`.
   Intere (`--ei`): `poll_ms`, `page_sec`, `gpu_busy_pct`, `gpu_busy_sec`, `presence_off_sec`, `presence_sens`.
-  Booleana con default falso: `presence`.
+  Booleane con default falso: `presence`, `alarm_on`; `load_wake` (default vero).
+  Soglie (`--ei`): `th_cpu`, `th_gpu`, `th_ram`, `th_vram`, `alarm_def`.
 - Disinstallare: `adb uninstall it.tab2revamp.monitor` (dashboard in Jelly con `tune_v0.1.3`).
 
 ---
@@ -168,7 +176,7 @@ Con `-home` l'app diventa anche la schermata Home (kiosk); `-nohome` la toglie.
    (`data` non tocca i file utente) e `adb shell twrp install /sdcard/<zip>`.
 6. Primo avvio (5–10 min). LineageOS parte con **debug USB spento**: Impostazioni → Info →
    7 tocchi su Numero build → Opzioni sviluppatore → Debug Android. Poi
-   `bash android/tune_v0.1.3_20261021-2315.sh --debloat` (via USB con `adb reverse`, apre Jelly).
+   `bash android/tune_v0.1.4_20261022-0250.sh --debloat` (via USB con `adb reverse`, apre Jelly).
 6b. rild (3G) in loop al 50% CPU: `adb root && adb remount`, salvare `/system/etc/init/rild.rc`,
    aggiungere la riga `    disabled` sotto `service ril-daemon`, riavviare. 3G/SMS non
    funzionano comunque con questa ROM; IMEI/EFS non vengono toccati.

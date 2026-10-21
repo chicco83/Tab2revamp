@@ -1,6 +1,13 @@
 // =============================================================================
 // Tab2Monitor - PresenceService (presenza con la fotocamera frontale)
-// Versione: v0.6.0 - 2026-10-22 02:00
+// Versione: v0.8.0 - 2026-10-22 02:45
+//   v0.8.0: (1) il servizio legge da solo /api/metrics ogni 2 s (anche a schermo spento):
+//           CARICO oltre soglia (CPU, GPU, RAM, VRAM) = "presenza" -> riaccende e tiene acceso
+//           finche' il carico resta; (2) ALLARME VOCALE (TextToSpeech, voce italiana Pico) quando
+//           una temperatura supera la sua soglia (per sensore, o soglia generale), ripetuto ogni
+//           60 s finche' resta sopra (isteresi 3 gradi), con riaccensione dello schermo.
+//           Il servizio gira se e' attiva la presenza OPPURE gli allarmi; la fotocamera solo
+//           con la presenza.
 // Nota versioning: in Java il nome del file deve coincidere con la classe
 // pubblica, quindi la versione sta qui in testa e nel versionName dell'APK.
 // =============================================================================
@@ -40,9 +47,20 @@ import android.os.IBinder;
 import android.os.Looper;
 import android.os.PowerManager;
 import android.os.SystemClock;
+import android.media.AudioManager;
+import android.os.Bundle;
+import android.speech.tts.TextToSpeech;
 import android.util.Log;
 
+import org.json.JSONObject;
+
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 
 @SuppressWarnings("deprecation")       // android.hardware.Camera: l'HAL TI e' "Camera1" (API 1)
 public class PresenceService extends Service {
@@ -68,6 +86,17 @@ public class PresenceService extends Service {
     private int offSec = 120;
     private float sens = 2f;                             // % di punti cambiati per dire "movimento"
     private boolean screenOffByUs;
+    // v0.8.0: carico, allarmi, polling proprio
+    private boolean presenceOn, loadWake, alarmOn;
+    private int thCpu = 60, thGpu = 50, thRam = 90, thVram = 90, alarmDef = 85;
+    private String[] urls = new String[0];
+    private HandlerThread netThread;
+    private Handler net;
+    private TextToSpeech tts;
+    private boolean ttsReady;
+    private final HashMap<String, Long> alarmAt = new HashMap<String, Long>();   // ultima voce per sensore
+    static volatile String loadStatus = "";
+    static volatile MainActivity.Metrics last;            // ultimo campione (per le impostazioni)
     private volatile long graceUntil;                    // uptimeMillis fino a cui ignorare il movimento
     private int hits;                                    // fotogrammi consecutivi con movimento
     private final Handler main = new Handler(Looper.getMainLooper());
@@ -95,8 +124,13 @@ public class PresenceService extends Service {
         thread.start();
         h = new Handler(thread.getLooper());
         lastPresenceAt = SystemClock.uptimeMillis();
-        h.post(new Runnable() { public void run() { openCamera(); } });
+        // v0.8.0: la fotocamera si apre in onStartCommand solo se la presenza e' attiva
+        // (era: h.post(openCamera) sempre)
         h.postDelayed(tick, 1000);
+        netThread = new HandlerThread("Tab2SvcNet");
+        netThread.start();
+        net = new Handler(netThread.getLooper());
+        net.postDelayed(poll, 2000);
     }
 
     @Override
@@ -104,11 +138,43 @@ public class PresenceService extends Service {
         SharedPreferences p = getSharedPreferences(MainActivity.PREFS, 0);
         offSec = Math.max(10, p.getInt("presence_off_sec", 120));
         sens = Math.max(0.2f, p.getInt("presence_sens", 20) / 10f);   // decimi di %
+        // v0.8.0
+        presenceOn = p.getBoolean("presence", false);
+        loadWake = p.getBoolean("load_wake", true);
+        alarmOn = p.getBoolean("alarm_on", false);
+        thCpu = p.getInt("th_cpu", 60); thGpu = p.getInt("th_gpu", 50);
+        thRam = p.getInt("th_ram", 90); thVram = p.getInt("th_vram", 90);
+        alarmDef = p.getInt("alarm_def", 85);
+        String wifi = p.getString("wifi_url", "");
+        boolean usb = p.getBoolean("src_usb", true), wf = p.getBoolean("src_wifi", true) && wifi.length() > 0;
+        urls = usb && wf ? new String[]{MainActivity.USB_URL, wifi}
+                : usb ? new String[]{MainActivity.USB_URL} : wf ? new String[]{wifi} : new String[0];
+        h.post(new Runnable() { public void run() {
+            if (presenceOn && cam == null) openCamera();
+            if (!presenceOn && cam != null) { closeCamera(); status = "fotocamera spenta (presenza disattivata)"; }
+        } });
+        if (alarmOn && tts == null) {
+            tts = new TextToSpeech(this, new TextToSpeech.OnInitListener() {
+                public void onInit(int st) {
+                    if (st == TextToSpeech.SUCCESS) {
+                        tts.setLanguage(Locale.ITALIAN);
+                        ttsReady = true;
+                    } else Log.w(TAG, "TextToSpeech non disponibile: " + st);
+                }
+            });
+        }
+        if (p.getBoolean("alarm_test", false)) {            // pulsante "Prova voce" delle impostazioni
+            p.edit().remove("alarm_test").apply();
+            net.postDelayed(new Runnable() { public void run() { say("Prova allarme Tab2Monitor. Voce attiva."); } }, 1500);
+        }
         return START_STICKY;
     }
 
     @Override
     public void onDestroy() {
+        net.removeCallbacksAndMessages(null);              // v0.8.0
+        netThread.quitSafely();
+        if (tts != null) { tts.shutdown(); tts = null; }
         h.removeCallbacksAndMessages(null);
         h.post(new Runnable() { public void run() { closeCamera(); } });
         thread.quitSafely();
@@ -204,7 +270,7 @@ public class PresenceService extends Service {
     private final Runnable tick = new Runnable() {
         public void run() {
             long idle = (SystemClock.uptimeMillis() - lastPresenceAt) / 1000;
-            if (!screenOffByUs && idle >= offSec) {
+            if (presenceOn && !screenOffByUs && idle >= offSec) {   // v0.8.0: + presenceOn
                 Log.i(TAG, "nessuno da " + idle + " s: spengo");
                 main.post(new Runnable() { public void run() { sleep(); } });
             }
@@ -212,6 +278,77 @@ public class PresenceService extends Service {
             h.postDelayed(this, 1000);
         }
     };
+
+    // ------------------------------------------------- carico e allarmi (v0.8.0)
+    private final byte[] nbuf = new byte[8192];
+    private final ByteArrayOutputStream nbos = new ByteArrayOutputStream(16384);
+
+    private final Runnable poll = new Runnable() {
+        public void run() {
+            MainActivity.Metrics m = null;
+            for (String u : urls) {
+                try { m = MainActivity.Metrics.parse(new JSONObject(get(u + "/api/metrics"))); break; }
+                catch (Exception ignored) { }
+            }
+            if (m != null) { last = m; check(m); }
+            net.postDelayed(this, 2000);
+        }
+    };
+
+    private String get(String u) throws Exception {
+        HttpURLConnection c = (HttpURLConnection) new URL(u).openConnection();
+        c.setConnectTimeout(1500); c.setReadTimeout(2500); c.setUseCaches(false);
+        try {
+            if (c.getResponseCode() != 200) throw new Exception("HTTP " + c.getResponseCode());
+            InputStream in = c.getInputStream();
+            nbos.reset();
+            int n;
+            while ((n = in.read(nbuf)) > 0) nbos.write(nbuf, 0, n);
+            in.close();
+            return nbos.toString("UTF-8");
+        } catch (Exception e) { c.disconnect(); throw e; }
+    }
+
+    private void check(MainActivity.Metrics m) {
+        // 1) carico: conta come presenza (riaccende e tiene acceso finche' dura)
+        String why = null;
+        if (m.cpu >= thCpu) why = "CPU " + Math.round(m.cpu) + "%";
+        else if (m.ram >= thRam) why = "RAM " + Math.round(m.ram) + "%";
+        else for (MainActivity.Metrics.Gpu g : m.gpus) {
+            if (g.load >= thGpu) { why = g.name + " carico " + Math.round(g.load) + "%"; break; }
+            if (g.memPct >= thVram) { why = g.name + " VRAM " + Math.round(g.memPct) + "%"; break; }
+        }
+        loadStatus = why == null ? "nessun carico oltre soglia" : "sotto carico: " + why;
+        if (loadWake && why != null) presence("carico: " + why);
+        // 2) allarmi temperatura
+        if (!alarmOn) return;
+        SharedPreferences p = getSharedPreferences(MainActivity.PREFS, 0);
+        long now = SystemClock.uptimeMillis();
+        for (MainActivity.Metrics.Hw hw : m.hw) for (int q = 0; q < hw.tName.length; q++) {
+            String key = sensorKey(hw.name, hw.tName[q]);
+            int thr = p.getInt(key, alarmDef);
+            float c = hw.tC[q];
+            if (thr <= 0 || Float.isNaN(c)) continue;          // 0 = allarme disattivato per il sensore
+            Long at = alarmAt.get(key);
+            if (c >= thr) {
+                if (at == null || now - at > 60000) {
+                    alarmAt.put(key, now);
+                    presence("allarme " + hw.tName[q]);
+                    say("Attenzione. " + hw.tName[q] + ", " + hw.name + ", " + Math.round(c) + " gradi.");
+                }
+            } else if (at != null && c < thr - 3) alarmAt.remove(key);   // isteresi 3 gradi
+        }
+    }
+
+    static String sensorKey(String hw, String name) { return "thr|" + hw + "|" + name; }
+
+    private void say(String s) {
+        Log.i(TAG, "voce: " + s);
+        if (tts == null || !ttsReady) return;
+        Bundle b = new Bundle();
+        b.putInt(TextToSpeech.Engine.KEY_PARAM_STREAM, AudioManager.STREAM_ALARM);   // suona anche a volume media 0
+        tts.speak(s, TextToSpeech.QUEUE_ADD, b, "tab2alarm" + SystemClock.uptimeMillis());
+    }
 
     // ------------------------------------------------------- schermo on / off
     private void sleep() {

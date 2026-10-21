@@ -1,6 +1,9 @@
 // =============================================================================
 // Tab2Monitor - SettingsActivity (pannello impostazioni)
-// Versione: v0.6.0 - 2026-10-22 02:00
+// Versione: v0.8.0 - 2026-10-22 02:45
+//   v0.8.0: sezione "Carico" (riaccensione con CPU/GPU/RAM/VRAM oltre soglia) e sezione
+//           "Allarmi temperatura (voce)": soglia generale + soglia per ogni sensore
+//           (vuoto = generale, 0 = nessun allarme), pulsante "Prova voce"
 //   v0.6.0: sezione "Presenza (fotocamera frontale)": interruttore, ritardo di spegnimento,
 //           sensibilita', attivazione amministratore dispositivo, stato del rilevamento
 //   v0.4.0: campo "cambio pagina ogni N secondi" (page_sec), pannello Ventole; si apre
@@ -42,6 +45,9 @@ public class SettingsActivity extends Activity {
     private SharedPreferences prefs;
     private EditText url, poll, pageSec, busyPct, busySec;   // v0.4.0: + pageSec, soglie GPU
     private EditText offSec, sens;                     // v0.6.0: presenza
+    private EditText thCpu, thGpu, thRam, thVram, alarmDef;   // v0.8.0
+    private final java.util.ArrayList<String> sensKeys = new java.util.ArrayList<String>();
+    private final java.util.ArrayList<EditText> sensFields = new java.util.ArrayList<EditText>();
     private LinearLayout ll;
 
     @Override
@@ -108,6 +114,44 @@ public class SettingsActivity extends Activity {
         }
         label("Stato: " + PresenceService.status);
 
+        // ---- v0.8.0: carico
+        header("Carico (riaccende lo schermo e lo tiene acceso)");
+        toggle("load_wake", "Riaccendi lo schermo quando il PC e' sotto carico (anche senza nessuno davanti)");
+        label("Soglie in %: CPU");
+        thCpu = field(String.valueOf(prefs.getInt("th_cpu", 60)), "60", InputType.TYPE_CLASS_NUMBER);
+        label("GPU (carico di elaborazione di una qualsiasi scheda)");
+        thGpu = field(String.valueOf(prefs.getInt("th_gpu", 50)), "50", InputType.TYPE_CLASS_NUMBER);
+        label("RAM");
+        thRam = field(String.valueOf(prefs.getInt("th_ram", 90)), "90", InputType.TYPE_CLASS_NUMBER);
+        label("VRAM (saturazione memoria di una qualsiasi scheda)");
+        thVram = field(String.valueOf(prefs.getInt("th_vram", 90)), "90", InputType.TYPE_CLASS_NUMBER);
+        if (PresenceService.loadStatus.length() > 0) label("Adesso: " + PresenceService.loadStatus);
+
+        // ---- v0.8.0: allarmi vocali di temperatura
+        header("Allarmi temperatura (voce)");
+        toggle("alarm_on", "Avviso vocale quando una temperatura supera la soglia", false);
+        label("Soglia generale (gradi C) per i sensori senza soglia propria");
+        alarmDef = field(String.valueOf(prefs.getInt("alarm_def", 85)), "85", InputType.TYPE_CLASS_NUMBER);
+        Button test = new Button(this);
+        test.setText("Prova voce");
+        test.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                prefs.edit().putBoolean("alarm_on", true).putBoolean("alarm_test", true).apply();
+                startService(new Intent(SettingsActivity.this, PresenceService.class));
+            }
+        });
+        ll.addView(test);
+        label("Soglia per sensore (vuoto = generale, 0 = nessun allarme):");
+        MainActivity.Metrics lm = PresenceService.last != null ? PresenceService.last : MainActivity.lastMetrics;
+        if (lm == null) label("  (nessun dato dal server ancora: riaprire le impostazioni tra qualche secondo)");
+        else for (MainActivity.Metrics.Hw hw : lm.hw) for (int q = 0; q < hw.tName.length; q++) {
+            String key = PresenceService.sensorKey(hw.name, hw.tName[q]);
+            label(hw.name + "  -  " + hw.tName[q] + "  (ora " + Math.round(hw.tC[q]) + " C)");
+            EditText e = field(prefs.contains(key) ? String.valueOf(prefs.getInt(key, 0)) : "",
+                    "generale (" + prefs.getInt("alarm_def", 85) + ")", InputType.TYPE_CLASS_NUMBER);
+            sensKeys.add(key); sensFields.add(e);
+        }
+
         Button close = new Button(this);
         close.setText("Chiudi e torna alla dashboard");
         close.setOnClickListener(new View.OnClickListener() {
@@ -134,6 +178,16 @@ public class SettingsActivity extends Activity {
         try { ps = Math.max(0, Integer.parseInt(pageSec.getText().toString().trim())); }
         catch (NumberFormatException ignored) { }
         // 2026-10-22 v0.4.0 (era: prefs.edit().putString("wifi_url", u).putInt("poll_ms", ms).apply();)
+        SharedPreferences.Editor ed = prefs.edit();          // v0.8.0: soglie
+        ed.putInt("th_cpu", num(thCpu, 60, 1, 100)).putInt("th_gpu", num(thGpu, 50, 1, 100))
+          .putInt("th_ram", num(thRam, 90, 1, 100)).putInt("th_vram", num(thVram, 90, 1, 100))
+          .putInt("alarm_def", num(alarmDef, 85, 1, 150));
+        for (int i = 0; i < sensKeys.size(); i++) {
+            String t = sensFields.get(i).getText().toString().trim();
+            if (t.length() == 0) ed.remove(sensKeys.get(i));
+            else ed.putInt(sensKeys.get(i), num(sensFields.get(i), 0, 0, 150));
+        }
+        ed.apply();
         prefs.edit().putInt("presence_off_sec", num(offSec, 120, 10, 86400))      // v0.6.0
                 .putInt("presence_sens", num(sens, 20, 1, 500)).apply();
         prefs.edit().putString("wifi_url", u).putInt("poll_ms", ms).putInt("page_sec", ps)

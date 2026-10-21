@@ -1,6 +1,15 @@
 // =============================================================================
 // Tab2Monitor - MonitorView (disegno su Canvas)
-// Versione: v0.5.0 - 2026-10-22 01:30
+// Versione: v0.7.0 - 2026-10-22 02:30
+//   v0.7.0: GRAFICA ispirata ai pannelli hardware commerciali (ricerca 2026-10-22: AIDA64
+//           SensorPanel, NZXT Kraken LCD, Corsair Xeneon Edge, Lian Li Universal Screen,
+//           Thermalright Trofeo Vision, temi Turing Smart Screen):
+//           - un colore per componente (CPU ciano, GPU rosso/arancio, RAM viola, dischi
+//             arancio, rete verde, Claude terracotta), striscia colorata a sinistra delle schede
+//           - anelli spessi a gradiente verde->giallo->rosso con estremi arrotondati
+//           - numero grande con unita' piccola; CPU con la temperatura al centro dell'anello
+//             (come il display del Kraken); mini-grafico con area sfumata sotto CPU e RAM
+//           - storico con area sfumata invece della sola linea
 //   v0.5.0: pagina 2 = schede GPU (con tutti i loro sensori) + BOX PER HARDWARE (CPU, scheda
 //           madre, RAM, dischi, ...) ognuno con le sue temperature e le sue ventole, disposti
 //           su due sotto-colonne; sostituiscono i pannelli separati Temperature / Ventole
@@ -31,7 +40,11 @@ package it.tab2revamp.monitor;
 
 import android.content.Context;
 import android.graphics.Canvas;
+import android.graphics.LinearGradient;
+import android.graphics.Matrix;
 import android.graphics.Paint;
+import android.graphics.Shader;
+import android.graphics.SweepGradient;
 import android.graphics.Path;
 import android.graphics.RectF;
 import android.graphics.Typeface;
@@ -49,6 +62,12 @@ public class MonitorView extends View {
     static final int BG = 0xff0d1117, CARD = 0xff161b22, BORDER = 0xff30363d, TRACK = 0xff21262d;
     static final int FG = 0xffe6edf3, DIM = 0xff8b949e, BLUE = 0xff2f81f7, GREEN = 0xff3fb950;
     static final int YELLOW = 0xffd29922, RED = 0xfff85149;
+    // v0.7.0: colori per componente (accento: striscia a sinistra + titolo della scheda)
+    static final int CYAN = 0xff39c5f3, VIOLET = 0xffa371f7, ORANGE = 0xfff0883e;
+    static final int TEAL = 0xff2ea89f, CLAUDE_C = 0xffd97757, AMD_RED = 0xffed4b4b;
+    static final int[] GPU_ACC = {AMD_RED, ORANGE, VIOLET, CYAN};
+    private int accent = BLUE;                           // accento della scheda che si sta disegnando
+    private final Matrix mx = new Matrix();
     static final int HIST = 60;
 
     // 2026-10-22 v0.2.0: pannelli attivabili dal pannello impostazioni.
@@ -435,18 +454,28 @@ public class MonitorView extends View {
 
     private void drawPanel(Canvas cv, int id, float x, float y, float w, float h) {
         switch (id) {
+            // 2026-10-22 v0.7.0: heroCard (anello + mini-grafico) e colori per componente.
+            // Versione v0.6.0: bigCard(cv, x, y, w, "CPU", pct(m.cpu), "<MHz>", m.cpu) e
+            //                  bigCard(cv, x, y, w, "RAM", pct(m.ram), "<GB> - swap", m.ram)
             case 0:
-                bigCard(cv, x, y, w, "CPU", pct(m.cpu), Float.isNaN(m.mhz) ? "" : (int) m.mhz + " MHz", m.cpu);
+                accent = CYAN;
+                heroCard(cv, x, y, w, "CPU - carico", m.cpu, Float.isNaN(m.mhz) ? "" : (int) m.mhz + " MHz",
+                        hCpu, Float.isNaN(m.cpuTemp) ? null : Math.round(m.cpuTemp) + "\u00b0",
+                        Float.isNaN(m.cpuTemp) ? "carico" : "temp. CPU");
                 break;
             case 1:
+                accent = CYAN;
                 coresCard(cv, x, y, w, h);
                 break;
             case 2:
+                accent = CYAN;
                 histCard(cv, x, y, w, h);
                 break;
             case 3:
-                bigCard(cv, x, y, w, "RAM", pct(m.ram),
-                        num1(m.ramUsed) + " / " + num1(m.ramTot) + " GB  -  swap " + pct(m.swap), m.ram);
+                accent = VIOLET;
+                heroCard(cv, x, y, w, "RAM - occupata", m.ram,
+                        num1(m.ramUsed) + " / " + num1(m.ramTot) + " GB  -  swap " + pct(m.swap),
+                        hRam, num1(m.ramUsed), "GB usati");
                 break;
             case 4:                                          // v0.4.0: tutte le GPU
                 gpuStack(cv, x, y, w, h);
@@ -478,11 +507,13 @@ public class MonitorView extends View {
                 break;
             }
             case 6:
+                accent = GREEN;                              // v0.7.0
                 card(cv, x, y, w, h, "Rete");
                 row(cv, x, y + 60 * u, w, "\u2193 download", rate(m.rx));
                 row(cv, x, y + 86 * u, w, "\u2191 upload", rate(m.tx));
                 break;
             case 7:
+                accent = ORANGE;                             // v0.7.0
                 if (m.diskPerIo) { disksCard(cv, x, y, w, h); break; }   // v0.4.0
                 // senza dati per disco (server vecchio): totali come prima
             case -7: {
@@ -496,9 +527,11 @@ public class MonitorView extends View {
                 break;
             }
             case 9:                                          // v0.3.0
+                accent = CLAUDE_C;                           // v0.7.0
                 claudeCard(cv, x, y, w, h);
                 break;
             case 8: {
+                accent = BLUE;                               // v0.7.0
                 card(cv, x, y, w, h, "Top processi (CPU)");
                 int np = Math.min(m.procN.length, (int) ((h - 44 * u) / (26 * u)));
                 for (int i = 0; i < np; i++)
@@ -510,15 +543,92 @@ public class MonitorView extends View {
     }
 
     // Riquadro con titolo; restituisce nulla, il chiamante conosce l'altezza
+    // 2026-10-22 v0.7.0: striscia colorata (accento del componente) e titolo colorato in grassetto,
+    // bordo piu' discreto. Versione v0.1.0-v0.6.0: bordo BORDER, titolo grigio DIM.
     private void card(Canvas cv, float x, float y, float w, float h, String title) {
         rf.set(x, y, x + w, y + h);
-        fill.setColor(CARD); cv.drawRoundRect(rf, 6 * u, 6 * u, fill);
-        stroke.setColor(BORDER); cv.drawRoundRect(rf, 6 * u, 6 * u, stroke);
-        text.setTextSize(15 * u); text.setColor(DIM); text.setTextAlign(Paint.Align.LEFT);
-        cv.drawText(fit(title.toUpperCase(), w - 24 * u), x + 12 * u, y + 26 * u, text);
+        fill.setColor(CARD); cv.drawRoundRect(rf, 8 * u, 8 * u, fill);
+        stroke.setColor(0xff252b33); cv.drawRoundRect(rf, 8 * u, 8 * u, stroke);
+        fill.setColor(accent);
+        rf.set(x, y + 10 * u, x + 4 * u, y + h - 10 * u);
+        cv.drawRoundRect(rf, 2 * u, 2 * u, fill);
+        text.setTextSize(15 * u); text.setColor(accent); text.setTextAlign(Paint.Align.LEFT);
+        text.setFakeBoldText(true);
+        cv.drawText(fit(title.toUpperCase(), w - 24 * u), x + 14 * u, y + 26 * u, text);
+        text.setFakeBoldText(false);
     }
 
     // Scheda con numero grande, sottotitolo e barra; restituisce il bordo inferiore
+    // v0.7.0: numero grande + unita' piccola, sottotitolo, mini-grafico con area sfumata a sinistra;
+    // a destra anello a gradiente con al centro "center" (es. temperatura CPU) e sotto "centerLab".
+    private void heroCard(Canvas cv, float x, float y, float w, String title, float val, String sub,
+                          float[] hist, String center, String centerLab) {
+        float h = 170 * u, r = 54 * u, gx = x + w - r - 22 * u, gy = y + 92 * u;
+        card(cv, x, y, w, h, title);
+        // numero + unita'
+        String num = Float.isNaN(val) ? "--" : String.valueOf(Math.round(val));
+        big.setTextSize(64 * u); big.setColor(FG); big.setTextAlign(Paint.Align.LEFT);
+        cv.drawText(num, x + 14 * u, y + 88 * u, big);
+        float nw = big.measureText(num);
+        big.setTextSize(28 * u); big.setColor(DIM);
+        cv.drawText("%", x + 18 * u + nw, y + 88 * u, big);
+        text.setTextSize(16 * u); text.setColor(DIM); text.setTextAlign(Paint.Align.LEFT);
+        float leftW = gx - r - 16 * u - x - 14 * u;
+        cv.drawText(fit(sub, leftW), x + 14 * u, y + 116 * u, text);
+        spark(cv, hist, x + 14 * u, y + 126 * u, leftW, 32 * u, accent);
+        ring(cv, gx, gy, r, val, center, centerLab);
+    }
+
+    // Anello a gradiente (verde -> giallo -> rosso), estremi arrotondati, testo al centro
+    private void ring(Canvas cv, float cx, float cy, float r, float p, String center, String lab) {
+        if (Float.isNaN(p)) p = 0;
+        p = Math.max(0, Math.min(100, p));
+        float old = line.getStrokeWidth();
+        line.setStrokeWidth(r * 0.2f);
+        line.setStrokeCap(Paint.Cap.ROUND);
+        rf.set(cx - r, cy - r, cx + r, cy + r);
+        line.setColor(TRACK); cv.drawArc(rf, 135, 270, false, line);
+        line.setShader(sweep(cx, cy)); line.setColor(0xffffffff);
+        if (p > 0.5f) cv.drawArc(rf, 135, 270 * p / 100f, false, line);
+        line.setShader(null); line.setStrokeCap(Paint.Cap.BUTT); line.setStrokeWidth(old);
+        big.setTextSize(r * 0.5f); big.setColor(FG); big.setTextAlign(Paint.Align.CENTER);
+        cv.drawText(center != null ? center : pct(p), cx, cy + r * 0.18f, big);
+        if (lab != null) {
+            text.setTextSize(13 * u); text.setColor(DIM); text.setTextAlign(Paint.Align.CENTER);
+            cv.drawText(lab, cx, cy + r * 0.62f, text);
+        }
+    }
+
+    // Gradiente angolare: posizione 0 = 135 gradi (inizio dell'arco), 0.75 = fine (405 gradi)
+    private SweepGradient sweep(float cx, float cy) {
+        SweepGradient g = new SweepGradient(cx, cy,
+                new int[]{GREEN, GREEN, YELLOW, RED, RED}, new float[]{0f, 0.35f, 0.55f, 0.72f, 1f});
+        mx.setRotate(135, cx, cy);
+        g.setLocalMatrix(mx);
+        return g;
+    }
+
+    // Mini-grafico (sparkline) con area sfumata del colore del componente
+    private void spark(Canvas cv, float[] a, float gx, float gy, float gw, float gh, int col) {
+        if (a == null || hLen < 2) return;
+        path.rewind();
+        float x0 = 0, px = 0;
+        for (int i = 0; i < hLen; i++) {
+            float v = Float.isNaN(a[i]) ? 0 : Math.max(0, Math.min(100, a[i]));
+            px = gx + (HIST - hLen + i) * gw / (HIST - 1);
+            float py = gy + gh - v * gh / 100f;
+            if (i == 0) { path.moveTo(px, py); x0 = px; } else path.lineTo(px, py);
+        }
+        line.setColor(col); line.setStrokeWidth(2 * u);
+        cv.drawPath(path, line);
+        path.lineTo(px, gy + gh); path.lineTo(x0, gy + gh); path.close();
+        fill.setShader(new LinearGradient(0, gy, 0, gy + gh, (col & 0x00ffffff) | 0x70000000,
+                col & 0x00ffffff, Shader.TileMode.CLAMP));
+        cv.drawPath(path, fill);
+        fill.setShader(null);
+    }
+
+    // (v0.1.0-v0.6.0) Scheda con numero grande, sottotitolo e barra; ora usata solo come ripiego
     private float bigCard(Canvas cv, float x, float y, float w, String title, String val, String sub, float p) {
         float h = 170 * u;
         card(cv, x, y, w, h, title);
@@ -682,12 +792,13 @@ public class MonitorView extends View {
     }
 
     private void histCard(Canvas cv, float x, float y, float w, float h) {
-        card(cv, x, y, w, h, "Storico 60 s (CPU blu / RAM verde)");
+        card(cv, x, y, w, h, "Storico 60 s (CPU ciano / RAM viola)");   // v0.7.0 (era: blu / verde)
         float gx = x + 12 * u, gw = w - 24 * u, gy = y + 40 * u, gh = h - 52 * u;
         stroke.setColor(BORDER);
         cv.drawLine(gx, gy + gh / 2, gx + gw, gy + gh / 2, stroke);
-        poly(cv, hRam, gx, gy, gw, gh, GREEN);
-        poly(cv, hCpu, gx, gy, gw, gh, BLUE);
+        // v0.7.0: aree sfumate con i colori dei componenti (era: poly() GREEN / BLUE, solo linea)
+        spark(cv, hRam, gx, gy, gw, gh, VIOLET);
+        spark(cv, hCpu, gx, gy, gw, gh, CYAN);
     }
 
     private void poly(Canvas cv, float[] a, float gx, float gy, float gw, float gh, int col) {
@@ -733,12 +844,17 @@ public class MonitorView extends View {
 
     private void gpuCard(Canvas cv, float x, float y, float w, float h, int i) {
         MainActivity.Metrics.Gpu g = m.gpus[i];
+        accent = GPU_ACC[i % GPU_ACC.length];            // v0.7.0
         card(cv, x, y, w, h, "GPU " + (i + 1) + " - " + g.name);
         // Carico di elaborazione e saturazione VRAM, affiancati (richiesta utente 2026-10-22)
         float gr = Math.min(46 * u, Math.min(w / 4 - 10 * u, (h - 120 * u) / 2));
         float gy = y + 44 * u + gr;
-        gauge(cv, x + w / 4, gy, gr, g.load, "Carico");
-        gauge(cv, x + 3 * w / 4, gy, gr, g.memPct, "VRAM");
+        // v0.7.0: anelli a gradiente con il valore al centro (era: gauge(...) a lancetta)
+        ring(cv, x + w / 4, gy, gr, g.load, pct(g.load), null);
+        ring(cv, x + 3 * w / 4, gy, gr, g.memPct, pct(g.memPct), null);
+        text.setTextSize(16 * u); text.setColor(DIM); text.setTextAlign(Paint.Align.CENTER);
+        cv.drawText("Carico", x + w / 4, gy + gr + 24 * u, text);
+        cv.drawText("VRAM", x + 3 * w / 4, gy + gr + 24 * u, text);
         text.setTextSize(16 * u); text.setColor(DIM); text.setTextAlign(Paint.Align.CENTER);
         if (!Float.isNaN(g.memTotMb))
             cv.drawText(num1(g.memMb / 1024f) + " / " + num1(g.memTotMb / 1024f) + " GB",
@@ -842,6 +958,9 @@ public class MonitorView extends View {
             if (avail < 80 * u) continue;                  // sotto-colonna piena
             bh = Math.min(bh, avail);
             float bx = x + c * (sw + gap);
+            // v0.7.0: colore per tipo di hardware
+            accent = b.title.startsWith("CPU") ? CYAN : b.title.startsWith("Scheda madre") ? TEAL
+                    : b.title.equals("RAM") ? VIOLET : b.title.equals("Dischi") ? ORANGE : BLUE;
             card(cv, bx, by, sw, bh, b.title);
             sensorRows(cv, b, bx, by + 60 * u, sw, by + bh - 8 * u);
             subY[c] = by + bh + gap;

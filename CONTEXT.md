@@ -1,5 +1,5 @@
 # CONTEXT — Tab2revamp
-Versione: v0.1.11 — 2026-10-22 02:05
+Versione: v0.1.12 — 2026-10-22 02:55
 
 ## Obiettivo
 Riusare un Galaxy Tab 2 10.1 (GT-P5100, lentissimo: ogni tocco richiede secondi)
@@ -213,6 +213,16 @@ Drive), montato solo dopo l'accesso. ⛔ `claude`: limiti di piano dell'account 
   una persona verificata dall'utente (2026-10-22 01:10; log: spegne dopo 120 s, riaccende al movimento).
   L'utente (2026-10-22): "le risorse sul tablet non mi interessano, è dedicato solo all'APK" → il costo in
   CPU di animazioni/fotocamera non è un vincolo.
+- **Grafica v0.7.0** ispirata ai pannelli commerciali (fonti nel CHANGELOG v0.1.12). ✅ screenshot.
+- **Carico e allarmi v0.8.0** ✅ provati. Scelte:
+  | Scelta | Perché |
+  |---|---|
+  | il servizio fa un proprio polling ogni 2 s | a schermo spento l'Activity (e il suo polling) è in pausa |
+  | carico = presenza (riaccende e tiene acceso) | richiesta utente: vedere il PC quando lavora |
+  | soglie default CPU 60, GPU 50, RAM 90, VRAM 90 % | ⚠️ oggi la VRAM della 9070 XT resta al ~93% (modello di llama-server caricato) → lo schermo **non si spegne** finché resta così: alzare la soglia VRAM (es. 99) se non è voluto |
+  | voce Pico italiana sul flusso "allarme" | unico motore TTS senza GApps; il flusso allarme suona anche con volume media a 0 |
+  | soglia per sensore con chiave `thr|<hardware>|<sensore>` | i nomi arrivano già rinominati dal server (/config): rinominare un sensore azzera la sua soglia personale |
+  | allarmi spenti di default | evitare voci notturne non volute |
 - Nomi e abbinamenti delle ventole: decisi dall'utente nella pagina `http://localhost:8090/config`
   (server v0.2.4); l'APK mostra `name` e usa `pairs`. Per "non mostrare" l'APK v0.5.1 legge
   `"hidden": true` su fans[]/temps[] ⏳ campo da aggiungere al server (richiesto 2026-10-22 01:40).

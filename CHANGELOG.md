@@ -1,5 +1,27 @@
 # CHANGELOG — Tab2revamp
-Versione documento: v0.1.11 — 2026-10-22 02:05
+Versione documento: v0.1.12 — 2026-10-22 02:55
+
+## 13. v0.1.12 — 2026-10-22 02:55 (sessione locale, APK v0.7.0 + v0.8.0)
+- **APK v0.7.0 — grafica**: ricerca online dei pannelli hardware commerciali (AIDA64 SensorPanel,
+  NZXT Kraken LCD, Corsair Xeneon Edge, Lian Li Universal Screen, Thermalright Trofeo Vision, temi
+  Turing Smart Screen). Ripresi: un colore per componente con striscia laterale e titolo colorato,
+  anelli spessi a gradiente verde→giallo→rosso con estremi arrotondati, numero grande + unità piccola,
+  temperatura CPU al centro dell'anello (come il Kraken), mini-grafici con area sfumata (CPU, RAM,
+  storico). Provata con screenshot.
+- **APK v0.8.0 — carico e allarmi** (richiesta utente): il servizio legge `/api/metrics` ogni 2 s anche
+  a schermo spento; **carico oltre soglia** (CPU 60%, GPU 50%, RAM 90%, VRAM 90% — configurabili) conta
+  come presenza: riaccende lo schermo e lo tiene acceso finché dura. **Allarme vocale** (TextToSpeech
+  Pico, italiano, flusso "allarme") quando una temperatura supera la soglia: soglia generale (85 °C) e
+  soglia per ogni sensore nelle impostazioni (vuoto = generale, 0 = nessun allarme); ripetuto ogni 60 s,
+  isteresi 3 °C, riaccende lo schermo; pulsante "Prova voce". Allarmi spenti di default.
+- Provato: rilevamento carico ("sotto carico: AMD Radeon RX 9070 XT VRAM 93%"); allarme reale con
+  soglia 65 °C → voce "Attenzione. GPU Memory, AMD Radeon RX 9070 XT, 68 gradi." (poi soglia 85 e
+  allarmi spenti).
+- **Pico era disattivato dal debloat** (`tune_v0.1.3`): riattivato (`pm enable com.svox.pico`,
+  `tts_default_synth`); aggiunto `android/tune_v0.1.4_20261022-0250.sh` che non lo disattiva più.
+- Aggiunti `build_tab2monitor_v0.7.0_20261022-0230.sh` (versionCode 9) e
+  `build_tab2monitor_v0.8.0_20261022-0245.sh` (versionCode 10).
+- Rollback: `git checkout 4fb4032 -- android/tab2monitor_app` e build v0.6.0 (uninstall + install).
 
 ## 12. (2) v0.1.11 — 2026-10-22 01:15 (sessione locale, verifiche)
 - Presenza: **l'utente conferma** che lo schermo si riaccende quando passa davanti al tablet.
