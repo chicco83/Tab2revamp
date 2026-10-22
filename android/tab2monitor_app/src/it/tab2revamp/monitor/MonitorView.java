@@ -1,6 +1,8 @@
 // =============================================================================
 // Tab2Monitor - MonitorView (disegno su Canvas)
-// Versione: v0.9.1 - 2026-10-22 03:50
+// Versione: v0.9.4 - 2026-10-22 08:45
+//   v0.9.4: gauge check piu' lungo (salita 1,0 s, discesa 1,3 s; era 0,7 + 0,9) e log "Tab2Gauge"
+//           a ogni avvio per verificare che parta solo all'accensione dello schermo
 //   v0.9.1: intestazione con la BATTERIA del tablet: livello %, temperatura (unica temperatura in
 //           gradi esposta dal GT-P5100: il kernel non ha sensori CPU leggibili, la EMIF da' solo un
 //           livello), freccia carica/scarica (rossa se scarica col cavo collegato).
@@ -109,11 +111,16 @@ public class MonitorView extends View {
     private boolean baseDirty = true;
     private boolean st() { return pass != 2; }
     // v0.9.0: gauge check
-    static final int SWEEP_UP = 700, SWEEP_DOWN = 900;
+    // v0.9.4: era SWEEP_UP = 700, SWEEP_DOWN = 900
+    static final int SWEEP_UP = 1000, SWEEP_DOWN = 1300;
     private boolean sweepOn = true, sweepPending = true;
     private long sweepAt;
     void setGaugeCheck(boolean on) { sweepOn = on; if (!on) { sweepPending = false; sweepAt = 0; } }
-    void gaugeCheck() { if (sweepOn) { sweepPending = true; invalidate(); } }
+    // Chiamato SOLO da: SCREEN_ON (MainActivity.screenOn) e fine oscuramento (MainActivity.dim(false));
+    // al primo avvio sweepPending parte gia' vero. Il cambio pagina (nextPage) non lo chiama.
+    void gaugeCheck() {
+        if (sweepOn) { sweepPending = true; invalidate(); android.util.Log.i("Tab2Gauge", "gauge check"); }
+    }
     private boolean dy() { return pass != 1; }
     static final int HIST = 60;
 

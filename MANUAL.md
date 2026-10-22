@@ -125,8 +125,8 @@ Con `-home` l'app diventa anche la schermata Home (kiosk); `-nohome` la toglie.
   (vuoto = generale, 0 = mai). "Prova voce" per sentire l'audio. Serve il motore **Pico**: se è stato
   disattivato, `adb shell pm enable com.svox.pico` (il debloat `tune_v0.1.4` non lo tocca più).
 - **Animazioni** (v0.9.0): "Animazioni fluide" (valori e grafici scorrono invece di scattare) e
-  "Gauge check all'accensione" (indicatori al massimo e ritorno alla lettura reale quando lo schermo
-  si accende) nelle impostazioni, entrambe attive di default. In alto a destra, in piccolo, il carico
+  "Gauge check all'accensione" (indicatori al massimo e ritorno alla lettura reale in ~2,3 s quando lo
+  schermo si accende; non al cambio pagina) nelle impostazioni, entrambe attive di default. In alto a destra, in piccolo, il carico
   di CPU e RAM del tablet.
 - **Tablet al rovescio** (v0.9.2): Impostazioni → "Capovolgi l'interfaccia di 180 gradi" (o
   `--ez flip180 true`). Non è automatico: il driver dei sensori è disattivato.

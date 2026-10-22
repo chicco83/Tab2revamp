@@ -2,6 +2,13 @@
 Versione documento: v0.1.14 — 2026-10-22 01:35 (ora del PC)
 
 
+## 17. (3) v0.1.16 — 2026-10-22 08:50 (sessione locale, APK v0.9.4)
+- APK **v0.9.4**: gauge check più lungo (salita 1,0 s + discesa 1,3 s; era 0,7 + 0,9) e log `Tab2Gauge`.
+- Verificato sul tablet: 2 cambi pagina → nessun gauge check (log vuoto, valori reali a schermo);
+  spegnimento + riaccensione → un gauge check. Lo avviano solo SCREEN_ON, la fine dell'oscuramento e il
+  primo avvio dell'app.
+- Aggiunto `android/tab2monitor_app/build_tab2monitor_v0.9.4_20261022-0845.sh` (versionCode 15).
+
 ## 17. (2) v0.1.16 — 2026-10-22 08:30 (sessione locale, APK v0.9.3)
 - APK **v0.9.3**: rotazione manuale **provata** (`flip180` → `mCurrentRotation=2`, spenta → 0).
 - Tentata la rotazione automatica leggendo l'accelerometro BMA254 da
