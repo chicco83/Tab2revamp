@@ -92,3 +92,25 @@ Variante B (partitore): 33 kΩ da VBUS a D+, 10 kΩ da D+ a GND, D− unito a D+
 - Nessuna saldatura sul tablet in questa fase: rischio basso, ma **non collegare VOUT_CHARGER (pin 9/10)**: nel cavo originale non servono.
 - Un caricatore USB-C PD molto potente senza Rd corretto non eroga 5 V: ecco perché i 5,1 kΩ su ENTRAMBI CC1 e CC2.
 - Pin e numerazione dei fili del cavo: verificare col multimetro quale filo va a quale pin del 30 pin (⚠️ la numerazione del pinout è «da sinistra»).
+
+## Alimentare dai contatti della batteria, senza batteria (idea utente, ricerca 12:50, ⏳ niente provato)
+**Cosa dice il service manual** (ManualsLib, «Level 3 Repair – Block Diagram» del GT-P5100; letto solo il testo estratto della pagina):
+- caricabatterie **SMB347S** (switching, con ingressi TA_nCONNECTED / TA_nCHG / TA_EN / OTG_EN);
+- misuratore di carica **MAX17042G** su I2C a 1,8 V (FUEL_SCL / FUEL_SDA, FUEL_ALERT);
+- PMIC **TWL6032**;
+- segnali del blocco batteria: **V_BATTERY−, VF, CONTACT, BAT_REMOVAL** (VF/CONTACT = probabile sensore di temperatura/identificazione, ⚠️ inferenza).
+- Il manuale estratto **non dà** i numeri dei pin del connettore batteria né dice come il tablet rileva la batteria.
+
+**Dove cercare il pinout** (non aperti, PDF): schema completo su Badcaps («Samsung Galaxy Tab 2 P5100 (GT-P5100) Schematic»,
+badcaps.net/forum/…/3479329) e su s-manuals.com («samsung_gt-p5100_service_schematics.pdf»); service manual su ManualsLib
+(manual 845254, 1155514). Scaricare un PDF richiede la tua conferma.
+
+**Valutazione (da conoscenza generale, non verificata sul P5100)**
+- Alimentare dai contatti batteria **salta lo SMB347**: niente più decisione di carica, quindi niente corto D+/D− né 5,1 kΩ per il caricatore.
+- Il MAX17042 stima la carica anche dalla tensione: la percentuale sarebbe plausibile, non senza senso come avevo scritto prima; da provare.
+- BAT_REMOVAL / VF: se il PMIC non li vede a posto, il tablet può non accendersi o spegnersi. Servono il valore giusto sul pin VF
+  (misurare su una batteria originale) e **non mettere in corto** nulla senza averlo capito: quei contatti sono parte delle protezioni.
+- Serve un convertitore 5 V → ~4,0 V con limite di corrente e picchi di 2 A; una tensione sbagliata può danneggiare la scheda.
+- Vantaggio: nessuna batteria da stressare né da tenere tra 40% e 80%, rischio di rigonfiamento eliminato. Svantaggio: se la corrente cala,
+  il tablet si spegne subito (nessun tampone).
+- Il percorso resta alternativo alla mod USB-C: conviene aprire lo schema, trovare il connettore batteria, e decidere.
