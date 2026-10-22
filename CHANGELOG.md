@@ -3,9 +3,9 @@ Versione documento: v0.1.14 — 2026-10-22 01:35 (ora del PC)
 
 
 ## 19. v0.1.17 (2) — 2026-10-22 13:50 (sessione locale)
-- Tablet spento per batteria scarica mentre era sulla USB del PC: dallo storico batteria risulta 62% → 18% in ~2 h 50 min
-  con il cavo attaccato, poi spento a 3,05 V con il 18% indicato. Conferma il problema "la USB del PC non basta a
-  schermo acceso" (CONTEXT, Batteria / carica). Ricollegato in Wi-Fi su `192.168.1.234:5555` con il caricatore a muro.
+- Tablet spento per batteria scarica mentre era sul caricatore da muro: dallo storico batteria risulta 62% → 18% in ~2 h 50 min
+  con il cavo attaccato, poi spento a 3,05 V con il 18% indicato. Il caricatore era riconosciuto come `plug=usb`
+  (~500 mA), non `ac`: a schermo acceso non basta (CONTEXT, Batteria / carica). Dopo il riavvio risultava `ac`. Ricollegato in Wi-Fi su `192.168.1.234:5555` con il caricatore a muro.
   Nota: `192.168.1.206:5555` è la Mi Box 4, non il tablet. Nessun codice toccato.
 
 ## 18. v0.1.17 — 2026-10-22 12:05 (sessione locale)

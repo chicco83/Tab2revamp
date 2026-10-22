@@ -234,8 +234,9 @@ Drive), montato solo dopo l'accesso. ✅ `claude_plan` dal file history di Claud
   dell'utente sulle opzioni (caricatore 2 A + presa smart comandata dall'app, oppure USB del PC + presenza).
   Ricerca hub/prese comandabili fatta: `RICERCA_HUB_USB_v0.1.0_20261022-0142.md` → raccomandata presa Shelly Plug S Gen3
   (~24 €, API HTTP locale) + caricatore Samsung; hub (YKUSH3 ecc.) sconsigliati. ⏳ Da provare sull'hardware, nessun acquisto fatto.
-  ✅ **Spegnimento verificato il 2026-10-22 ~13:45** (`dumpsys batterystats --history`): sempre attaccato alla USB del PC,
-  dal 62% al 18% in ~2 h 50 min (circa −15%/h, temperatura fino a 36,8 °C), poi spento a **3,05 V con il 18% indicato**.
+  ✅ **Spegnimento verificato il 2026-10-22 ~13:45** (`dumpsys batterystats --history`): attaccato al **caricatore da muro**
+  (correzione dell'utente), ma il sistema lo vedeva come `plug=usb` (corrente da porta USB, ~500 mA) e non come `ac`;
+  stacchi/riattacchi brevi registrati (contatto del connettore 30 pin?). Dal 62% al 18% in ~2 h 50 min (circa −15%/h, temperatura fino a 36,8 °C), poi spento a **3,05 V con il 18% indicato**.
   La batteria vecchia arriva al minimo di tensione prima che il fuel gauge segni 0%. Dopo lo spegnimento il PC lo vede
   come "dispositivo non riconosciuto" finché non si ricarica. Riavviato col caricatore a muro (AC) e raggiunto in Wi-Fi.
 - **Rotazione 180°** (APK v0.9.3): opzione manuale `flip180` ✅ provata (decisione utente 2026-10-22: "se non
