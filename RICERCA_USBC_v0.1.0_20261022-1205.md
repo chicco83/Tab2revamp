@@ -46,3 +46,49 @@ Numerazione «da sinistra a destra sui pin di saldatura»: verificare in continu
 ## Altri punti aperti (⏳)
 - VOUT_CHARGER (9, 10) è probabilmente un'uscita: non collegarla al VBUS del caricatore senza verifica.
 - Prima di aprire il tablet: backup /efs (vedi CLAUDE.md).
+
+## Cavo di prova USB-C → 30 pin (progetto, 12:35, ⏳ non costruito né provato)
+Idea: **non saldare sul tablet**. Il cavo 30 pin → USB-A originale ha già dentro VBUS, GND, D+, D− (e ID) cablati sul connettore
+giusto. Si interpone tra caricatore USB-C e cavo un piccolo breakout che fa solo due cose: mette i 5,1 kΩ su CC e collega D+/D−.
+
+### Componenti (tutti economici, da cercare in negozio di elettronica)
+| # | Componente | Note |
+|---|---|---|
+| 1 | Cavo **30 pin → USB-A** originale Samsung (quello del caricatore ETA-P10 va bene) | già in uso; non tagliarlo |
+| 2 | **Breakout USB-C maschio/femmina a 4+ pin** con pad CC1/CC2/D+/D−/VBUS/GND (tipo «USB-C breakout board 16 pin») | serve il pad **D+/D−**: le schede solo-alimentazione (6 pin) non li espongono |
+| 3 | **Breakout/presa USB-A femmina** con pad (o adattatore USB-A femmina → pin) | per infilare il cavo 30 pin |
+| 4 | 2 resistori **5,1 kΩ** 1/4 W | uno CC1→GND, uno CC2→GND (identifica il dispositivo come sink) |
+| 5 | Spezzone di filo per il **corto D+/D−**; opzionale 2 resistori 33 kΩ + 10 kΩ per il partitore 1,2 V | provare prima il corto |
+| 6 | Caricatore **USB-C 5 V ≥ 2 A** (anche PD: senza negoziazione dà 5 V) | deve poter dare 2 A a 5 V |
+| 7 | Multimetro; il server Tab2Monitor per leggere la corrente | misure di verifica |
+
+Alternativa senza saldature: **adattatore USB-C femmina → USB-A maschio** già pronto, ma i 5,1 kΩ sono dentro e il corto D+/D− non c'è:
+va aperto o sostituito dal breakout.
+
+### Schema
+```
+ Caricatore USB-C 5V/2A+
+        │  (cavo USB-C)
+ ┌──────┴────────────────────────────┐
+ │ Breakout USB-C                     │        ┌─────────────────────────┐
+ │  VBUS ───────────────────────────────────── │ USB-A femmina           │
+ │  GND  ───────────────────────────────────── │  pin1 VBUS  pin4 GND    │ ── cavo originale ── 30 pin ── Tab
+ │  CC1 ──[5,1kΩ]── GND               │        │  pin2 D−  pin3 D+       │      (D+ = pin 3, D− = pin 4,
+ │  CC2 ──[5,1kΩ]── GND               │        │      └──corto──┘        │       VBUS = pin 7+8, GND = 1,2,15,16,30)
+ │  (D+/D− del lato USB-C: non usati) │        └─────────────────────────┘
+ └────────────────────────────────────┘
+```
+D+ e D− si uniscono **sul lato USB-A** (pin 2 e 3), cioè verso il tablet; i fili dati del caricatore USB-C non vanno collegati.
+Variante B (partitore): 33 kΩ da VBUS a D+, 10 kΩ da D+ a GND, D− unito a D+.
+
+### Sequenza di prova
+1. Controlli a freddo (multimetro, tablet scollegato): VBUS–GND non in corto; resistenza D+↔D− ≈ 0 Ω (variante A).
+2. Collegare caricatore → breakout: misurare 5 V su VBUS **prima** di inserire il tablet.
+3. Collegare il tablet (spento o acceso) e leggere la corrente dal server Tab2Monitor: atteso ~1–2 A a batteria bassa; con «X rossa» o <500 mA passare alla variante B.
+4. Confronto con il caricatore originale 2 A sulla stessa batteria.
+5. Segnare i risultati in questa nota (✅/⛔), poi decidere se la mod sul flex ha senso.
+
+### Rischi
+- Nessuna saldatura sul tablet in questa fase: rischio basso, ma **non collegare VOUT_CHARGER (pin 9/10)**: nel cavo originale non servono.
+- Un caricatore USB-C PD molto potente senza Rd corretto non eroga 5 V: ecco perché i 5,1 kΩ su ENTRAMBI CC1 e CC2.
+- Pin e numerazione dei fili del cavo: verificare col multimetro quale filo va a quale pin del 30 pin (⚠️ la numerazione del pinout è «da sinistra»).

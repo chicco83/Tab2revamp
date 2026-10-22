@@ -6,6 +6,7 @@ Versione documento: v0.1.14 — 2026-10-22 01:35 (ora del PC)
 - Ricerca online sulla sostituzione del connettore 30 pin con USB-C: nessun kit/guida esistente; raccolti pinout e punti aperti in
   `RICERCA_USBC_v0.1.0_20261022-1205.md`. Foto del pinout salvata in `docs/pinout_30pin_galaxy_tab_droidangel.jpg`. Nessun codice toccato.
 - Seguito della ricerca: schema di riconoscimento del caricatore (corto D+/D− o partitore ~1,2 V, fonti forum) e piano di prova nella stessa nota.
+- Aggiunti lista componenti, schema e sequenza di prova per un cavo di prova USB-C → 30 pin (progetto, non costruito).
 
 ## 17. (5) v0.1.16 — 2026-10-22 11:35 (sessione locale, APK v0.9.6)
 - Ricerca del token dell'app Claude Desktop (richiesta utente): `%APPDATA%\Claude\config.json`, chiavi
