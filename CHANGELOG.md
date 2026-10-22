@@ -19,6 +19,13 @@ Versione documento: v0.1.14 — 2026-10-22 01:35 (ora del PC)
 - Idea «alimentare dai contatti batteria»: dal service manual risultano SMB347S (carica), MAX17042G (fuel gauge), TWL6032 (PMIC), segnali VF/CONTACT/BAT_REMOVAL; pinout del connettore ancora da trovare nello schema (Badcaps / s-manuals).
 - Scaricato lo schema (s-manuals.com, non nel repo): connettore batteria BTC700 = pin 1-2 V_BATT, 3 VF (ADC TWL6032 + MAX17042 AIN), 4-5 GND, 6-9 NC; ritagli in `docs/p5100_schema_pag7_*.png`; piano di prova con alimentatore da banco nella nota.
 
+## 17. (6) v0.1.16 — 2026-10-22 23:58 (sessione locale, verifica APK v0.9.6)
+- APK **v0.9.6 installata** sul GT-P5100 (via ADB Wi-Fi 192.168.1.234:5555) e **verificata con i dati reali**
+  del server v0.2.9: "aggiornato alle 19:23", Limite di sessione 19%, Settimanale 16% "si azzera gio 09:00".
+- Il ripiego si era fermato alle 17:55: l'app Claude Desktop ha spostato i dati in
+  `%LOCALAPPDATA%\Claude-Data\<pacchetto>\` (resta solo `.user-data-left` nella vecchia cartella);
+  corretto lato server (v0.2.9, cerca prima in Claude-Data e usa il file più recente).
+
 ## 17. (5) v0.1.16 — 2026-10-22 11:35 (sessione locale, APK v0.9.6)
 - Ricerca del token dell'app Claude Desktop (richiesta utente): `%APPDATA%\Claude\config.json`, chiavi
   `oauth:tokenCache`/`oauth:tokenCacheV2`, **cifrate con DPAPI** (prefisso v10, Electron safeStorage):

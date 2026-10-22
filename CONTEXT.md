@@ -249,7 +249,7 @@ Drive), montato solo dopo l'accesso. ✅ `claude_plan` dal file history di Claud
   `/sys/class/sensors/accelerometer_sensor/raw_data` ma SELinux lo vieta alle app. Strade possibili, non fatte:
   (a) il server legge il file via `adb shell` e lo passa nel JSON (solo con USB); (b) script di avvio in /system
   che ne cambia l'etichetta SELinux (modifica di sistema, serve conferma).
-- **Limiti del piano Claude** (APK v0.9.5 ✅ con mock): schema atteso dal server
+- **Limiti del piano Claude** (APK v0.9.6 ✅ con dati reali dal registro dell'app desktop, 2026-10-22 23:56): schema atteso dal server
   `"claude_plan": {"plan": "Pro", "session": {"pct": 4, "reset": <epoch>}, "weekly": {"pct": 1, "reset": <epoch>}, "ts": <epoch>}`.
   Lato server (v0.2.7): token OAuth di `~/.claude/.credentials.json` (autorizzato dall'utente, ma oggi assente: serve
   `claude` + `/login` dalla CLI) e, come ripiego deciso dall'utente, `%APPDATA%\Claude\plan-usage-history.json`
