@@ -1,6 +1,9 @@
 // =============================================================================
 // Tab2Monitor - MainActivity + thread di polling
-// Versione: v0.9.0 - 2026-10-22 03:10
+// Versione: v0.9.2 - 2026-10-22 04:10
+//   v0.9.2: opzione "flip180" (interfaccia capovolta di 180 gradi, orizzontale rovesciato): il
+//           driver dei sensori e' disattivato (SensorService al 50%), quindi niente rotazione
+//           automatica; si sceglie a mano dalle impostazioni o con am start --ez flip180 true
 //   v0.9.0: animazioni fluide (chiave anim_smooth, durata = poll_ms); gauge check all'accensione
 //           dello schermo (chiave gauge_check, receiver SCREEN_ON + fine oscuramento)
 //   v0.8.0: servizio avviato anche solo per gli allarmi vocali (alarm_on); chiavi load_wake,
@@ -79,7 +82,8 @@ public class MainActivity extends Activity {
             "p_cpu", "p_cores", "p_hist", "p_ram", "p_gpu", "p_temps", "p_net", "p_disk", "p_procs",
             "p_claude", "p_fans", "anim_fans", "presence",       // v0.6.0: + presence (default false)
             "load_wake", "alarm_on",                             // v0.8.0 (alarm_on default false)
-            "anim_smooth", "gauge_check"};                       // v0.9.0
+            "anim_smooth", "gauge_check",                        // v0.9.0
+            "flip180"};                                          // v0.9.2 (default false)
     static final int DEF_PAGE_SEC = 15;   // v0.4.0: secondi per pagina (0 = niente rotazione)
 
     private MonitorView view;
@@ -170,6 +174,7 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         current = this;
+        applyFlip(this, prefs);                             // v0.9.2
         hideBars();
         restartPoller();
         // v0.6.0: servizio di presenza acceso/spento secondo l'opzione (serve il permesso CAMERA)
@@ -191,6 +196,13 @@ public class MainActivity extends Activity {
     protected void onDestroy() {
         unregisterReceiver(screenOn);                       // v0.9.0
         super.onDestroy();
+    }
+
+    // v0.9.2: orizzontale normale o rovesciato (sovrascrive screenOrientation="landscape" del manifest)
+    static void applyFlip(Activity a, SharedPreferences p) {
+        a.setRequestedOrientation(p.getBoolean("flip180", false)
+                ? android.content.pm.ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE
+                : android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
     }
 
     // v0.6.0: oscuramento di ripiego (senza amministratore dispositivo): velo nero + luminosita'

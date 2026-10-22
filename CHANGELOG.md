@@ -1,6 +1,14 @@
 # CHANGELOG — Tab2revamp
 Versione documento: v0.1.14 — 2026-10-22 01:35 (ora del PC)
 
+
+## 17. v0.1.16 — 2026-10-22 04:10 (sessione locale, APK v0.9.2)
+- APK **v0.9.2**: opzione "Capovolgi l'interfaccia di 180 gradi" (`flip180`, impostazioni o
+  `am start --ez flip180 true`), orientamento REVERSE_LANDSCAPE. Rotazione automatica non possibile
+  finché il driver dei sensori resta disattivato (scelta v0.1.6 per SensorService al 50%); in verifica
+  se l'accelerometro BMA254 è leggibile direttamente dal kernel.
+- Aggiunto `android/tab2monitor_app/build_tab2monitor_v0.9.2_20261022-0410.sh` (versionCode 13).
+- ⏳ Compilata, **non ancora installata né provata**: tablet non raggiungibile via adb.
 ## 16. v0.1.15 — 2026-10-22 01:45 ora del PC (sessione «Ricerca hub USB comandabile», solo documenti)
 - Aggiunto `RICERCA_HUB_USB_v0.1.0_20261022-0142.md`: confronto di 7 opzioni per limitare la carica del tablet
   (presa Shelly/Tasmota, relè USB LCUS-1, Yepkit YKUSH3, Acroname, Cambrionix, uhubctl) con fonti.

@@ -232,6 +232,8 @@ Drive), montato solo dopo l'accesso. ⛔ `claude`: limiti di piano dell'account 
   dell'utente sulle opzioni (caricatore 2 A + presa smart comandata dall'app, oppure USB del PC + presenza).
   Ricerca hub/prese comandabili fatta: `RICERCA_HUB_USB_v0.1.0_20261022-0142.md` → raccomandata presa Shelly Plug S Gen3
   (~24 €, API HTTP locale) + caricatore Samsung; hub (YKUSH3 ecc.) sconsigliati. ⏳ Da provare sull'hardware, nessun acquisto fatto.
+- **Rotazione 180°** (APK v0.9.2): opzione manuale `flip180` (decisione utente 2026-10-22: "se non abbiamo il
+  sensore, opzione manuale"). ⏳ installazione/prova; ⏳ verifica accelerometro leggibile senza HAL.
 - **Installer** per altri PC/tablet: pianificato nella sessione dedicata «Piano installer Tab2Monitor»
   (2026-10-22): vedere il suo `PIANO_INSTALLER_*.md` quando pronto.
 - Nomi e abbinamenti delle ventole: decisi dall'utente nella pagina `http://localhost:8090/config`

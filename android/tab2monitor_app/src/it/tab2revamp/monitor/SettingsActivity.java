@@ -1,6 +1,7 @@
 // =============================================================================
 // Tab2Monitor - SettingsActivity (pannello impostazioni)
-// Versione: v0.9.0 - 2026-10-22 03:10
+// Versione: v0.9.2 - 2026-10-22 04:10
+//   v0.9.2: interruttore "Capovolgi l'interfaccia di 180 gradi" (applicato subito anche qui)
 //   v0.9.0: interruttore "Animazioni fluide"
 //   v0.8.0: sezione "Carico" (riaccensione con CPU/GPU/RAM/VRAM oltre soglia) e sezione
 //           "Allarmi temperatura (voce)": soglia generale + soglia per ogni sensore
@@ -56,6 +57,7 @@ public class SettingsActivity extends Activity {
         super.onCreate(b);
         prefs = getSharedPreferences(MainActivity.PREFS, 0);
         setTitle("Tab2Monitor - impostazioni");
+        MainActivity.applyFlip(this, prefs);                 // v0.9.2
 
         ScrollView sv = new ScrollView(this);
         ll = new LinearLayout(this);
@@ -79,6 +81,7 @@ public class SettingsActivity extends Activity {
         toggle("anim_fans", "Ventole animate (velocita' come gli RPM reali; spente = meno CPU)");   // v0.4.0
         toggle("anim_smooth", "Animazioni fluide di valori e grafici (spente = aggiornamento a scatti, meno CPU)");   // v0.9.0
         toggle("gauge_check", "Gauge check all'accensione dello schermo (indicatori al massimo e ritorno)");     // v0.9.0
+        toggle("flip180", "Capovolgi l'interfaccia di 180 gradi (tablet appoggiato al rovescio)", false);       // v0.9.2
         label("Intervallo di aggiornamento (ms, minimo 500)");
         poll = field(String.valueOf(prefs.getInt("poll_ms", 1000)), "1000", InputType.TYPE_CLASS_NUMBER);
         // v0.4.0
@@ -235,6 +238,7 @@ public class SettingsActivity extends Activity {
         s.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             public void onCheckedChanged(CompoundButton b, boolean on) {
                 prefs.edit().putBoolean(key, on).apply();
+                if (key.equals("flip180")) MainActivity.applyFlip(SettingsActivity.this, prefs);   // v0.9.2
                 // v0.6.0: la presenza richiede il permesso fotocamera (runtime, API 23+)
                 if (on && key.equals("presence") && checkSelfPermission(android.Manifest.permission.CAMERA)
                         != android.content.pm.PackageManager.PERMISSION_GRANTED)

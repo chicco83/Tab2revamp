@@ -128,6 +128,8 @@ Con `-home` l'app diventa anche la schermata Home (kiosk); `-nohome` la toglie.
   "Gauge check all'accensione" (indicatori al massimo e ritorno alla lettura reale quando lo schermo
   si accende) nelle impostazioni, entrambe attive di default. In alto a destra, in piccolo, il carico
   di CPU e RAM del tablet.
+- **Tablet al rovescio** (v0.9.2): Impostazioni → "Capovolgi l'interfaccia di 180 gradi" (o
+  `--ez flip180 true`). Non è automatico: il driver dei sensori è disattivato.
 - Uscire: scorrere dal bordo per far comparire le barre → Home/Indietro.
 - Configurazione da PC:
   ```
