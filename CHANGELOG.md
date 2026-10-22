@@ -1,5 +1,27 @@
 # CHANGELOG — Tab2revamp
-Versione documento: v0.1.14 — 2026-10-22 01:35 (ora del PC)
+Versione documento: v0.1.16 — 2026-10-22 05:45 (ora del PC, branch installer-tab2monitor)
+
+## 17. v0.1.16 — 2026-10-22 05:45 ora del PC (sessione «Piano installer Tab2Monitor», branch `installer-tab2monitor`)
+- Su richiesta dell'utente il lavoro prosegue in un **branch separato** (`installer-tab2monitor`, worktree
+  `../tab2revamp-installer`), senza toccare il branch principale. Risposte dell'utente alle 11 domande
+  del piano: vedi `PIANO_INSTALLER_v0.2.0_20261022-0545.md` §1.
+- **Server v0.3.0** (`tab2monitor_server_v0.3.0_20261022-0200.py`): `--data` + `config.json`, scoperta UDP
+  sulla stessa porta (risposta a "TAB2MON?"), `/api/info`, `/apk`, cartelle del pacchetto, indirizzi per il
+  tablet nel log. **Supervisore v0.3.0**: log nella cartella dati.
+- **APK v0.10.0** (`build_tab2monitor_v0.10.0_20261022-0230.sh`, versionCode 13): minSdk 21, nuove classi
+  `L` (testi IT/EN, chiave `lang`) e `Discovery` (ricerca automatica quando nessuna sorgente risponde,
+  pulsante "Cerca PC" nelle impostazioni), Home attivata dall'app (`--ez home true`, interruttore),
+  fotocamera alla risoluzione minima supportata, permessi ACCESS_WIFI_STATE e
+  CHANGE_WIFI_MULTICAST_STATE. Build con controllo API (`API_CHECK=1`) e firma di release opzionale.
+- **Pacchetto portabile** `windows/installer/`: `build_portable_v0.1.0_*.ps1`, `start`/`setup`/
+  `install_tablet`/`common` v0.1.0, launcher `.cmd`, README IT/EN, terze parti.
+- Prove: pacchetto estratto (server, sensori GPU, `/apk`, scoperta UDP dal PC); emulatori API 21 e 34
+  (installazione, USB e Wi‑Fi, italiano/inglese, Home e riavvio); Setup stato/LogonUser/disinstallazione
+  con attività di prova; Install con `-DryRun`. Problemi trovati e risolti: vedi piano v0.2.0 §4.
+- Strumenti scaricati (fonti ufficiali, fuori dal repo): Python embeddable 3.13.15, PawnIO 2.2.0 (solo
+  verifica), Android cmdline-tools, piattaforma e immagini emulatore API 21/34.
+- Rollback: il branch principale non cambia; per scartare tutto `git worktree remove ../tab2revamp-installer`
+  e `git branch -D installer-tab2monitor`.
 
 ## 16. v0.1.15 — 2026-10-22 01:45 ora del PC (sessione «Ricerca hub USB comandabile», solo documenti)
 - Aggiunto `RICERCA_HUB_USB_v0.1.0_20261022-0142.md`: confronto di 7 opzioni per limitare la carica del tablet

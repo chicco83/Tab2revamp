@@ -1,6 +1,9 @@
 // =============================================================================
 // Tab2Monitor - MonitorView (disegno su Canvas)
-// Versione: v0.9.1 - 2026-10-22 03:50
+// Versione: v0.10.0 - 2026-10-22 02:30 (branch installer)
+//   v0.10.0: testi IT/EN (L.t, panelLabel, pageName); schermata "ricerca del PC" quando il
+//            Wi-Fi e' attivo senza indirizzo (scoperta automatica in MainActivity.Poller)
+// Versione precedente: v0.9.1 - 2026-10-22 03:50
 //   v0.9.1: intestazione con la BATTERIA del tablet: livello %, temperatura (unica temperatura in
 //           gradi esposta dal GT-P5100: il kernel non ha sensori CPU leggibili, la EMIF da' solo un
 //           livello), freccia carica/scarica (rossa se scarica col cavo collegato).
@@ -132,13 +135,22 @@ public class MonitorView extends View {
     //           "Claude - utilizzo account (token da Claude Code sul PC)"};
     static final String[] PANEL_KEYS = {"p_cpu", "p_cores", "p_hist", "p_ram", "p_gpu",
             "p_temps", "p_net", "p_disk", "p_procs", "p_claude", "p_fans"};
-    static final String[] PANEL_LABELS = {"CPU (totale e frequenza)  [pag. 1]",
+    // v0.10.0: etichette in italiano e inglese (L.t), lette quando si apre il pannello
+    static final String[] PANEL_LABELS_IT = {"CPU (totale e frequenza)  [pag. 1]",
             "Core (un istogramma per core)  [pag. 1]", "Storico 60 s (CPU / RAM)  [pag. 1]",
             "RAM e swap  [pag. 1]", "GPU - tutte le schede  [pag. 2]",
             "Temperature (box per hardware)  [pag. 2]", "Rete (download / upload)  [pag. 1]",
             "Disco I/O e spazio dischi  [pag. 1]", "Top processi per CPU  [pag. 1]",
             "Claude - utilizzo account (token da Claude Code sul PC)  [pag. 1]",
             "Ventole (box per hardware)  [pag. 2]"};
+    static final String[] PANEL_LABELS_EN = {"CPU (total and clock)  [page 1]",
+            "Cores (one bar per core)  [page 1]", "History 60 s (CPU / RAM)  [page 1]",
+            "RAM and swap  [page 1]", "GPU - all cards  [page 2]",
+            "Temperatures (box per hardware)  [page 2]", "Network (download / upload)  [page 1]",
+            "Disk I/O and disk space  [page 1]", "Top processes by CPU  [page 1]",
+            "Claude - account usage (Claude Code tokens on the PC)  [page 1]",
+            "Fans (box per hardware)  [page 2]"};
+    static String panelLabel(int i) { return L.it ? PANEL_LABELS_IT[i] : PANEL_LABELS_EN[i]; }
     // Colonne come nella dashboard web
     // 2026-10-22 v0.3.0: Claude (9) tra GPU e temperature. Versione v0.2.0 sostituita:
     //   static final int[][] COLS = {{0, 1, 2}, {3, 4, 5}, {6, 7, 8}};
@@ -154,7 +166,8 @@ public class MonitorView extends View {
     static final int[][][] PAGES = {
             {{0, 1, 2}, {3, 9}, {6, 7, 8}},          // 1 Sistema
             {{4}, {BOXES}}};                         // 2 GPU e sensori
-    static final String[] PAGE_NAMES = {"Sistema", "GPU e sensori"};
+    // v0.10.0 (era: static final String[] PAGE_NAMES = {"Sistema", "GPU e sensori"};)
+    static String pageName(int p) { return p == 0 ? L.t("Sistema", "System") : L.t("GPU e sensori", "GPU and sensors"); }
     private boolean[] panelOn = {true, true, true, true, true, true, true, true, true, true, true, true};
     private int page;                        // pagina mostrata
     private long pageAt;                     // uptimeMillis dell'ultimo cambio pagina
@@ -472,8 +485,8 @@ public class MonitorView extends View {
         //           layoutColumn(cv, COLS[c], x, top, cw, bottom - top, gap); x += cw + gap; }
         int npages = 0;
         for (int p = 0; p < PAGES.length; p++) if (pageOn(p)) npages++;
-        if (npages == 0) { if (st()) drawCentered(cv, W, H, "Tutti i pannelli sono spenti",
-                "tocca l'ingranaggio o tieni premuto per aprire le impostazioni"); return; }
+        if (npages == 0) { if (st()) drawCentered(cv, W, H, L.t("Tutti i pannelli sono spenti", "All panels are off"),
+                L.t("tocca l'ingranaggio o tieni premuto per aprire le impostazioni", "tap the gear or long-press to open the settings")); return; }
         if (!pageOn(page)) nextPage();
         // v0.4.0: durata della pagina GPU allungata se una scheda e' sotto carico
         // (prima stesura: sempre pageSec)
@@ -530,10 +543,10 @@ public class MonitorView extends View {
         //int nd = Math.min(m.diskM.length, 6);
         //float dh = (104 + 26 * nd) * u;
         //card(cv, x3, y, cw, dh, "Disco I/O");
-        //row(cv, x3, y + 60 * u, cw, "lettura", rate(m.dr));
-        //row(cv, x3, y + 86 * u, cw, "scrittura", rate(m.dw));
+        //row(cv, x3, y + 60 * u, cw, L.t("lettura", "read"), rate(m.dr));
+        //row(cv, x3, y + 86 * u, cw, L.t("scrittura", "write"), rate(m.dw));
         //for (int i = 0; i < nd; i++)
-        //    row(cv, x3, y + (112 + 26 * i) * u, cw, m.diskM[i], pct(m.diskPct[i]) + " di " + num1(m.diskTot[i]) + " GB");
+        //    row(cv, x3, y + (112 + 26 * i) * u, cw, m.diskM[i], pct(m.diskPct[i]) + L.t(" di ", " of ") + num1(m.diskTot[i]) + " GB");
         //y += dh + gap;
         //float ph = bottom - y;
         //card(cv, x3, y, cw, ph, "Top processi (CPU)");
@@ -548,19 +561,27 @@ public class MonitorView extends View {
         if (overlay != null && st()) overlay.commit(fanIdx, animFans && fresh);
     }
 
+    boolean discovery;                                       // v0.10.0: ricerca del server attiva
+
     private void drawWaiting(Canvas cv, float W, float H) {
+        if (urls.length == 0 && discovery) {                 // v0.10.0: Wi-Fi senza URL -> ricerca
+            drawCentered(cv, W, H, L.t("Ricerca del PC con Tab2Monitor sulla rete…", "Looking for the Tab2Monitor PC on the network…"),
+                    L.t("avvia Tab2Monitor sul PC (stessa rete Wi-Fi); oppure tieni premuto per scrivere l'indirizzo",
+                        "start Tab2Monitor on the PC (same Wi-Fi network); or long-press to type the address"));
+            return;
+        }
         if (urls.length == 0) {                              // v0.2.0
-            drawCentered(cv, W, H, "Nessuna sorgente dati attiva",
-                    "tieni premuto lo schermo per aprire le impostazioni e attivare USB o Wi-Fi");
+            drawCentered(cv, W, H, L.t("Nessuna sorgente dati attiva", "No data source enabled"),
+                    L.t("tieni premuto lo schermo per aprire le impostazioni e attivare USB o Wi-Fi", "long-press the screen to open the settings and enable USB or Wi-Fi"));
             return;
         }
         big.setTextSize(34 * u); big.setColor(FG); big.setTextAlign(Paint.Align.CENTER);
-        cv.drawText("In attesa del server Tab2Monitor…", W / 2, H / 2 - 40 * u, big);
+        cv.drawText(L.t("In attesa del server Tab2Monitor…", "Waiting for the Tab2Monitor server…"), W / 2, H / 2 - 40 * u, big);
         text.setTextSize(19 * u); text.setColor(DIM); text.setTextAlign(Paint.Align.CENTER);
         for (int i = 0; i < urls.length; i++)
             cv.drawText(urls[i] + "/api/metrics", W / 2, H / 2 + (10 + 30 * i) * u, text);
         // 2026-10-22 v0.2.0 (era: "USB: adb reverse ...   -   Wi-Fi: am start ... --es url ...")
-        cv.drawText("USB: adb reverse tcp:8090 tcp:8090   -   tieni premuto per le impostazioni",
+        cv.drawText(L.t("USB: adb reverse tcp:8090 tcp:8090   -   Wi-Fi: ricerca automatica del PC   -   tieni premuto per le impostazioni", "USB: adb reverse tcp:8090 tcp:8090   -   Wi-Fi: automatic PC search   -   long-press for settings"),
                 W / 2, H / 2 + (30 + 30 * urls.length) * u, text);
     }
 
@@ -593,7 +614,7 @@ public class MonitorView extends View {
             cv.drawCircle(x0 + p * step, hy - 6 * u, r, fill);
         }
         text.setTextSize(17 * u); text.setColor(FG); text.setTextAlign(Paint.Align.LEFT);
-        cv.drawText(PAGE_NAMES[page], x0 + (n - 1) * step + 16 * u, hy, text);
+        cv.drawText(pageName(page), x0 + (n - 1) * step + 16 * u, hy, text);
     }
 
     // Ingranaggio disegnato: 8 denti + anello (nessuna risorsa grafica)
@@ -652,9 +673,9 @@ public class MonitorView extends View {
             //                  bigCard(cv, x, y, w, "RAM", pct(m.ram), "<GB> - swap", m.ram)
             case 0:
                 accent = CYAN;
-                heroCard(cv, x, y, w, "CPU - carico", dCpu, Float.isNaN(m.mhz) ? "" : (int) m.mhz + " MHz",
+                heroCard(cv, x, y, w, L.t("CPU - carico", "CPU - load"), dCpu, Float.isNaN(m.mhz) ? "" : (int) m.mhz + " MHz",
                         hCpu, Float.isNaN(m.cpuTemp) ? null : Math.round(m.cpuTemp) + "\u00b0",
-                        Float.isNaN(m.cpuTemp) ? "carico" : "temp. CPU");
+                        Float.isNaN(m.cpuTemp) ? L.t("carico", "load") : L.t("temp. CPU", "CPU temp."));
                 break;
             case 1:
                 accent = CYAN;
@@ -666,9 +687,9 @@ public class MonitorView extends View {
                 break;
             case 3:
                 accent = VIOLET;
-                heroCard(cv, x, y, w, "RAM - occupata", dRam,
+                heroCard(cv, x, y, w, L.t("RAM - occupata", "RAM - used"), dRam,
                         num1(m.ramUsed) + " / " + num1(m.ramTot) + " GB  -  swap " + pct(m.swap),
-                        hRam, num1(m.ramUsed), "GB usati");
+                        hRam, num1(m.ramUsed), L.t("GB usati", "GB used"));
                 break;
             case 4:                                          // v0.4.0: tutte le GPU
                 gpuStack(cv, x, y, w, h);
@@ -692,7 +713,7 @@ public class MonitorView extends View {
                 tempsCard(cv, x, y, w, h);
                 break;
             case -5: {   // v0.3.0, sostituito da tempsCard
-                card(cv, x, y, w, h, "Temperature");
+                card(cv, x, y, w, h, L.t("Temperature", "Temperatures"));
                 int nt = Math.min(m.tempName.length, (int) ((h - 44 * u) / (26 * u)));
                 if (nt == 0) row(cv, x, y + 60 * u, w, "--", "");
                 for (int i = 0; i < nt; i++)
@@ -701,7 +722,7 @@ public class MonitorView extends View {
             }
             case 6:
                 accent = GREEN;                              // v0.7.0
-                card(cv, x, y, w, h, "Rete");
+                card(cv, x, y, w, h, L.t("Rete", "Network"));
                 row(cv, x, y + 60 * u, w, "\u2193 download", rate(m.rx));
                 row(cv, x, y + 86 * u, w, "\u2191 upload", rate(m.tx));
                 break;
@@ -711,12 +732,12 @@ public class MonitorView extends View {
                 // senza dati per disco (server vecchio): totali come prima
             case -7: {
                 card(cv, x, y, w, h, "Disco I/O");
-                row(cv, x, y + 60 * u, w, "lettura", rate(m.dr));
-                row(cv, x, y + 86 * u, w, "scrittura", rate(m.dw));
+                row(cv, x, y + 60 * u, w, L.t("lettura", "read"), rate(m.dr));
+                row(cv, x, y + 86 * u, w, L.t("scrittura", "write"), rate(m.dw));
                 int nd = Math.min(m.diskM.length, 6);
                 for (int i = 0; i < nd; i++)
                     row(cv, x, y + (112 + 26 * i) * u, w, m.diskM[i],
-                            pct(m.diskPct[i]) + " di " + num1(m.diskTot[i]) + " GB");
+                            pct(m.diskPct[i]) + L.t(" di ", " of ") + num1(m.diskTot[i]) + " GB");
                 break;
             }
             case 9:                                          // v0.3.0
@@ -725,7 +746,7 @@ public class MonitorView extends View {
                 break;
             case 8: {
                 accent = BLUE;                               // v0.7.0
-                card(cv, x, y, w, h, "Top processi (CPU)");
+                card(cv, x, y, w, h, L.t("Top processi (CPU)", "Top processes (CPU)"));
                 int np = Math.min(m.procN.length, (int) ((h - 44 * u) / (26 * u)));
                 for (int i = 0; i < np; i++)
                     row(cv, x, y + (60 + 26 * i) * u, w, m.procN[i],
@@ -1008,7 +1029,7 @@ public class MonitorView extends View {
     }
 
     private void histCard(Canvas cv, float x, float y, float w, float h) {
-        card(cv, x, y, w, h, "Storico 60 s (CPU ciano / RAM viola)");   // v0.7.0 (era: blu / verde)
+        card(cv, x, y, w, h, L.t("Storico 60 s (CPU ciano / RAM viola)", "History 60 s (CPU cyan / RAM violet)"));   // v0.7.0 (era: blu / verde)
         float gx = x + 12 * u, gw = w - 24 * u, gy = y + 40 * u, gh = h - 52 * u;
         stroke.setColor(BORDER);
         if (st()) cv.drawLine(gx, gy + gh / 2, gx + gw, gy + gh / 2, stroke);   // v0.9.0
@@ -1051,7 +1072,7 @@ public class MonitorView extends View {
         int n = m.gpus.length;
         if (n == 0) {
             card(cv, x, y, w, h, "GPU");
-            row(cv, x, y + 60 * u, w, "nessun dato GPU dal server", "");
+            row(cv, x, y + 60 * u, w, L.t("nessun dato GPU dal server", "no GPU data from the server"), "");
             return;
         }
         // v0.5.0: max 360u (era 280u: con tutti i sensori la 9070 XT perdeva ventola e potenza)
@@ -1073,7 +1094,7 @@ public class MonitorView extends View {
         ring(cv, x + 3 * w / 4, gy, gr, gm, pct(gm), null);
         text.setTextSize(16 * u); text.setColor(DIM); text.setTextAlign(Paint.Align.CENTER);
         if (st()) {                                          // v0.9.0: etichette = livello fisso
-            cv.drawText("Carico", x + w / 4, gy + gr + 24 * u, text);
+            cv.drawText(L.t("Carico", "Load"), x + w / 4, gy + gr + 24 * u, text);
             cv.drawText("VRAM", x + 3 * w / 4, gy + gr + 24 * u, text);
         }
         text.setTextSize(16 * u); text.setColor(DIM); text.setTextAlign(Paint.Align.CENTER);
@@ -1083,26 +1104,26 @@ public class MonitorView extends View {
         float ry = gy + gr + 72 * u, end = y + h - 8 * u;
         if (g.lab.length > 0) {                          // v0.5.0: tutti i sensori della GPU
             ry = sensorRows(cv, g, x, ry, w, end);
-            if (ry <= end) rowIcon(cv, x, ry, w, "Potenza", pct(g.powerPct));
+            if (ry <= end) rowIcon(cv, x, ry, w, L.t("Potenza", "Power"), pct(g.powerPct));
             return;
         }
         if (ry <= end) {
             thermo(cv, x + 12 * u, ry, g.temp);
-            rowIcon(cv, x, ry, w, "Temperatura", Float.isNaN(g.temp) ? "--" : num1(g.temp) + " °C");
+            rowIcon(cv, x, ry, w, L.t("Temperatura", "Temperature"), Float.isNaN(g.temp) ? "--" : num1(g.temp) + " °C");
             ry += 28 * u;
         }
         if (ry <= end) {
             fan(cv, x + 20 * u, ry - 6 * u, 9 * u, g.fanRpm);
-            rowIcon(cv, x, ry, w, "Ventola", Float.isNaN(g.fanRpm) ? "--" : Math.round(g.fanRpm) + " RPM");
+            rowIcon(cv, x, ry, w, L.t("Ventola", "Fan"), Float.isNaN(g.fanRpm) ? "--" : Math.round(g.fanRpm) + " RPM");
             ry += 28 * u;
         }
-        if (ry <= end) rowIcon(cv, x, ry, w, "Potenza", pct(g.powerPct));
+        if (ry <= end) rowIcon(cv, x, ry, w, L.t("Potenza", "Power"), pct(g.powerPct));
         // (v0.4.0 prima stesura, sostituita: numero grande del carico + barra + "VRAM x / y GB")
     }
 
     // Righe raggruppate per componente: intestazione (nome hw) + una riga per sensore
     private void tempsCard(Canvas cv, float x, float y, float w, float h) {
-        card(cv, x, y, w, h, "Temperature");
+        card(cv, x, y, w, h, L.t("Temperature", "Temperatures"));
         float ry = y + 60 * u, end = y + h - 8 * u;
         boolean any = false;
         for (MainActivity.Metrics.Hw hw : m.hw) {
@@ -1115,11 +1136,11 @@ public class MonitorView extends View {
             }
             any = true;
         }
-        if (!any) row(cv, x, ry, w, "nessuna temperatura dal server", "");
+        if (!any) row(cv, x, ry, w, L.t("nessuna temperatura dal server", "no temperatures from the server"), "");
     }
 
     private void fansCard(Canvas cv, float x, float y, float w, float h) {
-        card(cv, x, y, w, h, "Ventole");
+        card(cv, x, y, w, h, L.t("Ventole", "Fans"));
         float ry = y + 60 * u, end = y + h - 8 * u;
         boolean any = false;
         for (MainActivity.Metrics.Hw hw : m.hw) {
@@ -1134,14 +1155,14 @@ public class MonitorView extends View {
             }
             any = true;
         }
-        if (!any) row(cv, x, ry, w, "nessuna ventola dal server", "");
+        if (!any) row(cv, x, ry, w, L.t("nessuna ventola dal server", "no fans from the server"), "");
     }
 
     // Dischi con lettura/scrittura propria (richiesta utente 2026-10-22: capire quale disco
     // e' attivo). Pallino verde = disco con I/O in questo secondo.
     private void disksCard(Canvas cv, float x, float y, float w, float h) {
         if (!st()) return;                                   // v0.9.0: tutto fisso
-        card(cv, x, y, w, h, "Dischi - I/O per disco");
+        card(cv, x, y, w, h, L.t("Dischi - I/O per disco", "Disks - I/O per disk"));
         int nd = Math.min(m.diskM.length, 6);
         for (int i = 0; i < nd; i++) {
             float ry = y + (60 + 54 * i) * u;
@@ -1152,7 +1173,7 @@ public class MonitorView extends View {
             text.setTextSize(17 * u); text.setColor(act ? FG : DIM); text.setTextAlign(Paint.Align.LEFT);
             cv.drawText(m.diskM[i], x + 32 * u, ry, text);
             text.setTextAlign(Paint.Align.RIGHT); text.setColor(DIM);
-            cv.drawText(pct(m.diskPct[i]) + " di " + num1(m.diskTot[i]) + " GB", x + w - 12 * u, ry, text);
+            cv.drawText(pct(m.diskPct[i]) + L.t(" di ", " of ") + num1(m.diskTot[i]) + " GB", x + w - 12 * u, ry, text);
             row(cv, x + 20 * u, ry + 24 * u, w - 20 * u,
                     "↓ " + (r < 0 ? "--" : rate(r)), "↑ " + (wr < 0 ? "--" : rate(wr)));
         }
@@ -1164,8 +1185,8 @@ public class MonitorView extends View {
     private final float[] subY = new float[2];
     private void hwBoxes(Canvas cv, float x, float y, float w, float h) {
         if (m.boxes.length == 0) {
-            card(cv, x, y, w, h, "Sensori");
-            row(cv, x, y + 60 * u, w, "nessun sensore dal server", "");
+            card(cv, x, y, w, h, L.t("Sensori", "Sensors"));
+            row(cv, x, y + 60 * u, w, L.t("nessun sensore dal server", "no sensors from the server"), "");
             return;
         }
         float gap = 10 * u, sw = (w - gap) / 2, bottom = y + h;
@@ -1181,8 +1202,8 @@ public class MonitorView extends View {
             bh = Math.min(bh, avail);
             float bx = x + c * (sw + gap);
             // v0.7.0: colore per tipo di hardware
-            accent = b.title.startsWith("CPU") ? CYAN : b.title.startsWith("Scheda madre") ? TEAL
-                    : b.title.equals("RAM") ? VIOLET : b.title.equals("Dischi") ? ORANGE : BLUE;
+            accent = b.title.startsWith("CPU") ? CYAN : b.title.startsWith(L.t("Scheda madre", "Motherboard")) ? TEAL
+                    : b.title.equals("RAM") ? VIOLET : b.title.equals(L.t("Dischi", "Disks")) ? ORANGE : BLUE;
             card(cv, bx, by, sw, bh, b.title);
             sensorRows(cv, b, bx, by + 60 * u, sw, by + bh - 8 * u);
             subY[c] = by + bh + gap;
@@ -1222,23 +1243,23 @@ public class MonitorView extends View {
     // non la percentuale del limite del piano (non esposta da nessuna API pubblica).
     private void claudeCard(Canvas cv, float x, float y, float w, float h) {
         MainActivity.Metrics.Claude c = m.claude;
-        card(cv, x, y, w, h, "Claude - utilizzo (Claude Code)");
+        card(cv, x, y, w, h, L.t("Claude - utilizzo (Claude Code)", "Claude - usage (Claude Code)"));
         if (c == null) {
-            row(cv, x, y + 60 * u, w, "dati non disponibili", "");
-            row(cv, x, y + 86 * u, w, "il server non invia ancora il campo \"claude\"", "");
+            row(cv, x, y + 60 * u, w, L.t("dati non disponibili", "data not available"), "");
+            row(cv, x, y + 86 * u, w, L.t("il server non invia il campo \"claude\"", "the server does not send the \"claude\" field"), "");
             return;
         }
-        String blk = "Blocco 5 h";
+        String blk = L.t("Blocco 5 h", "5 h block");
         if (c.blockEnd > 0) {
             cal.setTimeInMillis(c.blockEnd * 1000L);
-            blk += "  (fino alle " + two(cal.get(Calendar.HOUR_OF_DAY)) + ":" + two(cal.get(Calendar.MINUTE)) + ")";
+            blk += L.t("  (fino alle ", "  (until ") + two(cal.get(Calendar.HOUR_OF_DAY)) + ":" + two(cal.get(Calendar.MINUTE)) + ")";
         }
-        row(cv, x, y + 60 * u, w, blk, c.blockEnd > 0 ? tok(c.blockTok) : "nessuno attivo");
-        row(cv, x, y + 86 * u, w, "Oggi  (" + c.todayMsgs + " risposte)", tok(c.todayTok));
-        row(cv, x, y + 112 * u, w, "Oggi - output", tok(c.todayOut));
-        row(cv, x, y + 138 * u, w, "Oggi - letti da cache", tok(c.todayCacheR));
-        row(cv, x, y + 164 * u, w, "Ultimi 7 giorni", tok(c.weekTok));
-        row(cv, x, y + 190 * u, w, c.topModel != null ? c.topModel : "modello: --",
+        row(cv, x, y + 60 * u, w, blk, c.blockEnd > 0 ? tok(c.blockTok) : L.t("nessuno attivo", "none active"));
+        row(cv, x, y + 86 * u, w, L.t("Oggi  (", "Today  (") + c.todayMsgs + L.t(" risposte)", " replies)"), tok(c.todayTok));
+        row(cv, x, y + 112 * u, w, L.t("Oggi - output", "Today - output"), tok(c.todayOut));
+        row(cv, x, y + 138 * u, w, L.t("Oggi - letti da cache", "Today - cache reads"), tok(c.todayCacheR));
+        row(cv, x, y + 164 * u, w, L.t("Ultimi 7 giorni", "Last 7 days"), tok(c.weekTok));
+        row(cv, x, y + 190 * u, w, c.topModel != null ? c.topModel : L.t("modello: --", "model: --"),
                 c.topModel != null ? tok(c.topModelTok) : "");
     }
 

@@ -1,6 +1,10 @@
 // =============================================================================
 // Tab2Monitor - MainActivity + thread di polling
-// Versione: v0.9.0 - 2026-10-22 03:10
+// Versione: v0.10.0 - 2026-10-22 02:30 (branch installer)
+//   v0.10.0: minSdk 21 (Android 5.0+): permesso CAMERA chiesto a runtime solo da API 23;
+//           scoperta automatica del server (Discovery, UDP 8090) quando nessuna sorgente
+//           risponde: si salva il server trovato (wifi_url + server_name) e lo si ritrova
+//           per nome anche se cambia IP; lingua italiano/inglese (L, chiave "lang")
 //   v0.9.0: animazioni fluide (chiave anim_smooth, durata = poll_ms); gauge check all'accensione
 //           dello schermo (chiave gauge_check, receiver SCREEN_ON + fine oscuramento)
 //   v0.8.0: servizio avviato anche solo per gli allarmi vocali (alarm_on); chiavi load_wake,
@@ -93,6 +97,9 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle b) {
         super.onCreate(b);
         prefs = getSharedPreferences(PREFS, 0);
+        if (getIntent() != null && getIntent().hasExtra("lang"))           // v0.10.0
+            prefs.edit().putString("lang", getIntent().getStringExtra("lang")).apply();
+        L.set(prefs.getString("lang", ""));
         // v0.6.0: + SHOW_WHEN_LOCKED / DISMISS_KEYGUARD / TURN_SCREEN_ON: quando PresenceService
         // riaccende lo schermo dopo lockNow() si vede subito la dashboard, non il blocco schermo.
         // (v0.5.x: solo KEEP_SCREEN_ON | FULLSCREEN)
@@ -142,6 +149,8 @@ public class MainActivity extends Activity {
         if (i == null) return;
         SharedPreferences.Editor e = prefs.edit();
         if (i.hasExtra("url")) e.putString("wifi_url", trimUrl(i.getStringExtra("url")));
+        if (i.hasExtra("lang")) { e.putString("lang", i.getStringExtra("lang")); L.set(i.getStringExtra("lang")); }   // v0.10.0
+        if (i.hasExtra("home")) setHome(this, i.getBooleanExtra("home", false));                                   // v0.10.0
         if (i.hasExtra("poll_ms")) e.putInt("poll_ms", Math.max(500, i.getIntExtra("poll_ms", 1000)));
         if (i.hasExtra("page_sec")) e.putInt("page_sec", Math.max(0, i.getIntExtra("page_sec", DEF_PAGE_SEC)));
         if (i.hasExtra("gpu_busy_pct")) e.putInt("gpu_busy_pct", i.getIntExtra("gpu_busy_pct", 30));
@@ -176,14 +185,33 @@ public class MainActivity extends Activity {
         // v0.8.0: il servizio serve per la presenza (con permesso CAMERA) oppure per gli allarmi.
         // Versione v0.6.0: solo presence && CAMERA
         Intent ps = new Intent(this, PresenceService.class);
-        boolean cam = prefs.getBoolean("presence", false)
-                && checkSelfPermission(android.Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED;
+        // v0.10.0: checkSelfPermission esiste da API 23; sotto, il permesso e' dato all'installazione
+        boolean cam = prefs.getBoolean("presence", false) && hasCamera(this);
         if (!cam && prefs.getBoolean("presence", false)) prefs.edit().putBoolean("presence", false).apply();
         if (cam || prefs.getBoolean("alarm_on", false)) startService(ps);
         else stopService(ps);
     }
 
-    private final android.content.BroadcastReceiver screenOn = new android.content.BroadcastReceiver() {
+    // v0.10.0: modalita' Home (kiosk). L'app attiva/disattiva da se' il proprio HomeAlias: da
+    // Android 11 circa "adb shell pm enable <componente>" e' vietato alla shell per le app non
+    // debuggable (SecurityException vista sull'emulatore API 34). Poi la Home va scelta:
+    // adb "cmd role add-role-holder android.app.role.HOME" (API 29+) o il selettore di sistema.
+    static void setHome(android.content.Context c, boolean on) {
+        c.getPackageManager().setComponentEnabledSetting(
+                new android.content.ComponentName(c, "it.tab2revamp.monitor.HomeAlias"),
+                on ? android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+                   : android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                android.content.pm.PackageManager.DONT_KILL_APP);
+        c.getSharedPreferences(PREFS, 0).edit().putBoolean("home", on).apply();
+    }
+
+    // v0.10.0: permesso fotocamera, compatibile con API 21-22 (permessi concessi all'installazione)
+    static boolean hasCamera(android.content.Context c) {
+        return android.os.Build.VERSION.SDK_INT < 23
+                || c.checkSelfPermission(android.Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED;
+    }
+
+    private final android.content.BroadcastReceiver screenOn =new android.content.BroadcastReceiver() {
         public void onReceive(android.content.Context c, Intent i) { view.gaugeCheck(); }
     };
 
@@ -246,8 +274,14 @@ public class MainActivity extends Activity {
         view.setGaugeCheck(prefs.getBoolean("gauge_check", true));
         view.setConfig(urls, on, prefs.getInt("page_sec", DEF_PAGE_SEC), prefs.getBoolean("anim_fans", true),
                 prefs.getInt("gpu_busy_pct", 30), prefs.getInt("gpu_busy_sec", 60));
-        if (urls.length == 0) return;          // nessuna sorgente: niente thread, solo il messaggio
-        poller = new Poller(view, urls, prefs.getInt("poll_ms", 1000));
+        // v0.10.0: con il Wi-Fi attivo ma senza URL si parte lo stesso: il poller cerca il server
+        // sulla rete (Discovery). Versione v0.9.0:
+        //   if (urls.length == 0) return;          // nessuna sorgente: niente thread, solo il messaggio
+        //   poller = new Poller(view, urls, prefs.getInt("poll_ms", 1000));
+        boolean disc = prefs.getBoolean("src_wifi", true);
+        view.discovery = disc;
+        if (urls.length == 0 && !disc) return; // nessuna sorgente: niente thread, solo il messaggio
+        poller = new Poller(view, urls, prefs.getInt("poll_ms", 1000), disc ? getApplicationContext() : null, usb);
         poller.start();
     }
 
@@ -261,16 +295,40 @@ public class MainActivity extends Activity {
     // -------------------------------------------------------------------------
     static final class Poller extends Thread {
         private final MonitorView view;
-        private final String[] urls;
+        private String[] urls;                                 // v0.10.0: non final (scoperta)
         private final int pollMs;
         private volatile boolean running = true;
         private int good = 0;                                  // indice dell'ultimo URL ok
         private final byte[] buf = new byte[8192];
         private final ByteArrayOutputStream bos = new ByteArrayOutputStream(16384);
+        // v0.10.0: scoperta automatica (ctx == null = disattivata)
+        private final android.content.Context ctx;
+        private final boolean usb;
+        private int fails = 0;
+        private long lastDisc = -60000;
+        static final int DISC_AFTER_FAILS = 3;                 // ~10 s senza risposta (3 s a tentativo)
+        static final long DISC_EVERY_MS = 30000;
 
-        Poller(MonitorView v, String[] u, int ms) {
+        Poller(MonitorView v, String[] u, int ms, android.content.Context c, boolean usbOn) {
             super("Tab2Poller");
-            view = v; urls = u; pollMs = ms;
+            view = v; urls = u; pollMs = ms; ctx = c; usb = usbOn;
+        }
+
+        // v0.10.0: nessuna sorgente risponde -> broadcast UDP. Si accetta il server con lo stesso
+        // nome di quello salvato (cambio di IP) oppure, se nessun nome e' salvato, l'unico trovato.
+        // Con piu' server e nessun nome salvato si sceglie dalle impostazioni ("Cerca server").
+        private void discover() {
+            lastDisc = SystemClock.uptimeMillis();
+            SharedPreferences p = ctx.getSharedPreferences(PREFS, 0);
+            String name = p.getString("server_name", "");
+            java.util.ArrayList<Discovery.Server> found = Discovery.find(ctx, 1500);
+            Discovery.Server pick = null;
+            for (Discovery.Server s : found) if (name.length() > 0 && s.name.equals(name)) pick = s;
+            if (pick == null && name.length() == 0 && found.size() == 1) pick = found.get(0);
+            if (pick == null) return;
+            p.edit().putString("wifi_url", pick.url).putString("server_name", pick.name).apply();
+            urls = usb ? new String[]{USB_URL, pick.url} : new String[]{pick.url};
+            good = urls.length - 1;
         }
 
         void quit() { running = false; interrupt(); }
@@ -289,6 +347,12 @@ public class MainActivity extends Activity {
                     } catch (Exception ignored) { /* prova l'URL successivo */ }
                 }
                 if (!running) break;
+                fails = m != null ? 0 : fails + 1;        // v0.10.0
+                if (m == null && ctx != null && (fails >= DISC_AFTER_FAILS || urls.length == 0)
+                        && SystemClock.uptimeMillis() - lastDisc >= DISC_EVERY_MS) {
+                    try { discover(); } catch (Exception ignored) { }
+                    if (!running) break;
+                }
                 if (m != null) lastMetrics = m;           // v0.8.0
                 final Metrics fm = m; final String fs = src;
                 view.post(new Runnable() { public void run() { view.update(fm, fs); } });
@@ -529,12 +593,13 @@ public class MainActivity extends Activity {
                         && !k.equals("ram") && !k.equals("disk"))) continue;
                 Gpu g = "gpu".equals(h.kind) ? gpuNamed(m, h.name) : null;
                 if (g != null) { owner.put(h.name, g); continue; }
+                // v0.10.0: titoli tradotti (L.t); la chiave interna resta "Dischi"
                 String key = k.equals("ram") ? "RAM" : k.equals("disk") ? "Dischi" : h.name;
                 Box b = byKey.get(key);
                 if (b == null) {
                     b = new Box();
-                    b.title = k.equals("cpu") ? "CPU - " + h.name : k.equals("mb") ? "Scheda madre - " + h.name
-                            : key.equals("RAM") || key.equals("Dischi") ? key : h.name;
+                    b.title = k.equals("cpu") ? "CPU - " + h.name : k.equals("mb") ? L.t("Scheda madre - ", "Motherboard - ") + h.name
+                            : key.equals("RAM") ? key : key.equals("Dischi") ? L.t("Dischi", "Disks") : h.name;
                     byKey.put(key, b);
                 }
                 owner.put(h.name, b);
@@ -555,7 +620,7 @@ public class MainActivity extends Activity {
                 String to = fanTo.get(h.name + "|" + h.fName[q]);
                 Object o = to != null && owner.containsKey(to) ? owner.get(to) : owner.get(h.name);
                 boolean moved = to != null && owner.containsKey(to);
-                String lab = moved && "mb".equals(h.kind) ? h.fName[q] + " (scheda madre)" : h.fName[q];
+                String lab = moved && "mb".equals(h.kind) ? h.fName[q] + L.t(" (scheda madre)", " (motherboard)") : h.fName[q];   // v0.10.0: IT/EN
                 if (o instanceof Gpu) ((Gpu) o).add(true, lab, h.fRpm[q], h.fPct[q]);
                 else if (o instanceof Box) ((Box) o).add(true, lab, h.fRpm[q], h.fPct[q]);
             }

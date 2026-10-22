@@ -1,5 +1,5 @@
 # CONTEXT — Tab2revamp
-Versione: v0.1.14 — 2026-10-22 01:35 (ora del PC)
+Versione: v0.1.16 — 2026-10-22 05:45 (ora del PC, branch installer-tab2monitor)
 
 ## Obiettivo
 Riusare un Galaxy Tab 2 10.1 (GT-P5100, lentissimo: ogni tocco richiede secondi)
@@ -250,22 +250,23 @@ Drive), montato solo dopo l'accesso. ⛔ `claude`: limiti di piano dell'account 
 - Sessione parallela «Sorgente dati Windows per Tab2Monitor» (server `windows/agent/`) aperta il
   2026-10-22: vincolo concordato = lo schema di `/api/metrics` si può solo estendere.
 
-## Installer per altri PC e altri tablet (piano, 2026-10-22)
-Sessione «Piano installer Tab2Monitor». Piano completo: `PIANO_INSTALLER_v0.1.0_20261022-0135.md`.
+## Installer per altri PC e altri tablet (2026-10-22, branch `installer-tab2monitor`)
+Sessione «Piano installer Tab2Monitor». Piano e stato: `PIANO_INSTALLER_v0.2.0_20261022-0545.md`
+(storico: v0.1.0), manuale operativo: `RUNBOOK_INSTALLER_v0.1.0_20261022-0545.md`. Lavoro nel worktree
+`../tab2revamp-installer`, **branch `installer-tab2monitor`**: il branch principale non è toccato
+(richiesta utente 2026-10-22).
 | Voce | Stato |
 |---|---|
-| Piano (inventario, opzioni, sicurezza, passi, domande) | ✅ scritto e committato |
-| Risposte dell'utente alle 11 domande (sezione 9 del piano) | ⏳ |
-| Implementazione (config server + cartella dati, scoperta UDP, APK release/minSdk, pacchetto, installer PC e tablet, prove) | ⏳ solo dopo il via esplicito dell'utente |
-Proposte del piano (da confermare): Python **embeddable** incluso (non PyInstaller: falsi positivi
-antivirus), zip + `install.ps1` con Inno Setup facoltativo, installazione in `C:\Program Files\Tab2Monitor`
-+ dati in `C:\ProgramData\Tab2Monitor`, Wi‑Fi con **scoperta UDP** come default e adb solo opzionale,
-APK con **chiave di release** fuori repo e **minSdk 21**, targetSdk 25 invariato, sideload da `/apk`.
-Dipendenze nascoste trovate: driver **PawnIO** (sensori CPU/scheda madre), LHM 0.9.6 + `Tab2Sensors.exe`
-fuori da git, adb dell'Android SDK. Rischio trovato: l'attività elevata esegue `.py` da G: (scrivibile
-dall'utente) → risolto dall'installazione in Program Files. Android 10+: avvio al boot solo come Home.
-Decisioni di *non* fare: Play Store/F-Droid/MSI (⛔ fuori ambito), QR code (⏸️ lettura senza librerie),
-ottimizzazioni GT-P5100 nell'installer generico (⛔ restano specifiche), HTTPS in LAN (⛔ sproporzionato).
+| Decisioni utente (altre persone, portabile, avvio a scelta, PawnIO proposto, Wi‑Fi + scoperta, solo firewall, Claude spento, anche inglese) | ✅ applicate |
+| Server v0.3.0 (config.json, cartella dati, scoperta UDP 8090, `/api/info`, `/apk`) + supervisore v0.3.0 | ✅ provati da pacchetto estratto (porta 8190) |
+| APK v0.10.0 (minSdk 21, scoperta, IT/EN, Home dall'app) | ✅ emulatori Android 5.0 e 14 · ⏳ scoperta su tablet reale |
+| Pacchetto portabile (Python embeddable + psutil, sensori LHM, APK), Setup, installazione tablet | ✅ costruito e provato senza admin · ⏳ parti con UAC solo `-DryRun` |
+| Chiave di firma di release | ⏳ decisione utente (proposta: chiave di debug attuale con password nuova, nessuna reinstallazione) |
+| Unione nel branch principale | ⏳ da concordare con le sessioni «Sorgente dati Windows» (server) e APK (stessi file) |
+Decisioni di *non* fare: Inno Setup/MSI (⏸️/⛔: il pacchetto portabile copre la richiesta), token di
+abbinamento (⛔ scelta utente: basta il firewall), PawnIO nel pacchetto (⛔ licenza dell'installer non
+dichiarata: lo scarica il Setup con verifica SHA256 + firma), QR code (⏸️), targetSdk recente (⏸️),
+pacchetto costruito dentro Google Drive (⛔ Drive blocca `python.exe`).
 
 ## Handoff sessione locale (v0.1.1 — 2026-10-21 19:05 UTC)
 La sessione cloud non può raggiungere il PC/USB: la sessione locale va avviata dall'utente.

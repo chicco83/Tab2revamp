@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   Tab2Monitor - APK nativa (sostituisce la dashboard nel browser)
-  Versione: v0.6.0 - 2026-10-22 02:00  (v0.6.0: presenza con fotocamera frontale - CAMERA, WAKE_LOCK,
+  Versione: v0.10.0 - 2026-10-22 02:30 (branch installer: minSdk 21 = Android 5.0+; ACCESS_WIFI_STATE e
+  CHANGE_WIFI_MULTICAST_STATE per la scoperta del server via UDP broadcast)
+  Versione precedente: v0.6.0 - 2026-10-22 02:00  (v0.6.0: presenza con fotocamera frontale - CAMERA, WAKE_LOCK,
   PresenceService, AdminReceiver; v0.5.0: box per hardware - manifest invariato; v0.4.0: pagine, GPU multiple, ventole, icone - manifest invariato; v0.3.0: pannello Claude; v0.2.0: + SettingsActivity; v0.1.0 - 2026-10-21 23:50)
   Target: Galaxy Tab 2 10.1 GT-P5100, LineageOS 14.1 (Android 7.1.2, SDK 25).
   Scelte per la poca RAM:
@@ -13,9 +15,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="it.tab2revamp.monitor">
 
-    <uses-sdk android:minSdkVersion="25" android:targetSdkVersion="25" />
+    <!-- v0.10.0: minSdk 21 (era 25); targetSdk resta 25 (vedi PIANO_INSTALLER) -->
+    <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="25" />
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- v0.10.0: scoperta del server (Discovery): broadcast della sottorete e MulticastLock -->
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <!-- v0.6.0: rilevamento presenza (fotocamera frontale) e accensione/spegnimento schermo.
          CAMERA e' un permesso "runtime": lo chiede la schermata impostazioni (o adb pm grant). -->

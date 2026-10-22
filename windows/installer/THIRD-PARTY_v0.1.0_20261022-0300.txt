@@ -1,0 +1,13 @@
+Componenti di terze parti inclusi / Third-party components included
+=====================================================================
+- Python 3.13 (embeddable package) - Python Software Foundation License
+  https://www.python.org/  (cartella / folder python\)
+- psutil - BSD 3-Clause License - https://github.com/giampaolo/psutil
+  (python\Lib\site-packages\psutil)
+- LibreHardwareMonitorLib 0.9.6 e dipendenze / and dependencies - Mozilla Public
+  License 2.0 - sorgenti / source: https://github.com/LibreHardwareMonitor/LibreHardwareMonitor
+  (cartella / folder sensors\). DLL .NET di Microsoft / Microsoft .NET DLLs: MIT License.
+
+Scaricati solo su richiesta dal Setup / downloaded only on request by Setup:
+- PawnIO 2.2.0 (driver) - https://github.com/namazso/PawnIO.Setup
+- Android SDK Platform-Tools (adb) - https://developer.android.com/tools/releases/platform-tools

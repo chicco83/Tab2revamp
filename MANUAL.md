@@ -1,5 +1,5 @@
 # MANUAL — Tab2revamp
-Versione: v0.1.13 — 2026-10-22 03:35
+Versione: v0.1.16 — 2026-10-22 05:45 (ora del PC, branch installer-tab2monitor)
 
 Galaxy Tab 2 10.1 (GT-P5100) come display delle risorse di un PC Windows.
 
@@ -230,3 +230,17 @@ Con `-home` l'app diventa anche la schermata Home (kiosk); `-nohome` la toglie.
 - Nomi di ventole/temperature/componenti e abbinamento ventola→temperatura: dal PC aprire
   `http://localhost:8090/config`, scrivere i nomi (vuoto = originale), scegliere la temperatura per ogni
   ventola ("non mostrare" la toglie dal tablet; per le temperature c'è la casella "nascondi"), **Salva**. Effetto sul tablet entro 2 s.
+
+## Pacchetto portabile per altri PC e tablet (branch `installer-tab2monitor`, 2026-10-22)
+Dettagli e problemi noti: `RUNBOOK_INSTALLER_v0.1.0_20261022-0545.md`.
+- Costruzione: `bash android/tab2monitor_app/build_tab2monitor_v0.10.0_20261022-0230.sh`, poi
+  `powershell -ExecutionPolicy Bypass -File windows\installer\build_portable_v0.1.0_20261022-0300.ps1`
+  → `%LOCALAPPDATA%\Tab2Monitor-build\dist\Tab2Monitor_v0.1.0.zip`.
+- Sull'altro PC: estrarre, `Tab2Monitor.cmd` (UAC = sensori CPU/scheda madre); `Setup.cmd` per
+  installazione in Programmi, avvio automatico (accesso con admin / avvio PC / accesso senza admin /
+  nessuno), firewall solo rete privata, driver PawnIO, tablet, disinstallazione.
+- Tablet (Android 5.0+): browser → `http://<IP-PC>:8090/apk`, oppure `Install-Tablet.cmd` con il cavo.
+  L'app cerca da sola il PC sulla rete (UDP 8090); impostazioni → "Cerca PC" o indirizzo a mano;
+  lingua: sistema / italiano / English; "Usa come schermata Home" per ripartire da sola dopo un riavvio
+  (da Android 10 è l'unico modo).
+- Da adb: `--es lang en|it`, `--ez home true|false`.
