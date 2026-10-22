@@ -2,6 +2,16 @@
 Versione documento: v0.1.14 — 2026-10-22 01:35 (ora del PC)
 
 
+## 17. (2) v0.1.16 — 2026-10-22 08:30 (sessione locale, APK v0.9.3)
+- APK **v0.9.3**: rotazione manuale **provata** (`flip180` → `mCurrentRotation=2`, spenta → 0).
+- Tentata la rotazione automatica leggendo l'accelerometro BMA254 da
+  `/sys/class/sensors/accelerometer_sensor/raw_data` (`x, y, z`, ~1024 = 1 g; da adb funziona:
+  `-16, -20, 1016` col tablet in piano) con interruttore `auto_rot` e pulsante di calibrazione: **SELinux
+  la blocca** per le app (`avc: denied { read } ... untrusted_app ... sysfs`). Il codice resta (mostra
+  "Accelerometro non leggibile dall'app: usa l'opzione manuale"); per la decisione dell'utente
+  ("se non abbiamo il sensore, opzione manuale") vale l'opzione manuale.
+- Aggiunto `android/tab2monitor_app/build_tab2monitor_v0.9.3_20261022-0425.sh` (versionCode 14).
+
 ## 17. v0.1.16 — 2026-10-22 04:10 (sessione locale, APK v0.9.2)
 - APK **v0.9.2**: opzione "Capovolgi l'interfaccia di 180 gradi" (`flip180`, impostazioni o
   `am start --ez flip180 true`), orientamento REVERSE_LANDSCAPE. Rotazione automatica non possibile

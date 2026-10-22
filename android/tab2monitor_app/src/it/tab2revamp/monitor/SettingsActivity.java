@@ -1,6 +1,7 @@
 // =============================================================================
 // Tab2Monitor - SettingsActivity (pannello impostazioni)
-// Versione: v0.9.2 - 2026-10-22 04:10
+// Versione: v0.9.3 - 2026-10-22 04:25
+//   v0.9.3: rotazione automatica (interruttore + pulsante di calibrazione)
 //   v0.9.2: interruttore "Capovolgi l'interfaccia di 180 gradi" (applicato subito anche qui)
 //   v0.9.0: interruttore "Animazioni fluide"
 //   v0.8.0: sezione "Carico" (riaccensione con CPU/GPU/RAM/VRAM oltre soglia) e sezione
@@ -82,6 +83,20 @@ public class SettingsActivity extends Activity {
         toggle("anim_smooth", "Animazioni fluide di valori e grafici (spente = aggiornamento a scatti, meno CPU)");   // v0.9.0
         toggle("gauge_check", "Gauge check all'accensione dello schermo (indicatori al massimo e ritorno)");     // v0.9.0
         toggle("flip180", "Capovolgi l'interfaccia di 180 gradi (tablet appoggiato al rovescio)", false);       // v0.9.2
+        // v0.9.3: rotazione automatica con l'accelerometro letto dal kernel
+        toggle("auto_rot", "Rotazione automatica di 180 gradi girando il tablet (dopo la calibrazione)", false);
+        final TextView calMsg = new TextView(this);
+        Button cal = new Button(this);
+        cal.setText("Calibra: il tablet adesso e' dritto");
+        cal.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) { calMsg.setText(MainActivity.calibrate(prefs)); }
+        });
+        ll.addView(cal);
+        int[] acc = MainActivity.readAcc();
+        calMsg.setText(acc == null ? "Accelerometro non leggibile dall'app: usa l'opzione manuale"
+                : prefs.contains("rot_axis") ? "Calibrato (asse " + (prefs.getInt("rot_axis", 1) == 0 ? "X" : "Y") + ")"
+                : "Non calibrato: tieni il tablet dritto e premi Calibra");
+        ll.addView(calMsg);
         label("Intervallo di aggiornamento (ms, minimo 500)");
         poll = field(String.valueOf(prefs.getInt("poll_ms", 1000)), "1000", InputType.TYPE_CLASS_NUMBER);
         // v0.4.0

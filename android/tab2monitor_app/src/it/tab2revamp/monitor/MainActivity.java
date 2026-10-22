@@ -1,6 +1,11 @@
 // =============================================================================
 // Tab2Monitor - MainActivity + thread di polling
-// Versione: v0.9.2 - 2026-10-22 04:10
+// Versione: v0.9.3 - 2026-10-22 04:25
+//   v0.9.3: ROTAZIONE AUTOMATICA di 180 gradi senza il driver dei sensori: l'accelerometro BMA254
+//           si legge direttamente da /sys/class/sensors/accelerometer_sensor/raw_data ("x, y, z",
+//           ~1024 = 1 g, leggibile da tutti). Ogni 700 ms: se il tablet e' in verticale (|asse| > 600)
+//           e il segno dell'asse calibrato e' opposto a quello della posizione normale per 2 letture
+//           di fila -> flip180. Calibrazione dalle impostazioni ("il tablet adesso e' dritto").
 //   v0.9.2: opzione "flip180" (interfaccia capovolta di 180 gradi, orizzontale rovesciato): il
 //           driver dei sensori e' disattivato (SensorService al 50%), quindi niente rotazione
 //           automatica; si sceglie a mano dalle impostazioni o con am start --ez flip180 true
@@ -83,7 +88,8 @@ public class MainActivity extends Activity {
             "p_claude", "p_fans", "anim_fans", "presence",       // v0.6.0: + presence (default false)
             "load_wake", "alarm_on",                             // v0.8.0 (alarm_on default false)
             "anim_smooth", "gauge_check",                        // v0.9.0
-            "flip180"};                                          // v0.9.2 (default false)
+            "flip180",                                           // v0.9.2 (default false)
+            "auto_rot"};                                         // v0.9.3 (default false: serve calibrare)
     static final int DEF_PAGE_SEC = 15;   // v0.4.0: secondi per pagina (0 = niente rotazione)
 
     private MonitorView view;
@@ -175,6 +181,7 @@ public class MainActivity extends Activity {
         super.onResume();
         current = this;
         applyFlip(this, prefs);                             // v0.9.2
+        rotH.removeCallbacks(rotTick); rotH.postDelayed(rotTick, 700);   // v0.9.3
         hideBars();
         restartPoller();
         // v0.6.0: servizio di presenza acceso/spento secondo l'opzione (serve il permesso CAMERA)
@@ -196,6 +203,54 @@ public class MainActivity extends Activity {
     protected void onDestroy() {
         unregisterReceiver(screenOn);                       // v0.9.0
         super.onDestroy();
+    }
+
+    // ------------------------------------------------------ rotazione automatica (v0.9.3)
+    static final String ACC = "/sys/class/sensors/accelerometer_sensor/raw_data";
+    private final android.os.Handler rotH = new android.os.Handler();
+    private int rotVotes;
+    private final Runnable rotTick = new Runnable() {
+        public void run() {
+            rotH.postDelayed(this, 700);
+            if (!prefs.getBoolean("auto_rot", false) || !prefs.contains("rot_axis")) return;
+            int[] a = readAcc();
+            if (a == null) return;
+            int v = a[prefs.getInt("rot_axis", 1)];
+            if (Math.abs(v) < 600) { rotVotes = 0; return; }   // in piano o inclinato: non decide
+            boolean flip = Integer.signum(v) != prefs.getInt("rot_sign", 1);
+            if (flip == prefs.getBoolean("flip180", false)) { rotVotes = 0; return; }
+            if (++rotVotes < 2) return;                          // 2 letture concordi
+            rotVotes = 0;
+            prefs.edit().putBoolean("flip180", flip).apply();
+            applyFlip(MainActivity.this, prefs);
+        }
+    };
+
+    // Legge "x, y, z" dall'accelerometro; null se non leggibile (SELinux, file assente)
+    static int[] readAcc() {
+        java.io.BufferedReader r = null;
+        try {
+            r = new java.io.BufferedReader(new java.io.FileReader(ACC));
+            String[] f = r.readLine().split(",");
+            return new int[]{Integer.parseInt(f[0].trim()), Integer.parseInt(f[1].trim()), Integer.parseInt(f[2].trim())};
+        } catch (Exception e) {
+            return null;
+        } finally {
+            if (r != null) try { r.close(); } catch (java.io.IOException ignored) { }
+        }
+    }
+
+    // Calibrazione: l'asse X o Y con il valore maggiore e il suo segno nella posizione "dritta"
+    // (tenendo conto che l'interfaccia potrebbe essere gia' capovolta). Restituisce un messaggio.
+    static String calibrate(SharedPreferences p) {
+        int[] a = readAcc();
+        if (a == null) return "accelerometro non leggibile: resta l'opzione manuale";
+        int axis = Math.abs(a[0]) >= Math.abs(a[1]) ? 0 : 1;
+        if (Math.abs(a[axis]) < 600) return "tieni il tablet in verticale e riprova (" + a[0] + ", " + a[1] + ", " + a[2] + ")";
+        int sign = Integer.signum(a[axis]);
+        if (p.getBoolean("flip180", false)) sign = -sign;     // adesso e' al rovescio rispetto al normale
+        p.edit().putInt("rot_axis", axis).putInt("rot_sign", sign).putBoolean("auto_rot", true).apply();
+        return "calibrato: asse " + (axis == 0 ? "X" : "Y") + ", segno " + (sign > 0 ? "+" : "-") + " (rotazione automatica attiva)";
     }
 
     // v0.9.2: orizzontale normale o rovesciato (sovrascrive screenOrientation="landscape" del manifest)
@@ -221,6 +276,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onPause() {
         if (current == this) current = null;            // v0.6.0
+        rotH.removeCallbacks(rotTick);                     // v0.9.3
         stopPoller();
         super.onPause();
     }
