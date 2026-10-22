@@ -7,6 +7,9 @@ Versione documento: v0.1.14 — 2026-10-22 01:35 (ora del PC)
   con il cavo attaccato, poi spento a 3,05 V con il 18% indicato. Il caricatore era riconosciuto come `plug=usb`
   (~500 mA), non `ac`: a schermo acceso non basta (CONTEXT, Batteria / carica). Dopo il riavvio risultava `ac`. Ricollegato in Wi-Fi su `192.168.1.234:5555` con il caricatore a muro.
   Nota: `192.168.1.206:5555` è la Mi Box 4, non il tablet. Nessun codice toccato.
+- 23:44: dopo un altro riavvio, anche con `plug=ac` la carica si ferma dopo 40 s e il livello scende (67% → 61% in 20 min,
+  schermo acceso). La percentuale salta tra un riavvio e l'altro (18 → 39 → 67%): non è affidabile.
+  "Debug ADB in rete" si era spento ed è stato riacceso a mano.
 
 ## 18. v0.1.17 — 2026-10-22 12:05 (sessione locale)
 - Ricerca online sulla sostituzione del connettore 30 pin con USB-C: nessun kit/guida esistente; raccolti pinout e punti aperti in

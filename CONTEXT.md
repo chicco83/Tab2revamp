@@ -239,6 +239,11 @@ Drive), montato solo dopo l'accesso. ✅ `claude_plan` dal file history di Claud
   stacchi/riattacchi brevi registrati (contatto del connettore 30 pin?). Dal 62% al 18% in ~2 h 50 min (circa −15%/h, temperatura fino a 36,8 °C), poi spento a **3,05 V con il 18% indicato**.
   La batteria vecchia arriva al minimo di tensione prima che il fuel gauge segni 0%. Dopo lo spegnimento il PC lo vede
   come "dispositivo non riconosciuto" finché non si ricarica. Riavviato col caricatore a muro (AC) e raggiunto in Wi-Fi.
+  ✅ Verificato alle 23:44 dopo un nuovo riavvio: anche con `plug=ac` la carica si ferma (`-charging`) 40 s dopo l'avvio
+  e il livello scende 67% → 61% in 20 min (schermo acceso luminoso, app con fotocamera attiva). La percentuale
+  **non è affidabile**: 18% allo spegnimento, 39% e 67% ai riavvii successivi con tensioni simili (3,64–3,78 V).
+  ⏳ Da capire: potenza del caricatore (A) e cavo; prova a schermo spento per vedere se il livello sale.
+  ⚠️ "Debug ADB in rete" si era spento: va riacceso a mano dalle Opzioni sviluppatore.
 - **Rotazione 180°** (APK v0.9.3): opzione manuale `flip180` ✅ provata (decisione utente 2026-10-22: "se non
   abbiamo il sensore, opzione manuale"). Automatica ⛔ per ora: l'accelerometro si legge da
   `/sys/class/sensors/accelerometer_sensor/raw_data` ma SELinux lo vieta alle app. Strade possibili, non fatte:
