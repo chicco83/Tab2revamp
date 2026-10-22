@@ -114,3 +114,27 @@ badcaps.net/forum/…/3479329) e su s-manuals.com («samsung_gt-p5100_service_sc
 - Vantaggio: nessuna batteria da stressare né da tenere tra 40% e 80%, rischio di rigonfiamento eliminato. Svantaggio: se la corrente cala,
   il tablet si spegne subito (nessun tampone).
 - Il percorso resta alternativo alla mod USB-C: conviene aprire lo schema, trovare il connettore batteria, e decidere.
+
+## Connettore batteria dallo schema (scaricato e letto 13:15, ✅ dallo schema; ⏳ non verificato col multimetro)
+Fonte: `samsung_gt-p5100_service_schematics.pdf` da s-manuals.com (7,7 MB, 11 pagine; **non nel repo**, copia di lavoro nel
+scratchpad). Pagina 7, blocco «BATTERY CONTACT», connettore **BTC700**, 9 pin (ritagli in `docs/p5100_schema_pag7_*.png`):
+
+| Pin BTC700 | Rete | Funzione |
+|---|---|---|
+| 1, 2 | V_BATT | positivo batteria (alimentazione di tutto il tablet) |
+| 3 | VF | identificazione/temperatura: va a **GPADC_IN0 del TWL6032** (via R769) e all'**ingresso AIN del MAX17042** (via R729) |
+| 4, 5 | V_BATTERY− | negativo batteria (ritorno del fuel gauge) |
+| 6, 7, 8, 9 | NC (a massa) | non usati |
+
+- Sul pin VF **nello schema non c'è una resistenza di pull-up né di pull-down**: la tensione la fanno l'ADC del PMIC e il MAX17042 sulla
+  resistenza/NTC dentro il pacco batteria. Per simulare la batteria serve quindi **misurare il valore sulla batteria originale** (tra pin 3 e 4/5)
+  e metterne uno uguale. ⚠️ Non c'è ancora il valore.
+- BAT_REMOVAL esce dal PMIC (pin J10): da capire come viene pilotato (⏳ cercare la rete nelle altre pagine).
+- Fuel gauge MAX17042 (U717): nello schema i suoi VBATT e il resto stanno sulla linea V_BATT; il sense è su R755 (resistenza di misura corrente) →
+  senza batteria la corrente misurata sarebbe quella di sistema, non importa per l'avvio.
+
+### Prova con alimentatore da banco (progetto, ⏳)
+1. Con batteria collegata, misurare: resistenza pin 3 ↔ pin 4 (VF verso massa) e tensione a riposo su pin 3.
+2. Togliere la batteria; collegare: pin 1+2 → +4,0 V (alimentatore con limite 2 A), pin 4+5 → massa, pin 3 → resistenza del valore misurato verso massa.
+3. Accendere e osservare avvio, percentuale (Tab2Monitor) e comportamento del caricatore (tolto il caricabatterie, il SMB347 non carica nulla).
+4. Se parte: sostituire l'alimentatore da banco con 5 V USB-C → convertitore 4,0 V (limite di corrente), con condensatore di tampone vicino ai pin.
