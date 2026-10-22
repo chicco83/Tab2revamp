@@ -194,6 +194,20 @@ Versione documento: v0.1.14 — 2026-10-22 01:35 (ora del PC)
   (il versionCode scende, `install -r` non basta).
 - Aperta una sessione parallela per la sorgente dati lato Windows.
 
+## 8. (8) v0.2.7 — 2026-10-22 11:30 (sessione locale, limiti del piano Claude)
+- Nuovo `windows/agent/tab2monitor_server_v0.2.7_20261022-1130.py`: campo `claude_plan`
+  `{plan, session{pct,reset}, weekly{pct,reset}, weekly_opus?, ts}`, autorizzato dall'utente (sessione APK,
+  2026-10-22 ~11:10). Token `claudeAiOauth.accessToken` letto da `~/.claude/.credentials.json` a ogni
+  interrogazione (ogni 5 min), mai copiato né scritto in log/JSON/config/repository; endpoint **non
+  documentato** `api.anthropic.com/api/oauth/usage`. Errore (401, formato, rete) → campo omesso e nessun nuovo
+  tentativo finché il file credenziali non cambia. `srv.plan` = stato (ok / no_token / errore …).
+  `--no-claude-plan` per disattivarlo.
+- Provato con endpoint e token finti in locale: lettura ok (Pro, 4%, 1%, reset in epoch), 401 → sospeso,
+  stesso file → nessuna chiamata, file cambiato → riprende. Nel log non compare il token.
+- ⛔ Oggi il campo **manca**: `.credentials.json` contiene solo i token dei connettori MCP, nessun
+  `claudeAiOauth` (l'accesso a Claude è dell'app desktop, salvato altrove; altri archivi di credenziali non
+  esplorati). In servizio sulla 8090: `srv.plan` = `no_token`, nessuna chiamata di rete.
+
 ## 8. (7) v0.2.6 — 2026-10-22 01:20 (sessione locale, consumo CPU del server)
 - Servizio verificato dopo la chiusura del server orfano (fatta dall'utente da amministratore): v0.2.5
   partita da sola, sensori con admin ok (CPU 52 °C, scheda madre, RAM, dischi, GPU).
