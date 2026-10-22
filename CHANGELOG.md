@@ -2,6 +2,17 @@
 Versione documento: v0.1.14 — 2026-10-22 01:35 (ora del PC)
 
 
+## 17. (4) v0.1.16 — 2026-10-22 11:10 (sessione locale, APK v0.9.5)
+- APK **v0.9.5** (richiesta utente con screenshot di claude.ai): pannello Claude con i **limiti del piano**
+  — barre "Limite di sessione" (5 h, "si ripristina tra X h Y min") e "Settimanale - tutti i modelli"
+  ("si azzera gio 09:00"), percentuale, tacca bianca = tempo trascorso nella finestra; sotto i token di
+  Claude Code. Legge il campo opzionale `claude_plan` (schema in CONTEXT.md); senza, il pannello è come prima.
+- Provato con un mock (porta 8091) con i valori dello screenshot: resa come nello screenshot.
+- ⏳ **Dati reali**: richiedono che il server legga il token OAuth in `~/.claude/.credentials.json` e
+  chiami un endpoint non documentato: in attesa della decisione esplicita dell'utente.
+- Batteria del tablet al 25% alle 11:07 (61% alle 01:30) sulla USB del PC.
+- Aggiunto `android/tab2monitor_app/build_tab2monitor_v0.9.5_20261022-0900.sh` (versionCode 16).
+
 ## 17. (3) v0.1.16 — 2026-10-22 08:50 (sessione locale, APK v0.9.4)
 - APK **v0.9.4**: gauge check più lungo (salita 1,0 s + discesa 1,3 s; era 0,7 + 0,9) e log `Tab2Gauge`.
 - Verificato sul tablet: 2 cambi pagina → nessun gauge check (log vuoto, valori reali a schermo);

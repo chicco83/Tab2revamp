@@ -1,6 +1,8 @@
 // =============================================================================
 // Tab2Monitor - MainActivity + thread di polling
-// Versione: v0.9.3 - 2026-10-22 04:25
+// Versione: v0.9.5 - 2026-10-22 09:00
+//   v0.9.5: campo opzionale "claude_plan" (limiti del piano dell'account: sessione 5 h e settimanale,
+//           percentuale e ora di reset), letto se il server lo invia
 //   v0.9.3: ROTAZIONE AUTOMATICA di 180 gradi senza il driver dei sensori: l'accelerometro BMA254
 //           si legge direttamente da /sys/class/sensors/accelerometer_sensor/raw_data ("x, y, z",
 //           ~1024 = 1 g, leggibile da tutti). Ogni 700 ms: se il tablet e' in verticale (|asse| > 600)
@@ -419,6 +421,16 @@ public class MainActivity extends Activity {
             String topModel; long topModelTok = -1;
         }
 
+        // v0.9.5: limiti del piano (schema proposto al server, tutti i campi opzionali):
+        // "claude_plan": {"plan": "Pro", "session": {"pct": 4, "reset": <epoch>},
+        //                 "weekly": {"pct": 1, "reset": <epoch>}, "ts": <epoch>}
+        ClaudePlan plan;
+        static final class ClaudePlan {
+            String name;
+            float sessPct = Float.NaN, weekPct = Float.NaN;
+            long sessReset, weekReset;
+        }
+
         // v0.5.1: temperatura da mostrare = misura vera e non nascosta dall'utente
         static boolean shown(JSONObject x) {
             return x != null && !x.optBoolean("hidden", false) && isTemp(x.optString("name"));
@@ -471,6 +483,15 @@ public class MainActivity extends Activity {
                     JSONObject o = ps.optJSONObject(i);
                     m.procN[i] = o.optString("n"); m.procCpu[i] = f(o, "cpu"); m.procMb[i] = o.optInt("mb");
                 }
+            }
+            JSONObject cp = j.optJSONObject("claude_plan");    // v0.9.5
+            if (cp != null) {
+                ClaudePlan k = new ClaudePlan();
+                k.name = cp.optString("plan", "");
+                JSONObject ss = cp.optJSONObject("session"), wk = cp.optJSONObject("weekly");
+                if (ss != null) { k.sessPct = f(ss, "pct"); k.sessReset = ss.optLong("reset"); }
+                if (wk != null) { k.weekPct = f(wk, "pct"); k.weekReset = wk.optLong("reset"); }
+                m.plan = k;
             }
             JSONObject cl = j.optJSONObject("claude");         // v0.3.0
             if (cl != null) {

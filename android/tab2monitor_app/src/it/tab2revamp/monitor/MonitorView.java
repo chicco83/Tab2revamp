@@ -1,6 +1,10 @@
 // =============================================================================
 // Tab2Monitor - MonitorView (disegno su Canvas)
-// Versione: v0.9.4 - 2026-10-22 08:45
+// Versione: v0.9.5 - 2026-10-22 09:00
+//   v0.9.5: pannello Claude con i LIMITI DEL PIANO (come in claude.ai / "/usage"): barra "Limite di
+//           sessione" (finestra 5 h) e "Settimanale", percentuale, tempo/giorno di reset e una tacca
+//           bianca = tempo gia' trascorso nella finestra (barra oltre la tacca = consumo piu' rapido
+//           del tempo). Sotto, i token di Claude Code come prima.
 //   v0.9.4: gauge check piu' lungo (salita 1,0 s, discesa 1,3 s; era 0,7 + 0,9) e log "Tab2Gauge"
 //           a ogni avvio per verificare che parta solo all'accensione dello schermo
 //   v0.9.1: intestazione con la BATTERIA del tablet: livello %, temperatura (unica temperatura in
@@ -1229,7 +1233,20 @@ public class MonitorView extends View {
     // non la percentuale del limite del piano (non esposta da nessuna API pubblica).
     private void claudeCard(Canvas cv, float x, float y, float w, float h) {
         MainActivity.Metrics.Claude c = m.claude;
-        card(cv, x, y, w, h, "Claude - utilizzo (Claude Code)");
+        // v0.9.5: limiti del piano in testa (se il server li invia), poi i token. Prima: solo token.
+        MainActivity.Metrics.ClaudePlan pl = m.plan;
+        card(cv, x, y, w, h, pl != null && pl.name != null && pl.name.length() > 0
+                ? "Claude - piano " + pl.name : "Claude - utilizzo (Claude Code)");
+        if (pl != null) {
+            long now = System.currentTimeMillis() / 1000;
+            planBar(cv, x, y + 60 * u, w, "Limite di sessione", pl.sessPct, pl.sessReset, 5 * 3600, now, true);
+            planBar(cv, x, y + 116 * u, w, "Settimanale - tutti i modelli", pl.weekPct, pl.weekReset, 7 * 86400, now, false);
+            y += 120 * u;                                    // i token scendono sotto le barre
+            if (!st()) return;
+            stroke.setColor(BORDER);
+            cv.drawLine(x + 14 * u, y + 34 * u, x + w - 14 * u, y + 34 * u, stroke);
+            y += 6 * u;
+        }
         if (c == null) {
             row(cv, x, y + 60 * u, w, "dati non disponibili", "");
             row(cv, x, y + 86 * u, w, "il server non invia ancora il campo \"claude\"", "");
@@ -1247,6 +1264,43 @@ public class MonitorView extends View {
         row(cv, x, y + 164 * u, w, "Ultimi 7 giorni", tok(c.weekTok));
         row(cv, x, y + 190 * u, w, c.topModel != null ? c.topModel : "modello: --",
                 c.topModel != null ? tok(c.topModelTok) : "");
+    }
+
+    // v0.9.5: riga "etichetta ..... si ripristina tra 4 h 15 min  4%" + barra con tacca del tempo trascorso
+    private static final String[] GG = {"dom", "lun", "mar", "mer", "gio", "ven", "sab"};
+    private void planBar(Canvas cv, float x, float y, float w, String label, float pct, long reset,
+                         long window, long now, boolean relative) {
+        if (!st()) return;
+        String when = "";
+        if (reset > now) {
+            if (relative) {
+                long s = reset - now, hh = s / 3600, mm = s % 3600 / 60;
+                when = "si ripristina tra " + (hh > 0 ? hh + " h " : "") + mm + " min";
+            } else {
+                cal.setTimeInMillis(reset * 1000L);
+                when = "si azzera " + GG[cal.get(Calendar.DAY_OF_WEEK) - 1] + " "
+                        + two(cal.get(Calendar.HOUR_OF_DAY)) + ":" + two(cal.get(Calendar.MINUTE));
+            }
+        }
+        String right = when + "   " + (Float.isNaN(pct) ? "--" : Math.round(pct) + "%");
+        text.setTextSize(16 * u); text.setTextAlign(Paint.Align.RIGHT); text.setColor(DIM);
+        cv.drawText(right, x + w - 14 * u, y, text);
+        text.setTextAlign(Paint.Align.LEFT); text.setColor(FG);
+        cv.drawText(fit(label, w - 40 * u - text.measureText(right)), x + 14 * u, y, text);
+        float bx = x + 14 * u, bw = w - 28 * u, by = y + 12 * u, bh = 8 * u;
+        float p = Float.isNaN(pct) ? 0 : Math.max(0, Math.min(100, pct));
+        rf.set(bx, by, bx + bw, by + bh);
+        fill.setColor(TRACK); cv.drawRoundRect(rf, bh / 2, bh / 2, fill);
+        if (p > 0) {
+            rf.set(bx, by, bx + Math.max(bh, bw * p / 100f), by + bh);
+            fill.setColor(p >= 90 ? RED : p >= 70 ? YELLOW : BLUE);
+            cv.drawRoundRect(rf, bh / 2, bh / 2, fill);
+        }
+        if (reset > now && window > 0) {                     // tacca: quota di finestra gia' trascorsa
+            float el = Math.max(0, Math.min(1, 1 - (reset - now) / (float) window));
+            fill.setColor(FG);
+            cv.drawRect(bx + bw * el - 1 * u, by - 3 * u, bx + bw * el + 1 * u, by + bh + 3 * u, fill);
+        }
     }
 
     private static String tok(long t) {
