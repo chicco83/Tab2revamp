@@ -1,6 +1,8 @@
 // =============================================================================
 // Tab2Monitor - MonitorView (disegno su Canvas)
-// Versione: v0.9.5 - 2026-10-22 09:00
+// Versione: v0.9.6 - 2026-10-22 11:30
+//   v0.9.6: limiti del piano dal registro dell'app desktop (src "history"): "aggiornato alle HH:MM",
+//           sessione senza ora di reset e marcata "dato vecchio" se il campione ha piu' di 5 h
 //   v0.9.5: pannello Claude con i LIMITI DEL PIANO (come in claude.ai / "/usage"): barra "Limite di
 //           sessione" (finestra 5 h) e "Settimanale", percentuale, tempo/giorno di reset e una tacca
 //           bianca = tempo gia' trascorso nella finestra (barra oltre la tacca = consumo piu' rapido
@@ -1239,7 +1241,15 @@ public class MonitorView extends View {
                 ? "Claude - piano " + pl.name : "Claude - utilizzo (Claude Code)");
         if (pl != null) {
             long now = System.currentTimeMillis() / 1000;
-            planBar(cv, x, y + 60 * u, w, "Limite di sessione", pl.sessPct, pl.sessReset, 5 * 3600, now, true);
+            // v0.9.6: con dati dal registro dell'app desktop si mostra l'ora del campione
+            String sessLab = pl.sessStale ? "Limite di sessione (dato vecchio)" : "Limite di sessione";
+            if ("history".equals(pl.src) && pl.ts > 0 && st()) {
+                cal.setTimeInMillis(pl.ts * 1000L);
+                text.setTextSize(13 * u); text.setColor(DIM); text.setTextAlign(Paint.Align.RIGHT);
+                cv.drawText("aggiornato alle " + two(cal.get(Calendar.HOUR_OF_DAY)) + ":" + two(cal.get(Calendar.MINUTE)),
+                        x + w - 14 * u, y + 26 * u, text);
+            }
+            planBar(cv, x, y + 60 * u, w, sessLab, pl.sessStale ? Float.NaN : pl.sessPct, pl.sessReset, 5 * 3600, now, true);
             planBar(cv, x, y + 116 * u, w, "Settimanale - tutti i modelli", pl.weekPct, pl.weekReset, 7 * 86400, now, false);
             y += 120 * u;                                    // i token scendono sotto le barre
             if (!st()) return;

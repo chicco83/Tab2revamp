@@ -240,7 +240,9 @@ Drive), montato solo dopo l'accesso. ⛔ `claude`: limiti di piano dell'account 
   che ne cambia l'etichetta SELinux (modifica di sistema, serve conferma).
 - **Limiti del piano Claude** (APK v0.9.5 ✅ con mock): schema atteso dal server
   `"claude_plan": {"plan": "Pro", "session": {"pct": 4, "reset": <epoch>}, "weekly": {"pct": 1, "reset": <epoch>}, "ts": <epoch>}`.
-  ⏳ lato server: serve il token OAuth di `~/.claude/.credentials.json` + endpoint non documentato → decisione utente.
+  Lato server (v0.2.7): token OAuth di `~/.claude/.credentials.json` (autorizzato dall'utente, ma oggi assente: serve
+  `claude` + `/login` dalla CLI) e, come ripiego deciso dall'utente, `%APPDATA%\Claude\plan-usage-history.json`
+  dell'app desktop (percentuali senza reset, campioni irregolari). Il token dell'app desktop è cifrato DPAPI: ⛔ non usato.
 - **Installer** per altri PC/tablet: pianificato nella sessione dedicata «Piano installer Tab2Monitor»
   (2026-10-22): vedere il suo `PIANO_INSTALLER_*.md` quando pronto.
 - Nomi e abbinamenti delle ventole: decisi dall'utente nella pagina `http://localhost:8090/config`

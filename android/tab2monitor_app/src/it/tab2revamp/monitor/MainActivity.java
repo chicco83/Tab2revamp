@@ -1,6 +1,7 @@
 // =============================================================================
 // Tab2Monitor - MainActivity + thread di polling
-// Versione: v0.9.5 - 2026-10-22 09:00
+// Versione: v0.9.6 - 2026-10-22 11:30
+//   v0.9.6: claude_plan.src ("oauth" / "history"), ts del campione, session.stale
 //   v0.9.5: campo opzionale "claude_plan" (limiti del piano dell'account: sessione 5 h e settimanale,
 //           percentuale e ora di reset), letto se il server lo invia
 //   v0.9.3: ROTAZIONE AUTOMATICA di 180 gradi senza il driver dei sensori: l'accelerometro BMA254
@@ -429,6 +430,9 @@ public class MainActivity extends Activity {
             String name;
             float sessPct = Float.NaN, weekPct = Float.NaN;
             long sessReset, weekReset;
+            String src = "";                                // v0.9.6: "oauth" o "history"
+            long ts;                                        // v0.9.6: istante del dato
+            boolean sessStale;                              // v0.9.6: dato di sessione scaduto
         }
 
         // v0.5.1: temperatura da mostrare = misura vera e non nascosta dall'utente
@@ -489,7 +493,9 @@ public class MainActivity extends Activity {
                 ClaudePlan k = new ClaudePlan();
                 k.name = cp.optString("plan", "");
                 JSONObject ss = cp.optJSONObject("session"), wk = cp.optJSONObject("weekly");
-                if (ss != null) { k.sessPct = f(ss, "pct"); k.sessReset = ss.optLong("reset"); }
+                if (ss != null) { k.sessPct = f(ss, "pct"); k.sessReset = ss.optLong("reset");
+                                  k.sessStale = ss.optBoolean("stale", false); }      // v0.9.6
+                k.src = cp.optString("src", ""); k.ts = cp.optLong("ts");
                 if (wk != null) { k.weekPct = f(wk, "pct"); k.weekReset = wk.optLong("reset"); }
                 m.plan = k;
             }

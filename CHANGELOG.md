@@ -2,6 +2,17 @@
 Versione documento: v0.1.14 — 2026-10-22 01:35 (ora del PC)
 
 
+## 17. (5) v0.1.16 — 2026-10-22 11:35 (sessione locale, APK v0.9.6)
+- Ricerca del token dell'app Claude Desktop (richiesta utente): `%APPDATA%\Claude\config.json`, chiavi
+  `oauth:tokenCache`/`oauth:tokenCacheV2`, **cifrate con DPAPI** (prefisso v10, Electron safeStorage):
+  non usate (valori non letti). Trovato invece `%APPDATA%\Claude\plan-usage-history.json` con le
+  percentuali del piano senza credenziali (`fh` = 5 h, `sd` = 7 giorni; ultimo campione 10:49 = 4% / 1%),
+  campionate in modo irregolare e senza orari di reset. **Decisione utente**: usarlo come ripiego quando
+  manca il token della CLI (richiesto alla sessione «Sorgente dati Windows»).
+- APK **v0.9.6**: `claude_plan.src` ("oauth"/"history"), `ts` e `session.stale` → "aggiornato alle HH:MM" e
+  "Limite di sessione (dato vecchio)". Aggiunto `build_tab2monitor_v0.9.6_20261022-1130.sh` (versionCode 17).
+  ⏳ da provare con i dati reali del server.
+
 ## 17. (4) v0.1.16 — 2026-10-22 11:10 (sessione locale, APK v0.9.5)
 - APK **v0.9.5** (richiesta utente con screenshot di claude.ai): pannello Claude con i **limiti del piano**
   — barre "Limite di sessione" (5 h, "si ripristina tra X h Y min") e "Settimanale - tutti i modelli"
