@@ -222,6 +222,22 @@ Versione documento: v0.1.14 — 2026-10-22 01:35 (ora del PC)
   (il versionCode scende, `install -r` non basta).
 - Aperta una sessione parallela per la sorgente dati lato Windows.
 
+## 8. (10) v0.2.9 — 2026-10-23 00:00 (sessione locale, percorso Claude Desktop e adb reverse)
+- Problema (segnalato dalla sessione APK): dalle 17:55 del 2026-10-22 Claude Desktop tiene i dati in
+  `%LOCALAPPDATA%\Claude-Data\claude_pzs8sxrjxfjjc\` (nella cartella MSIX resta solo
+  `.user-data-left.claude_pzs8sxrjxfjjc`) → `srv.plan` = `no_token+no_history (FileNotFoundError 2)`.
+- Nuovo `windows/agent/tab2monitor_server_v0.2.9_20261023-0000.py`: `plan-usage-history.json` cercato in
+  `Claude-Data\*\`, poi `%APPDATA%\Claude\` e la cartella MSIX; si usa il più recente; `srv.plan` riporta
+  il percorso con `~` al posto della cartella utente.
+- `adb reverse`: saltati i dispositivi via rete (`ip:porta`, stato `rete`: il tablet in Wi‑Fi raggiunge già il
+  PC); dopo un errore nuovo tentativo solo dopo 5 min; log solo ai cambi di stato. Prima: tentativo ogni 5 s
+  su `192.168.1.234:5555` con una riga di log a ogni errore (724 righe in 6 h). Visto anche un secondo tablet
+  in USB (Galaxy Tab 4 SM‑T530, `matissewifi`): reverse applicato anche a lui (innocuo, non filtrato per modello).
+- Provato in servizio: `claude_plan` = sessione 19%, settimanale 16%, campione 19:23, `adb` =
+  `{USB: ok, 192.168.1.234:5555: rete}`, nessuna riga di errore adb nel log.
+- Nota versioni: la prossima è **v0.3.0**, non v0.2.10 (il supervisore sceglie per ordine di nome e
+  "v0.2.10" verrebbe prima di "v0.2.2").
+
 ## 8. (9) v0.2.8 — 2026-10-22 12:10 (sessione locale, ripiego claude_plan senza credenziali)
 - Nuovo `windows/agent/tab2monitor_server_v0.2.8_20261022-1150.py`: se l'oauth non dà dati, `claude_plan`
   viene dall'ultimo campione di `plan-usage-history.json` di Claude Desktop (solo percentuali `fh`/`sd`,
