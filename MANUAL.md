@@ -232,3 +232,5 @@ Con `-home` l'app diventa anche la schermata Home (kiosk); `-nohome` la toglie.
 - Nomi di ventole/temperature/componenti e abbinamento ventola→temperatura: dal PC aprire
   `http://localhost:8090/config`, scrivere i nomi (vuoto = originale), scegliere la temperatura per ogni
   ventola ("non mostrare" la toglie dal tablet; per le temperature c'è la casella "nascondi"), **Salva**. Effetto sul tablet entro 2 s.
+- Limiti del piano Claude (`claude_plan`): letti dall'app Claude Desktop; in `/config` impostare giorno e
+  ora del reset settimanale (come su claude.ai → Utilizzo). Stato in `/api/metrics` → `srv.plan`.

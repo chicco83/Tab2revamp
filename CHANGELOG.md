@@ -211,6 +211,22 @@ Versione documento: v0.1.14 — 2026-10-22 01:35 (ora del PC)
   (il versionCode scende, `install -r` non basta).
 - Aperta una sessione parallela per la sorgente dati lato Windows.
 
+## 8. (9) v0.2.8 — 2026-10-22 12:10 (sessione locale, ripiego claude_plan senza credenziali)
+- Nuovo `windows/agent/tab2monitor_server_v0.2.8_20261022-1150.py`: se l'oauth non dà dati, `claude_plan`
+  viene dall'ultimo campione di `plan-usage-history.json` di Claude Desktop (solo percentuali `fh`/`sd`,
+  nessun token; `config.json` cifrato escluso): `src` = `history`, `ts` = ora del campione,
+  `session{pct, stale?}` (`stale` se il campione ha più di 5 h), `weekly{pct, reset}` col reset calcolato
+  dal giorno/ora scelti in `/config` (default giovedì 09:00). `srv.plan` = `ok (oauth)` /
+  `ok (history HH:MM)` / `no_token+no_history (errore)`. Chiesto dall'utente via sessione APK, confermato
+  qui dall'utente prima della messa in servizio.
+- Nuova pagina `windows/agent/config_page_v0.1.2_20261022-1150.html`: giorno e ora del reset settimanale.
+- **Problema trovato**: Claude Desktop è un'app MSIX: il file sta davvero in
+  `%LOCALAPPDATA%\Packages\Claude_pzs8sxrjxfjjc\LocalCache\Roaming\Claude\`; il percorso
+  `%APPDATA%\Claude\` lo vedono solo i processi figli dell'app (Claude Code), non il servizio
+  (`FileNotFoundError`). Il server cerca in entrambi e usa il più recente.
+- Provato: file finti (stale, t in ms/s, reset su altro giorno, file assente) e, in servizio sulla 8090,
+  `claude_plan` = sessione 4%, settimanale 1%, campione 10:49, reset gio 29/10 09:00 (uguale a claude.ai).
+
 ## 8. (8) v0.2.7 — 2026-10-22 11:30 (sessione locale, limiti del piano Claude)
 - Nuovo `windows/agent/tab2monitor_server_v0.2.7_20261022-1130.py`: campo `claude_plan`
   `{plan, session{pct,reset}, weekly{pct,reset}, weekly_opus?, ts}`, autorizzato dall'utente (sessione APK,

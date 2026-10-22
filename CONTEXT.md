@@ -151,17 +151,18 @@ da Windows (`lhm.src` = `lib` Tab2Sensors / `lhm` app LHM / `win` solo Windows).
 | `sensors.pairs[]` | `fan, rpm, pct, fan_hw, temp, c, temp_hw, how (map/same_hw/cpu/cpu_default/mb), g`; dalla v0.2.3 `fans[].on` (rpm > 0) e niente ventole ferme della scheda madre — stesso `g` = stesso colore sull'APK |
 | `srv` | `lhm` (fonte sensori), `adb` {seriale: ok/errore}, `http` |
 | `claude_plan` (v0.2.7) | `plan`, `session{pct,reset}`, `weekly{pct,reset}`, `weekly_opus?`, `ts`; omesso senza token `claudeAiOauth` (oggi assente) o dopo un errore; stato in `srv.plan` |
+| `claude_plan.src` (v0.2.8) | `oauth` o `history` (Claude Desktop, `plan-usage-history.json` nella cartella MSIX del pacchetto); con `history`: `session.stale` se > 5 h, `weekly.reset` da `/config` (default gio 09:00), niente `session.reset` |
 | `hidden` (v0.2.5) | `true` su `fans[]`/`temps[]` nascosti dall'utente in `/config`; se manca la voce si mostra |
 | `id`, `orig` (v0.2.4) | su `sensors.hw[]`, `temps[]`, `fans[]`: id stabile; se l'utente ha dato un nome, `name` è quello e `orig` l'originale. Nomi/abbinamenti da `http://localhost:8090/config` → `fan_config.json` (decisione: lato server, non APK) |
 | `disks[].r`, `disks[].w`, `disks[].busy` (v0.2.2) | byte/s lettura/scrittura e % tempo attivo per volume (PDH LogicalDisk); omessi se il volume non ha contatori (G:) |
 | `claude` (v0.2.1) | `today_tok` (input+output+cache_creation, senza cache_read), `today_out`, `today_cache_r`, `today_msgs`, `block_tok`, `block_start`/`block_end` (epoch, solo se il blocco di 5 h è aperto), `week_tok`, `models[{m,tok}]` (oggi, max 3), `scan_ts`; null senza `~/.claude/projects` o con `--no-claude` |
 
 Stato server: ✅ attività `Tab2Monitor` installata (all'accesso, elevata) · ✅ sensori CPU/scheda madre/
-ventole verificati con admin (vedi CHANGELOG v0.2.3) · ✅ v0.2.7 in servizio sulla 8090 (orfano chiuso
+ventole verificati con admin (vedi CHANGELOG v0.2.3) · ✅ v0.2.8 in servizio sulla 8090 (orfano chiuso
 dall'utente) · ⏳ l'utente dà nomi e abbinamenti alle ventole dalla pagina `/config` · ⏳ APK: disegnare `sensors.pairs`
 (file della sessione impostazioni APK) · ✅ CPU del server ~3% di un core con admin (v0.2.6: processi da PDH;
 la causa era `psutil.process_iter`, non `GPU Engine`) · ⛔ avvio prima dell'accesso: il progetto sta su G: (Google
-Drive), montato solo dopo l'accesso. ⛔ `claude`: limiti di piano dell'account non disponibili: `.credentials.json` non contiene il login Claude (solo connettori MCP). ⛔ FanControl: vedi CHANGELOG v0.2.0.
+Drive), montato solo dopo l'accesso. ✅ `claude_plan` dal file history di Claude Desktop (oauth assente: `.credentials.json` ha solo connettori MCP). ⛔ FanControl: vedi CHANGELOG v0.2.0.
 
 ## Punti aperti
 - SensorService: ✅ risolto disattivando l'HAL (vedi tabella Stato). Scartate: patch binaria dell'HAL (rischiosa, da rifare a ogni flash) e conviverci (un core su due sprecato). Attenzione: un reflash della ROM ripristina l'HAL → rifare il rename.
