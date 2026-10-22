@@ -27,8 +27,22 @@ Numerazione «da sinistra a destra sui pin di saldatura»: verificare in continu
 | 3.5_INT_TEST | 29 |
 | NC | 11, 12, 22, 25, 26 |
 
-## Punti aperti (⏳)
-- Riconoscimento del caricatore da 2 A (senza, «X rossa»): corto D+/D−? resistenza sul pin 13? Da misurare su un cavo/caricatore originale.
+## Riconoscimento del caricatore (aggiunto 12:20, fonti = forum, non documenti Samsung ⚠️)
+- Il Tab tratta una porta con D+/D− non «marcati» come porta PC da 500 mA: carica lentissima o «X rossa» (forum earlybird.club, iFixit Answers).
+- Il caricatore da muro viene riconosciuto dalla tensione sulle linee dati:
+  - **D+ e D− in corto** → il tablet lo prende per un caricatore (specifica USB BC1.2: ≤200 Ω). Un utente riporta una
+    alimentazione 2 A modificata con il corto D+/D− che carica subito fino a 2 A.
+  - **Partitore a ~1,2 V** (es. 33 kΩ da 5 V + 10 kΩ a GND, o 30 k/10 k, su entrambe le linee): usato dai caricatori Samsung/terzi
+    per tablet vecchi; qualcuno dice che limita a ~1,2 A. Non verificato per il P5100.
+- Nessuna fonte parla di resistenza sul pin 13 (ID) per la ricarica: il 301 kΩ della mia ricerca iniziale **non è confermato**, non usarlo.
+- Il corto D+/D− non aumenta la corrente da una porta PC: il limite lo dà l'alimentatore.
+
+## Piano di prova proposto (⏳ da fare, richiede hardware)
+1. Misurare su un caricatore Samsung 2 A originale: continuità/resistenza tra D+ e D− (cavo 30 pin aperto o breakout).
+2. Con cavo 30 pin → USB-A e un caricatore generico: provare corto D+/D−, poi partitore 1,2 V, e leggere la corrente dal server Tab2Monitor.
+3. Solo dopo: breakout USB-C (5,1 kΩ su CC1/CC2, VBUS→pin 7/8, GND, corto D+/D−) su un cavo di prova prima di toccare il flex.
+4. Ricordare: i caricatori USB-C PD «veri» danno 5 V solo se vedono Rd su CC; un caricatore USB-C non PD spesso ha già D+/D− in corto (da verificare).
+
+## Altri punti aperti (⏳)
 - VOUT_CHARGER (9, 10) è probabilmente un'uscita: non collegarla al VBUS del caricatore senza verifica.
-- Su USB-C servono 5,1 kΩ da CC1 e CC2 verso GND.
 - Prima di aprire il tablet: backup /efs (vedi CLAUDE.md).
