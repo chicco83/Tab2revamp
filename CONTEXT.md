@@ -54,7 +54,7 @@ psutil ── tab2monitor_server (:8090) ───┼── USB: adb reverse tcp
 | APK Tab2Monitor v0.3.0 — pannello Claude | ✅ installata, provata con dati finti | pannello "Claude - utilizzo" (id 9, chiave `p_claude`, colonna 2 tra GPU e temperature), disattivabile come gli altri; senza campo `claude` dal server mostra "dati non disponibili". Provata 2026-10-22 00:16 con un mock locale (porta 8091 + `adb reverse tcp:8090 tcp:8091`): 6 righe corrette, nessun crash. **Dati reali ⏳**: dipendono dal server (sessione «Sorgente dati Windows»). Anche la schermata "Nessuna sorgente dati attiva" (v0.2.0) è stata verificata. adb sparisce per minuti dopo `adb root` |
 | APK Tab2Monitor v0.4.0 — pagine, GPU, icone | ✅ installata e provata (2026-10-22 00:30–00:55, dati veri + mock per ventole/dischi/Claude) | 2 pagine a rotazione ("Sistema", "GPU e sensori"), tocco = pagina successiva, **ingranaggio** in alto a destra → impostazioni; una scheda per **ogni GPU** con 2 indicatori a lancetta (carico + saturazione VRAM); temperature per componente con **termometro**; **ventole animate** con velocità proporzionale agli RPM; **I/O per disco** con pallino verde sul disco attivo (serve il server: vedi sotto); pagina GPU più lunga se una scheda supera la soglia di carico. CPU app: 2% senza animazione, **17–21% con ventole animate** (pagina 2) → interruttore per spegnerle |
 | Avvio al boot | ✅ verificato | dopo `adb reboot` (2026-10-22 00:00): `mResumedActivity = it.tab2revamp.monitor/.MainActivity`, screenshot con dati via **Wi‑Fi** (adb reverse perso). PSS 13,9 MB. Il boot completo + ricomparsa di adb ha richiesto ~3–4 min: adb resta assente per minuti anche se Windows vede già il dispositivo USB |
-| Wi‑Fi tablet | ✅ acceso | era spento dopo il setup LineageOS; `svc wifi enable` → si collega da solo (2 reti salvate), IP **192.168.1.234** (DHCP; sullo stock era .226) |
+| Wi‑Fi tablet | ✅ acceso | era spento dopo il setup LineageOS; `svc wifi enable` → si collega da solo (2 reti salvate), IP **192.168.1.234** (DHCP; sullo stock era .226); ADB in rete su `192.168.1.234:5555` ✅ (2026-10-22). ⚠️ Anche **192.168.1.206:5555 risponde: è la Mi Box 4, non il tablet** |
 
 Misure (am start -W, TotalTime ms, avvio a freddo):
 | | prima del tuning | dopo |
@@ -234,6 +234,10 @@ Drive), montato solo dopo l'accesso. ✅ `claude_plan` dal file history di Claud
   dell'utente sulle opzioni (caricatore 2 A + presa smart comandata dall'app, oppure USB del PC + presenza).
   Ricerca hub/prese comandabili fatta: `RICERCA_HUB_USB_v0.1.0_20261022-0142.md` → raccomandata presa Shelly Plug S Gen3
   (~24 €, API HTTP locale) + caricatore Samsung; hub (YKUSH3 ecc.) sconsigliati. ⏳ Da provare sull'hardware, nessun acquisto fatto.
+  ✅ **Spegnimento verificato il 2026-10-22 ~13:45** (`dumpsys batterystats --history`): sempre attaccato alla USB del PC,
+  dal 62% al 18% in ~2 h 50 min (circa −15%/h, temperatura fino a 36,8 °C), poi spento a **3,05 V con il 18% indicato**.
+  La batteria vecchia arriva al minimo di tensione prima che il fuel gauge segni 0%. Dopo lo spegnimento il PC lo vede
+  come "dispositivo non riconosciuto" finché non si ricarica. Riavviato col caricatore a muro (AC) e raggiunto in Wi-Fi.
 - **Rotazione 180°** (APK v0.9.3): opzione manuale `flip180` ✅ provata (decisione utente 2026-10-22: "se non
   abbiamo il sensore, opzione manuale"). Automatica ⛔ per ora: l'accelerometro si legge da
   `/sys/class/sensors/accelerometer_sensor/raw_data` ma SELinux lo vieta alle app. Strade possibili, non fatte:
