@@ -14,7 +14,7 @@ Versione documento: v0.1.14 — 2026-10-22 01:35 (ora del PC)
 ## 18. (2) v0.1.18 — 2026-10-23 09:30 (sessione locale, APK v0.9.7)
 - APK **v0.9.7**: tolta la riga "Potenza" da entrambe le schede GPU (richiesta utente). Aggiunto
   `android/tab2monitor_app/build_tab2monitor_v0.9.7_20261023-0030.sh` (versionCode 18).
-- ⏳ Compilata, **non ancora installata**: tablet non raggiungibile via adb (né USB né Wi-Fi).
+- ✅ Installata sul GT-P5100 (adb Wi-Fi, `adb connect 192.168.1.234:5555`) e verificata: nessuna riga "Potenza" nelle schede GPU.
 ## 18. v0.1.18 — 2026-10-23 (sessione locale, verifica)
 - L'utente ha fatto il login della Claude Code CLI: il server usa ora la fonte **oauth** (`srv.plan` = "ok (oauth)"),
   piano "Pro", sessione e settimanale in tempo reale con orari di reset; l'utente vede sul tablet entrambe le
