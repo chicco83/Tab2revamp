@@ -4,6 +4,14 @@ Versione documento: v0.1.14 — 2026-10-22 01:35 (ora del PC)
 
 
 
+
+## 18. (3) v0.1.18 — 2026-10-23 16:00 (sessione locale, APK v0.9.8)
+- APK **v0.9.8**: tolto il suffisso "(scheda madre)" che l'app aggiungeva alle ventole spostate nel box di un
+  altro hardware (troncava i nomi scelti dall'utente in /config, es. "Pompa Impianto AIO"). Installata e
+  verificata. Aggiunto `android/tab2monitor_app/build_tab2monitor_v0.9.8_20261023-1600.sh` (versionCode 19).
+- ADB Wi-Fi a ogni avvio: lato tablet già attivo (`persist.adb.tcp.port=5555`, v0.1.17); mancava il lato PC
+  (nessuno rifà `adb connect` dopo un riavvio): chiesto alla sessione «Sorgente dati Windows» di ricollegare
+  in automatico gli IP dei tablet che interrogano il server.
 ## 21. v0.1.18 (3) — 2026-10-23 09:35 (sessione locale)
 - Nuovo `android/adb_wifi_persist_v0.1.0_20261023-0930.sh` (richiesta utente): imposta `persist.adb.tcp.port=5555`
   (serve `adb root`), così adbd ascolta in Wi-Fi a ogni avvio; niente in esecuzione sul tablet. ✅ Applicato e provato con

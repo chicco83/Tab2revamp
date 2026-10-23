@@ -1,6 +1,7 @@
 // =============================================================================
 // Tab2Monitor - MainActivity + thread di polling
-// Versione: v0.9.6 - 2026-10-22 11:30
+// Versione: v0.9.8 - 2026-10-23 16:00
+//   v0.9.8: le ventole spostate in un altro box non hanno piu' il suffisso "(scheda madre)"
 //   v0.9.6: claude_plan.src ("oauth" / "history"), ts del campione, session.stale
 //   v0.9.5: campo opzionale "claude_plan" (limiti del piano dell'account: sessione 5 h e settimanale,
 //           percentuale e ora di reset), letto se il server lo invia
@@ -650,7 +651,9 @@ public class MainActivity extends Activity {
                 String to = fanTo.get(h.name + "|" + h.fName[q]);
                 Object o = to != null && owner.containsKey(to) ? owner.get(to) : owner.get(h.name);
                 boolean moved = to != null && owner.containsKey(to);
-                String lab = moved && "mb".equals(h.kind) ? h.fName[q] + " (scheda madre)" : h.fName[q];
+                // v0.9.8: niente piu' suffisso " (scheda madre)" (richiesta utente: troncava i nomi scelti in /config).
+                // Era: String lab = moved && "mb".equals(h.kind) ? h.fName[q] + " (scheda madre)" : h.fName[q];
+                String lab = h.fName[q];
                 if (o instanceof Gpu) ((Gpu) o).add(true, lab, h.fRpm[q], h.fPct[q]);
                 else if (o instanceof Box) ((Box) o).add(true, lab, h.fRpm[q], h.fPct[q]);
             }
