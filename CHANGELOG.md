@@ -262,6 +262,21 @@ Versione documento: v0.1.14 — 2026-10-22 01:35 (ora del PC)
   (il versionCode scende, `install -r` non basta).
 - Aperta una sessione parallela per la sorgente dati lato Windows.
 
+## 9. v0.3.0 — 2026-10-23 16:00 (sessione locale, adb via Wi‑Fi automatico)
+- Richiesta dell'utente (via sessione APK): adb via Wi‑Fi deve ripartire da solo (sul tablet
+  `persist.adb.tcp.port=5555` è già a posto; mancava chi rifà `adb connect` dal PC).
+- Nuovo `windows/agent/tab2monitor_server_v0.3.0_20261023-0010.py` (0.3.0 e non 0.2.10: il supervisore sceglie
+  per ordine di nome): per gli IP fissi di `/config` (default `192.168.1.234`) `adb connect <ip>:5555` al
+  massimo ogni 60 s quando il tablet manca (se è `offline`: `disconnect` + `connect`); per gli IP che chiamano
+  `/api/metrics` (non fissi, non del PC) un solo tentativo, poi lasciati stare (Mi Box .206 & co.);
+  `unauthorized` mai insistito. `srv.adb`: `rete ok` / `rete: unauthorized` / `rete: offline` /
+  `rete: non raggiungibile`. Log solo ai cambi di stato e ai ricollegamenti.
+- Nuova pagina `windows/agent/config_page_v0.1.3_20261023-0010.html`: campo "IP dei tablet".
+- Provato in servizio: `adb disconnect 192.168.1.234:5555` → ricollegato dal server in 7 s; con adb finto:
+  IP non fisso provato una sola volta, IP fisso di nuovo dopo 60 s.
+- `claude_plan` via **oauth verificato dal vivo** per la prima volta (`srv.plan` = `ok (oauth)`: ora nel file
+  credenziali c'è il token): piano Pro, sessione 92%, settimanale 54%, reset presenti.
+
 ## 8. (10) v0.2.9 — 2026-10-23 00:00 (sessione locale, percorso Claude Desktop e adb reverse)
 - Problema (segnalato dalla sessione APK): dalle 17:55 del 2026-10-22 Claude Desktop tiene i dati in
   `%LOCALAPPDATA%\Claude-Data\claude_pzs8sxrjxfjjc\` (nella cartella MSIX resta solo

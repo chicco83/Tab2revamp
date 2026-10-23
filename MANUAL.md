@@ -236,3 +236,5 @@ Con `-home` l'app diventa anche la schermata Home (kiosk); `-nohome` la toglie.
   ventola ("non mostrare" la toglie dal tablet; per le temperature c'è la casella "nascondi"), **Salva**. Effetto sul tablet entro 2 s.
 - Limiti del piano Claude (`claude_plan`): letti dall'app Claude Desktop; in `/config` impostare giorno e
   ora del reset settimanale (come su claude.ai → Utilizzo). Stato in `/api/metrics` → `srv.plan`.
+- adb via Wi‑Fi: il server rifà `adb connect <IP>:5555` da solo (IP in `/config` → "IP dei tablet"). Stato in
+  `/api/metrics` → `srv.adb`. Se compare `rete: unauthorized` accettare la richiesta sul tablet.
