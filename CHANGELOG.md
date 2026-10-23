@@ -2,6 +2,14 @@
 Versione documento: v0.1.14 — 2026-10-22 01:35 (ora del PC)
 
 
+## 20. v0.1.17 (3) — 2026-10-23 09:10 (sessione locale)
+- Analisi della carica dopo una notte sul caricatore da muro 3 A (67% → 13%). Kernel installato = andi34 `3.0/common`:
+  imposta 1,8 A per ogni caricatore; registri SMB347 letti via I2C = configurazione corretta, carica rapida attiva,
+  nessun errore. Nessun bug del driver trovato. Corrente batteria −660…−800 mA a schermo acceso, +150 mA spento:
+  arriva circa 0,5 A. Sospetti: cavo/connettore/caricatore (da provare). Dettagli in CONTEXT, Batteria / carica.
+- Nuovo `android/tools/smbdump_v0.1.0_20261023-0905.c`: lettore I2C di sola lettura (compilato con l'NDK, serve `adb root`).
+- Correzione della voce 19: con questo kernel `plug=usb` non limitava a 500 mA.
+
 ## 19. v0.1.17 (2) — 2026-10-22 13:50 (sessione locale)
 - Tablet spento per batteria scarica mentre era sul caricatore da muro: dallo storico batteria risulta 62% → 18% in ~2 h 50 min
   con il cavo attaccato, poi spento a 3,05 V con il 18% indicato. Il caricatore era riconosciuto come `plug=usb`
