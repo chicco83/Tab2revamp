@@ -2,6 +2,11 @@
 Versione documento: v0.1.14 — 2026-10-22 01:35 (ora del PC)
 
 
+
+## 18. v0.1.18 — 2026-10-23 (sessione locale, verifica)
+- L'utente ha fatto il login della Claude Code CLI: il server usa ora la fonte **oauth** (`srv.plan` = "ok (oauth)"),
+  piano "Pro", sessione e settimanale in tempo reale con orari di reset; l'utente vede sul tablet entrambe le
+  tacche del tempo trascorso. Il registro dell'app desktop resta come ripiego automatico.
 ## 20. v0.1.17 (3) — 2026-10-23 09:10 (sessione locale)
 - Analisi della carica dopo una notte sul caricatore da muro 3 A (67% → 13%). Kernel installato = andi34 `3.0/common`:
   imposta 1,8 A per ogni caricatore; registri SMB347 letti via I2C = configurazione corretta, carica rapida attiva,
