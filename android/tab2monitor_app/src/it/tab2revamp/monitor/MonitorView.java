@@ -1,6 +1,7 @@
 // =============================================================================
 // Tab2Monitor - MonitorView (disegno su Canvas)
-// Versione: v0.9.6 - 2026-10-22 11:30
+// Versione: v0.9.7 - 2026-10-23 00:30
+//   v0.9.7: tolta la riga "Potenza" dalle schede GPU (richiesta utente)
 //   v0.9.6: limiti del piano dal registro dell'app desktop (src "history"): "aggiornato alle HH:MM",
 //           sessione senza ora di reset e marcata "dato vecchio" se il campione ha piu' di 5 h
 //   v0.9.5: pannello Claude con i LIMITI DEL PIANO (come in claude.ai / "/usage"): barra "Limite di
@@ -1096,7 +1097,7 @@ public class MonitorView extends View {
         float ry = gy + gr + 72 * u, end = y + h - 8 * u;
         if (g.lab.length > 0) {                          // v0.5.0: tutti i sensori della GPU
             ry = sensorRows(cv, g, x, ry, w, end);
-            if (ry <= end) rowIcon(cv, x, ry, w, "Potenza", pct(g.powerPct));
+            // v0.9.7: riga "Potenza" tolta su richiesta utente (era: if (ry <= end) rowIcon(cv, x, ry, w, "Potenza", pct(g.powerPct));)
             return;
         }
         if (ry <= end) {
@@ -1109,7 +1110,7 @@ public class MonitorView extends View {
             rowIcon(cv, x, ry, w, "Ventola", Float.isNaN(g.fanRpm) ? "--" : Math.round(g.fanRpm) + " RPM");
             ry += 28 * u;
         }
-        if (ry <= end) rowIcon(cv, x, ry, w, "Potenza", pct(g.powerPct));
+        // v0.9.7: riga "Potenza" tolta su richiesta utente (era: if (ry <= end) rowIcon(cv, x, ry, w, "Potenza", pct(g.powerPct));)
         // (v0.4.0 prima stesura, sostituita: numero grande del carico + barra + "VRAM x / y GB")
     }
 
