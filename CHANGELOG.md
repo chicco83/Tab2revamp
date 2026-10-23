@@ -12,6 +12,8 @@ Versione documento: v0.1.14 — 2026-10-22 01:35 (ora del PC)
 - ADB Wi-Fi a ogni avvio: lato tablet già attivo (`persist.adb.tcp.port=5555`, v0.1.17); mancava il lato PC
   (nessuno rifà `adb connect` dopo un riavvio): chiesto alla sessione «Sorgente dati Windows» di ricollegare
   in automatico gli IP dei tablet che interrogano il server.
+- ✅ Prova completa dopo il server v0.3.0: `adb reboot` del GT-P5100 alle 15:56:35 → adb lo ritrova da solo via Wi-Fi
+  in **71 s** (avvio completo incluso), `srv.adb` = "rete ok", Tab2Monitor in primo piano dopo l'avvio.
 ## 21. v0.1.18 (3) — 2026-10-23 09:35 (sessione locale)
 - Nuovo `android/adb_wifi_persist_v0.1.0_20261023-0930.sh` (richiesta utente): imposta `persist.adb.tcp.port=5555`
   (serve `adb root`), così adbd ascolta in Wi-Fi a ogni avvio; niente in esecuzione sul tablet. ✅ Applicato e provato con
