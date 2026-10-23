@@ -208,6 +208,8 @@ Con `-home` l'app diventa anche la schermata Home (kiosk); `-nohome` la toglie.
 | Pagina lenta | ridurre `POLL_MS` a 2000 nella dashboard; valutare app nativa |
 | `adb reverse` errore | Android < 5.0 → usare Wi‑Fi |
 | `adb devices` = unauthorized | accettare "Consentire debug USB?" sul tablet (spuntare "Consenti sempre") |
+| ADB in Wi-Fi sparisce dopo il riavvio | una volta sola: `SERIAL=192.168.1.234:5555 bash android/adb_wifi_persist_v0.1.0_20261023-0930.sh` (imposta `persist.adb.tcp.port`; `--off` per togliere) |
+| `adb connect` resta "offline" | sul tablet spegnere e riaccendere "Debug ADB in rete" (adbd bloccato) o accettare la richiesta di autorizzazione |
 | adb non vede il tablet dopo `adb root` | PowerShell: `Get-Process adb \| Stop-Process -Force`, poi `adb devices` |
 | Git Bash + `adb pull` su `/g/...` con `MSYS_NO_PATHCONV=1` | usare percorsi Windows `G:/...` |
 | Dashboard in verticale | `adb shell settings put system user_rotation 0` (Tab 2 10.1 è nativamente orizzontale) |

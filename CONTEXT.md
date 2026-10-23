@@ -242,7 +242,8 @@ Drive), montato solo dopo l'accesso. ✅ `claude_plan` dal file history di Claud
   ✅ Verificato alle 23:44 dopo un nuovo riavvio: anche con `plug=ac` la carica si ferma (`-charging`) 40 s dopo l'avvio
   e il livello scende 67% → 61% in 20 min (schermo acceso luminoso, app con fotocamera attiva). La percentuale
   **non è affidabile**: 18% allo spegnimento, 39% e 67% ai riavvii successivi con tensioni simili (3,64–3,78 V).
-  ⚠️ "Debug ADB in rete" si era spento: va riacceso a mano dalle Opzioni sviluppatore.
+  ✅ "Debug ADB in rete" si spegneva a ogni riavvio: risolto il 2026-10-23 con `persist.adb.tcp.port=5555`
+  (`android/adb_wifi_persist_v0.1.0_20261023-0930.sh`, provato con un riavvio). Rollback: script con `--off`.
   ✅ **Analisi driver 2026-10-23 09:00** (caricatore da muro 3 A, notte intera attaccato: 67% → 13%, `plug=ac` tutta la notte):
   - Kernel installato `3.0.101-g7f7a916c873` = ramo andi34 `3.0/common` (messaggio dmesg "1.8A for all power supplies,
     html6405"): **imposta 1,8 A d'ingresso per qualsiasi caricatore**, anche se riconosciuto USB. Correzione: lo `plug=usb`
@@ -258,9 +259,11 @@ Drive), montato solo dopo l'accesso. ✅ `claude_plan` dal file history di Claud
     tensione che crolla sotto carico) o caricatore che senza segnale Samsung eroga poco. Consumo alto dell'app
     (luminosità massima, fotocamera presenza, schermo riacceso ogni pochi minuti).
   - `fg_capacity` = 0x1bc9 … (prima voce ~3,5 Ah contro 7 Ah di progetto se è FullCap: batteria forse a metà, ⚠️ da confermare).
-  ⏳ Prove hardware: cavo Samsung originale; misuratore USB (tensione/corrente) tra caricatore e cavo; altro caricatore.
+  ✅ Altro caricatore provato il 2026-10-23 09:28 (stesso cavo): −615 mA acceso, +190 mA spento, uguale → **non è il caricatore**.
+  ⏳ Prove hardware: altro cavo (l'utente non ne ha), meglio Samsung originale; misuratore USB (tensione/corrente) tra caricatore e cavo;
+  pulizia dei contatti del connettore 30 pin.
   ⏳ Lato app: luminosità più bassa e meno risvegli dello schermo quando la batteria è sotto una soglia.
-  Nota: `adb root` attivo fino al prossimo riavvio; `/data/local/tmp/smbdump` lasciato sul tablet (solo lettura).
+  Nota: `adb root` va rifatto dopo ogni riavvio; `/data/local/tmp/smbdump` lasciato sul tablet (solo lettura).
 - **Rotazione 180°** (APK v0.9.3): opzione manuale `flip180` ✅ provata (decisione utente 2026-10-22: "se non
   abbiamo il sensore, opzione manuale"). Automatica ⛔ per ora: l'accelerometro si legge da
   `/sys/class/sensors/accelerometer_sensor/raw_data` ma SELinux lo vieta alle app. Strade possibili, non fatte:

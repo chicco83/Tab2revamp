@@ -4,6 +4,13 @@ Versione documento: v0.1.14 — 2026-10-22 01:35 (ora del PC)
 
 
 
+## 21. v0.1.18 (3) — 2026-10-23 09:35 (sessione locale)
+- Nuovo `android/adb_wifi_persist_v0.1.0_20261023-0930.sh` (richiesta utente): imposta `persist.adb.tcp.port=5555`
+  (serve `adb root`), così adbd ascolta in Wi-Fi a ogni avvio; niente in esecuzione sul tablet. ✅ Applicato e provato con
+  un riavvio: ADB in Wi-Fi di nuovo disponibile dopo ~17 s, ancora attivo dopo 2,5 min. Rollback: lo stesso script con `--off`.
+- Prova con un altro caricatore (stesso cavo, l'utente non ne ha un altro): −615 mA a schermo acceso, +190 mA spento,
+  uguale al precedente → il caricatore non è la causa; restano cavo, connettore 30 pin o tablet.
+
 ## 18. (2) v0.1.18 — 2026-10-23 09:30 (sessione locale, APK v0.9.7)
 - APK **v0.9.7**: tolta la riga "Potenza" da entrambe le schede GPU (richiesta utente). Aggiunto
   `android/tab2monitor_app/build_tab2monitor_v0.9.7_20261023-0030.sh` (versionCode 18).
