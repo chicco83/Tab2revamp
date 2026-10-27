@@ -1,6 +1,8 @@
 // =============================================================================
 // Tab2Monitor - MonitorView (disegno su Canvas)
-// Versione: v0.9.7 - 2026-10-23 00:30
+// Versione: v0.9.9 - 2026-10-27 10:00
+//   v0.9.9: CPU: tolta la scritta MHz sotto il carico (era il valore fisso 'mhz'); a destra dell'anello
+//           un gauge con lancetta della frequenza istantanea (mhz_now su mhz_max)
 //   v0.9.7: tolta la riga "Potenza" dalle schede GPU (richiesta utente)
 //   v0.9.6: limiti del piano dal registro dell'app desktop (src "history"): "aggiornato alle HH:MM",
 //           sessione senza ora di reset e marcata "dato vecchio" se il campione ha piu' di 5 h
@@ -102,6 +104,7 @@ public class MonitorView extends View {
     private int animMs = 1000;
     private long animStart;
     private float pCpu, pRam, dCpu, dRam, eLin = 1, eEase = 1;
+    private float pMhz, dMhz;                // v0.9.9: frequenza in % del massimo
     private float[] pCores = new float[0], dCores = new float[0];
     private float[] pGl = new float[0], pGm = new float[0], dGl = new float[0], dGm = new float[0];
     // v0.9.0: carico del tablet
@@ -287,6 +290,11 @@ public class MonitorView extends View {
         eEase = t < 0.5f ? 2 * t * t : 1 - (-2 * t + 2) * (-2 * t + 2) / 2;
     }
 
+    private static float mhzPct(MainActivity.Metrics q) {      // v0.9.9
+        if (Float.isNaN(q.mhzNow) || Float.isNaN(q.mhzMax) || q.mhzMax <= 0) return Float.NaN;
+        return Math.min(100, 100 * q.mhzNow / q.mhzMax);
+    }
+
     private static float lerp(float a, float b, float e) {
         if (Float.isNaN(a)) return b;
         if (Float.isNaN(b)) return b;
@@ -297,6 +305,7 @@ public class MonitorView extends View {
     private void sync() {
         if (m == null) return;
         dCpu = lerp(pCpu, m.cpu, eEase); dRam = lerp(pRam, m.ram, eEase);
+        dMhz = lerp(pMhz, mhzPct(m), eEase);
         int nc = m.cores.length;
         if (dCores.length != nc) dCores = new float[nc];
         for (int i = 0; i < nc; i++) dCores[i] = pCores.length == nc ? lerp(pCores[i], m.cores[i], eEase) : m.cores[i];
@@ -315,7 +324,7 @@ public class MonitorView extends View {
             boolean up = t < SWEEP_UP;
             float k = up ? t / (float) SWEEP_UP : (t - SWEEP_UP) / (float) SWEEP_DOWN;
             k = k < 0.5f ? 2 * k * k : 1 - (-2 * k + 2) * (-2 * k + 2) / 2;
-            dCpu = sw(up, k, dCpu); dRam = sw(up, k, dRam);
+            dCpu = sw(up, k, dCpu); dRam = sw(up, k, dRam); dMhz = sw(up, k, dMhz);
             for (int i = 0; i < dCores.length; i++) dCores[i] = sw(up, k, dCores[i]);
             for (int i = 0; i < dGl.length; i++) { dGl[i] = sw(up, k, dGl[i]); dGm[i] = sw(up, k, dGm[i]); }
         }
@@ -372,6 +381,7 @@ public class MonitorView extends View {
             // v0.9.0: si riparte da cio' che e' a schermo adesso (anche a meta' animazione)
             step(); sync();
             pCpu = m != null ? dCpu : nm.cpu; pRam = m != null ? dRam : nm.ram;
+            pMhz = m != null ? dMhz : mhzPct(nm);
             pCores = dCores.clone(); pGl = dGl.clone(); pGm = dGm.clone();
             animStart = SystemClock.uptimeMillis();
             tabletLoad();                                    // v0.9.0
@@ -666,9 +676,10 @@ public class MonitorView extends View {
             //                  bigCard(cv, x, y, w, "RAM", pct(m.ram), "<GB> - swap", m.ram)
             case 0:
                 accent = CYAN;
-                heroCard(cv, x, y, w, "CPU - carico", dCpu, Float.isNaN(m.mhz) ? "" : (int) m.mhz + " MHz",
+                // v0.9.9: era sub = (int) m.mhz + " MHz" (valore fisso); ora gauge con lancetta (mhz_now)
+                heroCard(cv, x, y, w, "CPU - carico", dCpu, "",
                         hCpu, Float.isNaN(m.cpuTemp) ? null : Math.round(m.cpuTemp) + "\u00b0",
-                        Float.isNaN(m.cpuTemp) ? "carico" : "temp. CPU");
+                        Float.isNaN(m.cpuTemp) ? "carico" : "temp. CPU", true);
                 break;
             case 1:
                 accent = CYAN;
@@ -771,7 +782,15 @@ public class MonitorView extends View {
     // a destra anello a gradiente con al centro "center" (es. temperatura CPU) e sotto "centerLab".
     private void heroCard(Canvas cv, float x, float y, float w, String title, float val, String sub,
                           float[] hist, String center, String centerLab) {
+        heroCard(cv, x, y, w, title, val, sub, hist, center, centerLab, false);
+    }
+
+    // v0.9.9: con mhz = true a destra dell'anello compare il gauge della frequenza con lancetta
+    private void heroCard(Canvas cv, float x, float y, float w, String title, float val, String sub,
+                          float[] hist, String center, String centerLab, boolean mhz) {
         float h = 170 * u, r = 54 * u, gx = x + w - r - 22 * u, gy = y + 92 * u;
+        float rg = 40 * u;
+        if (mhz) gx -= 2 * rg + 24 * u;                      // spazio per il gauge a destra
         card(cv, x, y, w, h, title);
         // numero + unita'
         String num = Float.isNaN(val) ? "--" : String.valueOf(Math.round(val));
@@ -789,6 +808,33 @@ public class MonitorView extends View {
         }
         spark(cv, hist, x + 14 * u, y + 126 * u, leftW, 32 * u, accent);
         ring(cv, gx, gy, r, val, center, centerLab);
+        if (mhz) mhzGauge(cv, x + w - rg - 22 * u, gy, rg);
+    }
+
+    // v0.9.9: gauge frequenza: arco 270 gradi con lancetta; al centro-basso i GHz, sotto "frequenza"
+    private void mhzGauge(Canvas cv, float cx, float cy, float r) {
+        if (!dy()) return;
+        float p = Float.isNaN(dMhz) ? 0 : Math.max(0, Math.min(100, dMhz));
+        float old = line.getStrokeWidth();
+        line.setStrokeCap(Paint.Cap.ROUND);
+        line.setStrokeWidth(r * 0.16f);
+        rf.set(cx - r, cy - r, cx + r, cy + r);
+        line.setColor(TRACK); cv.drawArc(rf, 135, 270, false, line);
+        line.setColor(CYAN);
+        if (p > 0.5f) cv.drawArc(rf, 135, 270 * p / 100f, false, line);
+        // lancetta
+        double a = Math.toRadians(135 + 270 * p / 100f);
+        float nx = cx + (float) Math.cos(a) * r * 0.82f, ny = cy + (float) Math.sin(a) * r * 0.82f;
+        line.setStrokeWidth(3 * u); line.setColor(FG);
+        cv.drawLine(cx, cy, nx, ny, line);
+        fill.setColor(FG); cv.drawCircle(cx, cy, 4.5f * u, fill);
+        line.setStrokeCap(Paint.Cap.BUTT); line.setStrokeWidth(old);
+        text.setTextAlign(Paint.Align.CENTER);
+        text.setTextSize(15 * u); text.setColor(FG);
+        cv.drawText(Float.isNaN(m.mhzNow) ? "--" : String.format(java.util.Locale.US, "%.1f GHz", m.mhzNow / 1000f),
+                cx, cy + r * 0.62f, text);
+        text.setTextSize(13 * u); text.setColor(DIM);
+        cv.drawText("frequenza", cx, cy + r * 0.62f + 16 * u, text);
     }
 
     // Anello a gradiente (verde -> giallo -> rosso), estremi arrotondati, testo al centro

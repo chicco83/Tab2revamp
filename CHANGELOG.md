@@ -5,6 +5,14 @@ Versione documento: v0.1.14 — 2026-10-22 01:35 (ora del PC)
 
 
 
+## 27. v0.1.19 — 2026-10-27 10:00 (sessione locale, APK v0.9.9)
+- **CPU: gauge della frequenza con lancetta.** La scritta "MHz" sotto il carico usava `cpu.mhz`, valore fisso (3900) e quindi inutile.
+  Tolta; a destra dell'anello del carico c'e' ora un gauge con lancetta che mostra `cpu.mhz_now` (frequenza istantanea) su `cpu.mhz_max`,
+  con i GHz sotto e animazione fluida / "gauge check" come gli altri indicatori.
+- ✅ Installata sul GT-P5100 e verificata con screenshot (4.5 GHz, lancetta a ~87%).
+- Rollback: `git checkout 70c4f55 -- android/tab2monitor_app/src` e ricostruire con `build_tab2monitor_v0.9.8_20261023-1600.sh`.
+- Decisione: usato `mhz_now` e non la media di `mhz_cores` perche' il server lo fornisce gia' ed e' il dato istantaneo.
+
 ## 18. (3) v0.1.18 — 2026-10-23 16:00 (sessione locale, APK v0.9.8)
 - APK **v0.9.8**: tolto il suffisso "(scheda madre)" che l'app aggiungeva alle ventole spostate nel box di un
   altro hardware (troncava i nomi scelti dall'utente in /config, es. "Pompa Impianto AIO"). Installata e

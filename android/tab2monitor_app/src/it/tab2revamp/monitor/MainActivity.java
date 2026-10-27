@@ -1,6 +1,7 @@
 // =============================================================================
 // Tab2Monitor - MainActivity + thread di polling
-// Versione: v0.9.8 - 2026-10-23 16:00
+// Versione: v0.9.9 - 2026-10-27 10:00
+//   v0.9.9: legge cpu.mhz_now / cpu.mhz_max (frequenza istantanea) per il gauge con lancetta
 //   v0.9.8: le ventole spostate in un altro box non hanno piu' il suffisso "(scheda madre)"
 //   v0.9.6: claude_plan.src ("oauth" / "history"), ts del campione, session.stale
 //   v0.9.5: campo opzionale "claude_plan" (limiti del piano dell'account: sessione 5 h e settimanale,
@@ -400,6 +401,7 @@ public class MainActivity extends Activity {
         String host = "--";
         long uptime;
         float cpu, mhz, ram, ramUsed, ramTot, swap;
+        float mhzNow = Float.NaN, mhzMax = Float.NaN;   // v0.9.9
         int[] cores = new int[0];
         String gpuName; float gpuLoad = Float.NaN, gpuTemp = Float.NaN, gpuMem = Float.NaN;
         String[] tempName = new String[0]; float[] tempC = new float[0];
@@ -455,6 +457,7 @@ public class MainActivity extends Activity {
             m.uptime = j.optLong("uptime_s");
             JSONObject c = j.optJSONObject("cpu");
             m.cpu = f(c, "pct"); m.mhz = f(c, "mhz");
+            m.mhzNow = f(c, "mhz_now"); m.mhzMax = f(c, "mhz_max");   // v0.9.9
             JSONArray ca = c != null ? c.optJSONArray("cores") : null;
             if (ca != null) {
                 m.cores = new int[ca.length()];
