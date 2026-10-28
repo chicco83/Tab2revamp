@@ -1,6 +1,7 @@
 // =============================================================================
 // Tab2Monitor - MonitorView (disegno su Canvas)
-// Versione: v0.10.1 - 2026-10-28 14:00
+// Versione: v0.10.2 - 2026-10-28 16:00
+//   v0.10.2: Dischi: una torta (ciambella) per disco con lo spazio occupato; al centro in (lettura) / out (scrittura)
 //   v0.10.1: 'Top processi' con 4+ elenchi compatti in due colonne: CPU, RAM, GPU (una per scheda), I/O
 //   v0.10.0: CPU: % non piu' duplicata; gauge frequenza in scala mhz_lo..mhz_hi; Claude: tutti gli account
 //   v0.9.9: CPU: tolta la scritta MHz sotto il carico (era il valore fisso 'mhz'); a destra dell'anello
@@ -1252,23 +1253,52 @@ public class MonitorView extends View {
 
     // Dischi con lettura/scrittura propria (richiesta utente 2026-10-22: capire quale disco
     // e' attivo). Pallino verde = disco con I/O in questo secondo.
+    // v0.10.2: una ciambella per disco (spazio occupato, rosso/giallo oltre 90/75%), al centro in/out del disco
+    // (lettura sopra, scrittura sotto, verdi se attivi), a destra lettera, % usato e GB liberi.
+    // Versione v0.4.0-v0.10.1: elenco con pallino di attivita', "% di GB" e riga "lettura / scrittura" per disco.
     private void disksCard(Canvas cv, float x, float y, float w, float h) {
         if (!st()) return;                                   // v0.9.0: tutto fisso
-        card(cv, x, y, w, h, "Dischi - I/O per disco");
+        card(cv, x, y, w, h, "Dischi - spazio e I/O");
         int nd = Math.min(m.diskM.length, 6);
+        if (nd == 0) return;
+        int rowsN = (nd + 1) / 2;
+        float cw = (w - 24 * u) / 2f, ch = (h - 44 * u) / rowsN;
+        float r = Math.min(ch / 2f - 8 * u, 46 * u), sw0 = r * 0.2f;
         for (int i = 0; i < nd; i++) {
-            float ry = y + (60 + 54 * i) * u;
-            long r = m.diskR[i], wr = m.diskW[i];
-            boolean act = r > 0 || wr > 0;
-            fill.setColor(act ? GREEN : BORDER);
-            cv.drawCircle(x + 18 * u, ry - 6 * u, 6 * u, fill);
-            text.setTextSize(17 * u); text.setColor(act ? FG : DIM); text.setTextAlign(Paint.Align.LEFT);
-            cv.drawText(m.diskM[i], x + 32 * u, ry, text);
-            text.setTextAlign(Paint.Align.RIGHT); text.setColor(DIM);
-            cv.drawText(pct(m.diskPct[i]) + " di " + num1(m.diskTot[i]) + " GB", x + w - 12 * u, ry, text);
-            row(cv, x + 20 * u, ry + 24 * u, w - 20 * u,
-                    "↓ " + (r < 0 ? "--" : rate(r)), "↑ " + (wr < 0 ? "--" : rate(wr)));
+            float cx = x + 12 * u + (i % 2) * cw + r + 6 * u, cy = y + 44 * u + (i / 2) * ch + ch / 2f;
+            float p = Float.isNaN(m.diskPct[i]) ? 0 : Math.max(0, Math.min(100, m.diskPct[i]));
+            long rd = m.diskR[i], wr = m.diskW[i];
+            boolean act = rd > 0 || wr > 0;
+            float old = line.getStrokeWidth();
+            line.setStrokeWidth(sw0); line.setStrokeCap(Paint.Cap.BUTT);
+            rf.set(cx - r + sw0 / 2, cy - r + sw0 / 2, cx + r - sw0 / 2, cy + r - sw0 / 2);
+            line.setColor(TRACK); cv.drawArc(rf, 0, 360, false, line);
+            line.setColor(p >= 90 ? RED : p >= 75 ? YELLOW : ORANGE);
+            if (p > 0.3f) cv.drawArc(rf, -90, 360 * p / 100f, false, line);
+            line.setStrokeWidth(old);
+            text.setTextAlign(Paint.Align.CENTER); text.setTextSize(12 * u);
+            text.setColor(rd > 0 ? GREEN : DIM);
+            cv.drawText("\u2193 " + ioShort(rd), cx, cy - 2 * u, text);
+            text.setColor(wr > 0 ? GREEN : DIM);
+            cv.drawText("\u2191 " + ioShort(wr), cx, cy + 12 * u, text);
+            float tx = cx + r + 10 * u, tw = cw - 2 * r - 16 * u;
+            text.setTextAlign(Paint.Align.LEFT); text.setTextSize(18 * u); text.setFakeBoldText(true);
+            text.setColor(act ? FG : DIM);
+            cv.drawText(fit(m.diskM[i], tw), tx, cy - 8 * u, text);
+            text.setFakeBoldText(false); text.setTextSize(14 * u); text.setColor(FG);
+            cv.drawText(fit(Math.round(p) + "% usato", tw), tx, cy + 12 * u, text);
+            text.setTextSize(12 * u); text.setColor(DIM);
+            float tot = m.diskTot[i];
+            cv.drawText(fit(Float.isNaN(tot) ? "" : Math.round(tot * (100 - p) / 100f) + " GB liberi", tw), tx, cy + 28 * u, text);
         }
+    }
+
+    // v0.10.2: velocita' in forma compatta per il centro della ciambella (B/s -> "0", "70K", "1.4M")
+    private static String ioShort(long b) {
+        if (b <= 0) return "0";
+        if (b >= 1048576) return (Math.round(b / 104857.6f) / 10f) + "M";
+        if (b >= 1024) return Math.round(b / 1024f) + "K";
+        return "<1K";
     }
 
     // ------------------------------------------------ box per hardware (v0.5.0)

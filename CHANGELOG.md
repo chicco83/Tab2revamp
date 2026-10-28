@@ -47,6 +47,12 @@ Versione documento: v0.1.14 — 2026-10-22 01:35 (ora del PC)
 - Rollback: rimettere tutte le ventole su BIOS in `/config`, poi `git rm windows/agent/tab2monitor_server_v0.3.1_20261028-1200.py` (il supervisore
   torna alla v0.3.0) e riavviare il servizio; exe: rinominare `Tab2Sensors.old-*.exe` in `Tab2Sensors.exe`.
 
+## 28. (4) v0.1.19 — 2026-10-28 16:00 (sessione locale, APK v0.10.2)
+- **Dischi: una "torta" (ciambella) per disco.** Arco = spazio occupato (arancio; giallo oltre 75%, rosso oltre 90%); **al centro in/out** del disco
+  (↓ lettura sopra, ↑ scrittura sotto, in verde se attivi); a destra lettera, % usato e GB liberi. Fino a 6 dischi in griglia a due colonne. Sostituisce l'elenco con pallino e righe lettura/scrittura.
+- ✅ Installata sul GT-P5100 e verificata con screenshot (C: 89% con ↓28K ↑76K attivi, D: 97% rosso).
+- Rollback: `git checkout 50c9b51 -- android/tab2monitor_app/src`, ricostruire con `build_tab2monitor_v0.10.1_20261028-1400.sh`.
+
 ## 28. (3) v0.1.19 — 2026-10-28 14:00 (sessione locale, APK v0.10.1)
 - **"Top processi" con piu' elenchi** (richiesta dell'utente: dentro lo stesso box, non in una pagina nuova). Il server v0.3.5 manda `procs_top` (RAM, GPU per `luid`, disco);
   l'APK mostra in due colonne CPU, RAM, una lista per ogni GPU (% e VRAM) e I/O. Le righe per elenco si adattano all'altezza del box (oggi 4 su 5).
