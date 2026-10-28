@@ -1,6 +1,7 @@
 // =============================================================================
 // Tab2Monitor - MainActivity + thread di polling
-// Versione: v0.10.0 - 2026-10-28 09:00
+// Versione: v0.10.1 - 2026-10-28 14:00
+//   v0.10.1: procs_top (server v0.3.5): top 5 per RAM, per GPU e per I/O oltre a quello per CPU
 //   v0.10.0: cpu.mhz_lo/mhz_hi (scala del gauge frequenza); claude_plan.accounts[] (tutti gli account)
 //   v0.9.9: legge cpu.mhz_now / cpu.mhz_max (frequenza istantanea) per il gauge con lancetta
 //   v0.9.8: le ventole spostate in un altro box non hanno piu' il suffisso "(scheda madre)"
@@ -430,6 +431,26 @@ public class MainActivity extends Activity {
         // v0.9.5: limiti del piano (schema proposto al server, tutti i campi opzionali):
         // "claude_plan": {"plan": "Pro", "session": {"pct": 4, "reset": <epoch>},
         //                 "weekly": {"pct": 1, "reset": <epoch>}, "ts": <epoch>}
+        // v0.10.1: elenchi "top 5" (CPU, RAM, ogni GPU, I/O); null se il server non invia procs_top
+        PList[] top;
+        static final class PList {
+            int kind;                    // 0 CPU (a = %, b = MB), 1 RAM (b = MB), 2 GPU (a = %, b = MB VRAM), 3 I/O (a = lettura, b = scrittura B/s)
+            String title = "", luid = "";
+            String[] n = new String[0]; float[] a = new float[0], b = new float[0];
+        }
+        static PList plist(int kind, String title, JSONArray arr, String ka, String kb) {
+            PList p = new PList(); p.kind = kind; p.title = title;
+            int k = arr == null ? 0 : Math.min(5, arr.length());
+            p.n = new String[k]; p.a = new float[k]; p.b = new float[k];
+            for (int i = 0; i < k; i++) {
+                JSONObject o = arr.optJSONObject(i);
+                if (o == null) { p.n[i] = ""; continue; }
+                p.n[i] = o.optString("n");
+                p.a[i] = ka == null ? 0 : (float) o.optDouble(ka, 0);
+                p.b[i] = kb == null ? 0 : (float) o.optDouble(kb, 0);
+            }
+            return p;
+        }
         ClaudePlan plan;
         // v0.10.0: un elemento per account (claude_plan.accounts[]), tutti i campi opzionali
         static final class Acct {
@@ -502,6 +523,21 @@ public class MainActivity extends Activity {
                     m.procN[i] = o.optString("n"); m.procCpu[i] = f(o, "cpu"); m.procMb[i] = o.optInt("mb");
                 }
             }
+            JSONObject pt = j.optJSONObject("procs_top");      // v0.10.1
+            if (pt != null) {
+                java.util.ArrayList<PList> L = new java.util.ArrayList<PList>();
+                L.add(plist(0, "CPU", j.optJSONArray("procs"), "cpu", "mb"));
+                L.add(plist(1, "RAM", pt.optJSONArray("ram"), null, "mb"));
+                JSONArray ga = pt.optJSONArray("gpu");
+                for (int i = 0; ga != null && i < ga.length(); i++) {
+                    JSONObject go = ga.optJSONObject(i);
+                    if (go == null) continue;
+                    String nm = "GPU " + (i + 1), lu = go.optString("luid", "");
+                    L.add(plist(2, nm, go.optJSONArray("list"), "pct", "mb")); L.get(L.size() - 1).luid = lu;   // nome risolto in disegno (le GPU si leggono dopo)
+                }
+                L.add(plist(3, "I/O", pt.optJSONArray("disk"), "r", "w"));
+                m.top = L.toArray(new PList[0]);
+            }
             JSONObject cp = j.optJSONObject("claude_plan");    // v0.9.5
             if (cp != null) {
                 ClaudePlan k = new ClaudePlan();
@@ -565,7 +601,7 @@ public class MainActivity extends Activity {
                 for (int i = 0; i < k; i++) {
                     JSONObject o = gs.optJSONObject(i);
                     Gpu g = new Gpu();
-                    g.name = o.optString("name", "GPU " + (i + 1));
+                    g.name = o.optString("name", "GPU " + (i + 1)); g.luid = o.optString("luid", "");
                     g.load = f(o, "load"); g.memMb = f(o, "mem_mb"); g.memTotMb = f(o, "mem_tot_mb");
                     g.memPct = f(o, "mem_pct"); g.temp = f(o, "temp"); g.fanRpm = f(o, "fan_rpm");
                     g.powerPct = f(o, "power_pct");
@@ -729,7 +765,7 @@ public class MainActivity extends Activity {
 
         // v0.4.0: GPU (campo "gpus") e componenti con sensori (campo "sensors.hw")
         static final class Gpu extends Rows {               // v0.5.0: + righe dei sensori
-            String name;
+            String name, luid = "";                         // v0.10.1: luid per abbinare procs_top.gpu
             float load, memMb = Float.NaN, memTotMb = Float.NaN, memPct = Float.NaN;
             float temp = Float.NaN, fanRpm = Float.NaN, powerPct = Float.NaN;
         }

@@ -47,6 +47,14 @@ Versione documento: v0.1.14 — 2026-10-22 01:35 (ora del PC)
 - Rollback: rimettere tutte le ventole su BIOS in `/config`, poi `git rm windows/agent/tab2monitor_server_v0.3.1_20261028-1200.py` (il supervisore
   torna alla v0.3.0) e riavviare il servizio; exe: rinominare `Tab2Sensors.old-*.exe` in `Tab2Sensors.exe`.
 
+## 28. (3) v0.1.19 — 2026-10-28 14:00 (sessione locale, APK v0.10.1)
+- **"Top processi" con piu' elenchi** (richiesta dell'utente: dentro lo stesso box, non in una pagina nuova). Il server v0.3.5 manda `procs_top` (RAM, GPU per `luid`, disco);
+  l'APK mostra in due colonne CPU, RAM, una lista per ogni GPU (% e VRAM) e I/O. Le righe per elenco si adattano all'altezza del box (oggi 4 su 5).
+- Il "disco" e' etichettato **I/O**: Windows non ha un contatore per processo del solo disco (r/w includono rete e dispositivi), quindi svchost puo' risultare a MB/s anche senza dischi.
+- Se il server non invia `procs_top` (versione vecchia o campo null) il box torna al solo elenco per CPU come prima.
+- ✅ Installata sul GT-P5100 e verificata con screenshot.
+- Rollback: `git checkout bbdbe3b -- android/tab2monitor_app/src`, ricostruire con `build_tab2monitor_v0.10.0_20261028-0900.sh`.
+
 ## 28. (2) v0.1.19 — 2026-10-28 11:30 (sessione locale, APK v0.10.0)
 - **CPU:** il gauge della frequenza usa ora la scala `cpu.mhz_lo`..`mhz_hi` (min/max dell'ultima ora, server v0.3.4): la lancetta si muove davvero
   (prima `mhz_now/mhz_max`, sempre ~87%); agli estremi i GHz della scala. Se manca la temperatura CPU il centro dell'anello mostra "CPU" invece di ripetere la %.

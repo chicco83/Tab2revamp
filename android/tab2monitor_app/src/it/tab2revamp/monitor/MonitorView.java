@@ -1,6 +1,7 @@
 // =============================================================================
 // Tab2Monitor - MonitorView (disegno su Canvas)
-// Versione: v0.10.0 - 2026-10-28 09:00
+// Versione: v0.10.1 - 2026-10-28 14:00
+//   v0.10.1: 'Top processi' con 4+ elenchi compatti in due colonne: CPU, RAM, GPU (una per scheda), I/O
 //   v0.10.0: CPU: % non piu' duplicata; gauge frequenza in scala mhz_lo..mhz_hi; Claude: tutti gli account
 //   v0.9.9: CPU: tolta la scritta MHz sotto il carico (era il valore fisso 'mhz'); a destra dell'anello
 //           un gauge con lancetta della frequenza istantanea (mhz_now su mhz_max)
@@ -754,6 +755,7 @@ public class MonitorView extends View {
                 break;
             case 8: {
                 accent = BLUE;                               // v0.7.0
+                if (m.top != null) { topProcs(cv, x, y, w, h); break; }   // v0.10.1
                 card(cv, x, y, w, h, "Top processi (CPU)");
                 int np = Math.min(m.procN.length, (int) ((h - 44 * u) / (26 * u)));
                 for (int i = 0; i < np; i++)
@@ -1108,6 +1110,46 @@ public class MonitorView extends View {
         float vw = text.measureText(v);
         text.setColor(DIM); text.setTextAlign(Paint.Align.LEFT);
         cv.drawText(fit(l, w - 36 * u - vw), x + 12 * u, y, text);
+    }
+
+    // v0.10.1: elenchi "top" in due colonne; le righe per elenco si adattano all'altezza (1..5)
+    private void topProcs(Canvas cv, float x, float y, float w, float h) {
+        card(cv, x, y, w, h, "Top processi");
+        if (!st()) return;
+        MainActivity.Metrics.PList[] L = m.top;
+        int nl = L.length, nr = (nl + 1) / 2;
+        float avail = (h - 44 * u - 6 * u) / nr;
+        int rows = Math.max(1, Math.min(5, (int) ((avail - 22 * u) / (17 * u))));
+        float cw = (w - 24 * u) / 2f;
+        for (int i = 0; i < nl; i++) {
+            MainActivity.Metrics.PList p = L[i];
+            if (p.kind == 2) for (MainActivity.Metrics.Gpu g : m.gpus)
+                if (g.luid.length() > 0 && g.luid.equals(p.luid)) p.title = g.name.replace("AMD Radeon ", "");
+            float cx = x + 12 * u + (i % 2) * cw, cy = y + 44 * u + (i / 2) * avail;
+            text.setTextSize(12 * u); text.setColor(accent); text.setTextAlign(Paint.Align.LEFT);
+            text.setFakeBoldText(true);
+            cv.drawText(fit(p.title.toUpperCase(), cw - 10 * u), cx, cy + 12 * u, text);
+            text.setFakeBoldText(false);
+            for (int k = 0; k < rows && k < p.n.length; k++) {
+                float ry = cy + 12 * u + (k + 1) * 17 * u;
+                String v;
+                switch (p.kind) {
+                    case 0: v = num1(p.a[k]) + "%"; break;
+                    case 1: v = mbs(p.b[k]); break;
+                    case 2: v = Math.round(p.a[k]) + "%  " + mbs(p.b[k]); break;
+                    default: v = rate((long) (p.a[k] + p.b[k]));
+                }
+                text.setTextSize(13 * u); text.setColor(FG); text.setTextAlign(Paint.Align.RIGHT);
+                cv.drawText(v, cx + cw - 12 * u, ry, text);
+                float vw = text.measureText(v);
+                text.setColor(DIM); text.setTextAlign(Paint.Align.LEFT);
+                cv.drawText(fit(p.n[k], cw - 22 * u - vw), cx, ry, text);
+            }
+        }
+    }
+
+    private static String mbs(float mb) {                    // v0.10.1
+        return mb >= 1024 ? (Math.round(mb / 102.4f) / 10f) + " GB" : Math.round(mb) + " MB";
     }
 
     private String fit(String s, float max) {
