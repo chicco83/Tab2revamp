@@ -1,6 +1,7 @@
 // =============================================================================
 // Tab2Monitor - MainActivity + thread di polling
-// Versione: v0.9.9 - 2026-10-27 10:00
+// Versione: v0.10.0 - 2026-10-28 09:00
+//   v0.10.0: cpu.mhz_lo/mhz_hi (scala del gauge frequenza); claude_plan.accounts[] (tutti gli account)
 //   v0.9.9: legge cpu.mhz_now / cpu.mhz_max (frequenza istantanea) per il gauge con lancetta
 //   v0.9.8: le ventole spostate in un altro box non hanno piu' il suffisso "(scheda madre)"
 //   v0.9.6: claude_plan.src ("oauth" / "history"), ts del campione, session.stale
@@ -402,6 +403,7 @@ public class MainActivity extends Activity {
         long uptime;
         float cpu, mhz, ram, ramUsed, ramTot, swap;
         float mhzNow = Float.NaN, mhzMax = Float.NaN;   // v0.9.9
+        float mhzLo = Float.NaN, mhzHi = Float.NaN;     // v0.10.0: min/max dell'ultima ora
         int[] cores = new int[0];
         String gpuName; float gpuLoad = Float.NaN, gpuTemp = Float.NaN, gpuMem = Float.NaN;
         String[] tempName = new String[0]; float[] tempC = new float[0];
@@ -429,7 +431,14 @@ public class MainActivity extends Activity {
         // "claude_plan": {"plan": "Pro", "session": {"pct": 4, "reset": <epoch>},
         //                 "weekly": {"pct": 1, "reset": <epoch>}, "ts": <epoch>}
         ClaudePlan plan;
+        // v0.10.0: un elemento per account (claude_plan.accounts[]), tutti i campi opzionali
+        static final class Acct {
+            String id = ""; boolean current; long ts;
+            float sess = Float.NaN, week = Float.NaN, extra = Float.NaN;
+            boolean sessStale;
+        }
         static final class ClaudePlan {
+            Acct[] accts = new Acct[0];                     // v0.10.0
             String name;
             float sessPct = Float.NaN, weekPct = Float.NaN;
             long sessReset, weekReset;
@@ -458,6 +467,7 @@ public class MainActivity extends Activity {
             JSONObject c = j.optJSONObject("cpu");
             m.cpu = f(c, "pct"); m.mhz = f(c, "mhz");
             m.mhzNow = f(c, "mhz_now"); m.mhzMax = f(c, "mhz_max");   // v0.9.9
+            m.mhzLo = f(c, "mhz_lo"); m.mhzHi = f(c, "mhz_hi");       // v0.10.0
             JSONArray ca = c != null ? c.optJSONArray("cores") : null;
             if (ca != null) {
                 m.cores = new int[ca.length()];
@@ -500,6 +510,23 @@ public class MainActivity extends Activity {
                 if (ss != null) { k.sessPct = f(ss, "pct"); k.sessReset = ss.optLong("reset");
                                   k.sessStale = ss.optBoolean("stale", false); }      // v0.9.6
                 k.src = cp.optString("src", ""); k.ts = cp.optLong("ts");
+                JSONArray aa = cp.optJSONArray("accounts");                     // v0.10.0
+                if (aa != null) {
+                    k.accts = new Acct[aa.length()];
+                    for (int i = 0; i < k.accts.length; i++) {
+                        JSONObject o = aa.optJSONObject(i);
+                        Acct a = new Acct();
+                        if (o != null) {
+                            a.id = o.optString("id", ""); a.current = o.optBoolean("current", false);
+                            a.ts = o.optLong("ts");
+                            JSONObject s1 = o.optJSONObject("session"), w1 = o.optJSONObject("weekly"), e1 = o.optJSONObject("extra");
+                            if (s1 != null) { a.sess = f(s1, "pct"); a.sessStale = s1.optBoolean("stale", false); }
+                            if (w1 != null) a.week = f(w1, "pct");
+                            if (e1 != null) a.extra = f(e1, "pct");
+                        }
+                        k.accts[i] = a;
+                    }
+                }
                 if (wk != null) { k.weekPct = f(wk, "pct"); k.weekReset = wk.optLong("reset"); }
                 m.plan = k;
             }

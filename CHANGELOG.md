@@ -37,6 +37,14 @@ Versione documento: v0.1.14 — 2026-10-22 01:35 (ora del PC)
 - Rollback: rimettere tutte le ventole su BIOS in `/config`, poi `git rm windows/agent/tab2monitor_server_v0.3.1_20261028-1200.py` (il supervisore
   torna alla v0.3.0) e riavviare il servizio; exe: rinominare `Tab2Sensors.old-*.exe` in `Tab2Sensors.exe`.
 
+## 28. (2) v0.1.19 — 2026-10-28 11:30 (sessione locale, APK v0.10.0)
+- **CPU:** il gauge della frequenza usa ora la scala `cpu.mhz_lo`..`mhz_hi` (min/max dell'ultima ora, server v0.3.4): la lancetta si muove davvero
+  (prima `mhz_now/mhz_max`, sempre ~87%); agli estremi i GHz della scala. Se manca la temperatura CPU il centro dell'anello mostra "CPU" invece di ripetere la %.
+- **Claude:** pannello "Claude - account" con **tutti** gli account di `claude_plan.accounts[]` (in uso evidenziato, ora/data dell'aggiornamento, barre Sessione / Settimanale / Utilizzo extra
+  per i limiti presenti). I token sotto (campo `claude`) vengono dai log di Claude Code sul PC e **non distinguono gli account**; le righe che non stanno nel riquadro si omettono.
+- ✅ Installata sul GT-P5100 e verificata con screenshot. Richiesta passata dalla sessione windows-source (riferita come richiesta dell'utente).
+- Rollback: `git checkout 19dc098 -- android/tab2monitor_app/src`, ricostruire con `build_tab2monitor_v0.9.9_20261027-1000.sh`.
+
 ## 27. v0.1.19 — 2026-10-27 10:00 (sessione locale, APK v0.9.9)
 - **CPU: gauge della frequenza con lancetta.** La scritta "MHz" sotto il carico usava `cpu.mhz`, valore fisso (3900) e quindi inutile.
   Tolta; a destra dell'anello del carico c'e' ora un gauge con lancetta che mostra `cpu.mhz_now` (frequenza istantanea) su `cpu.mhz_max`,

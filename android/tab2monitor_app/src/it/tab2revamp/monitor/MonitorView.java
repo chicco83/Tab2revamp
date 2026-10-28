@@ -1,6 +1,7 @@
 // =============================================================================
 // Tab2Monitor - MonitorView (disegno su Canvas)
-// Versione: v0.9.9 - 2026-10-27 10:00
+// Versione: v0.10.0 - 2026-10-28 09:00
+//   v0.10.0: CPU: % non piu' duplicata; gauge frequenza in scala mhz_lo..mhz_hi; Claude: tutti gli account
 //   v0.9.9: CPU: tolta la scritta MHz sotto il carico (era il valore fisso 'mhz'); a destra dell'anello
 //           un gauge con lancetta della frequenza istantanea (mhz_now su mhz_max)
 //   v0.9.7: tolta la riga "Potenza" dalle schede GPU (richiesta utente)
@@ -291,6 +292,9 @@ public class MonitorView extends View {
     }
 
     private static float mhzPct(MainActivity.Metrics q) {      // v0.9.9
+        // v0.10.0: scala = minimo..massimo dell'ultima ora (prima mhz_now / mhz_max: lancetta sempre a ~87%)
+        if (!Float.isNaN(q.mhzNow) && !Float.isNaN(q.mhzLo) && !Float.isNaN(q.mhzHi) && q.mhzHi - q.mhzLo > 50)
+            return Math.max(0, Math.min(100, 100 * (q.mhzNow - q.mhzLo) / (q.mhzHi - q.mhzLo)));
         if (Float.isNaN(q.mhzNow) || Float.isNaN(q.mhzMax) || q.mhzMax <= 0) return Float.NaN;
         return Math.min(100, 100 * q.mhzNow / q.mhzMax);
     }
@@ -678,7 +682,7 @@ public class MonitorView extends View {
                 accent = CYAN;
                 // v0.9.9: era sub = (int) m.mhz + " MHz" (valore fisso); ora gauge con lancetta (mhz_now)
                 heroCard(cv, x, y, w, "CPU - carico", dCpu, "",
-                        hCpu, Float.isNaN(m.cpuTemp) ? null : Math.round(m.cpuTemp) + "\u00b0",
+                        hCpu, Float.isNaN(m.cpuTemp) ? "CPU" : Math.round(m.cpuTemp) + "\u00b0",
                         Float.isNaN(m.cpuTemp) ? "carico" : "temp. CPU", true);
                 break;
             case 1:
@@ -835,6 +839,13 @@ public class MonitorView extends View {
                 cx, cy + r * 0.62f, text);
         text.setTextSize(13 * u); text.setColor(DIM);
         cv.drawText("frequenza", cx, cy + r * 0.62f + 16 * u, text);
+        if (!Float.isNaN(m.mhzLo) && !Float.isNaN(m.mhzHi)) {      // v0.10.0: estremi della scala
+            text.setTextSize(11 * u);
+            text.setTextAlign(Paint.Align.LEFT);
+            cv.drawText(String.format(java.util.Locale.US, "%.1f", m.mhzLo / 1000f), cx - r * 0.95f, cy + r + 15 * u, text);
+            text.setTextAlign(Paint.Align.RIGHT);
+            cv.drawText(String.format(java.util.Locale.US, "%.1f", m.mhzHi / 1000f), cx + r * 0.95f, cy + r + 15 * u, text);
+        }
     }
 
     // Anello a gradiente (verde -> giallo -> rosso), estremi arrotondati, testo al centro
@@ -1284,9 +1295,46 @@ public class MonitorView extends View {
         MainActivity.Metrics.Claude c = m.claude;
         // v0.9.5: limiti del piano in testa (se il server li invia), poi i token. Prima: solo token.
         MainActivity.Metrics.ClaudePlan pl = m.plan;
-        card(cv, x, y, w, h, pl != null && pl.name != null && pl.name.length() > 0
+        card(cv, x, y, w, h, pl != null && pl.accts.length > 0 ? "Claude - account"   // v0.10.0
+                : pl != null && pl.name != null && pl.name.length() > 0
                 ? "Claude - piano " + pl.name : "Claude - utilizzo (Claude Code)");
-        if (pl != null) {
+        float ybot = y + h - 10 * u;                         // v0.10.0: i token si fermano al bordo del riquadro
+        if (pl != null && pl.accts.length > 0) {
+            // v0.10.0: tutti gli account (claude_plan.accounts[]): titolo + una barra per ogni limite presente
+            float yy = y + 44 * u;
+            for (MainActivity.Metrics.Acct a : pl.accts) {
+                if (st()) {
+                    text.setTextSize(15 * u); text.setTextAlign(Paint.Align.LEFT);
+                    text.setColor(a.current ? accent : DIM); text.setFakeBoldText(a.current);
+                    cv.drawText("Account " + a.id + (a.current ? "  (in uso)" : ""), x + 14 * u, yy + 12 * u, text);
+                    text.setFakeBoldText(false);
+                    if (a.ts > 0) {
+                        cal.setTimeInMillis(a.ts * 1000L);
+                        text.setTextSize(13 * u); text.setColor(DIM); text.setTextAlign(Paint.Align.RIGHT);
+                        boolean today = System.currentTimeMillis() - a.ts * 1000L < 20 * 3600 * 1000L;
+                        cv.drawText("agg. " + (today ? two(cal.get(Calendar.HOUR_OF_DAY)) + ":" + two(cal.get(Calendar.MINUTE))
+                                : cal.get(Calendar.DAY_OF_MONTH) + "/" + (cal.get(Calendar.MONTH) + 1)),
+                                x + w - 14 * u, yy + 12 * u, text);
+                    }
+                }
+                yy += 34 * u;
+                if (!Float.isNaN(a.sess)) { planBar(cv, x, yy, w, a.sessStale ? "Sessione (dato vecchio)" : "Sessione",
+                        a.sessStale ? Float.NaN : a.sess, 0, 0, 0, true); yy += 40 * u; }
+                if (!Float.isNaN(a.week)) { planBar(cv, x, yy, w, "Settimanale", a.week, 0, 0, 0, false); yy += 40 * u; }
+                if (!Float.isNaN(a.extra)) { planBar(cv, x, yy, w, "Utilizzo extra", a.extra, 0, 0, 0, false); yy += 40 * u; }
+                if (Float.isNaN(a.sess) && Float.isNaN(a.week) && Float.isNaN(a.extra)) {
+                    if (st()) { text.setTextSize(14 * u); text.setColor(DIM); text.setTextAlign(Paint.Align.LEFT);
+                                cv.drawText("nessun dato", x + 14 * u, yy, text); }
+                    yy += 28 * u;
+                }
+                yy += 4 * u;
+            }
+            y = yy - 40 * u;                                 // il blocco dei token riparte da qui (come dopo le barre)
+            if (!st()) return;
+            stroke.setColor(BORDER);
+            cv.drawLine(x + 14 * u, y + 34 * u, x + w - 14 * u, y + 34 * u, stroke);
+            y += 6 * u;
+        } else if (pl != null) {
             long now = System.currentTimeMillis() / 1000;
             // v0.9.6: con dati dal registro dell'app desktop si mostra l'ora del campione
             String sessLab = pl.sessStale ? "Limite di sessione (dato vecchio)" : "Limite di sessione";
@@ -1314,13 +1362,13 @@ public class MonitorView extends View {
             cal.setTimeInMillis(c.blockEnd * 1000L);
             blk += "  (fino alle " + two(cal.get(Calendar.HOUR_OF_DAY)) + ":" + two(cal.get(Calendar.MINUTE)) + ")";
         }
-        row(cv, x, y + 60 * u, w, blk, c.blockEnd > 0 ? tok(c.blockTok) : "nessuno attivo");
-        row(cv, x, y + 86 * u, w, "Oggi  (" + c.todayMsgs + " risposte)", tok(c.todayTok));
-        row(cv, x, y + 112 * u, w, "Oggi - output", tok(c.todayOut));
-        row(cv, x, y + 138 * u, w, "Oggi - letti da cache", tok(c.todayCacheR));
-        row(cv, x, y + 164 * u, w, "Ultimi 7 giorni", tok(c.weekTok));
-        row(cv, x, y + 190 * u, w, c.topModel != null ? c.topModel : "modello: --",
-                c.topModel != null ? tok(c.topModelTok) : "");
+        // v0.10.0: righe solo se stanno nel riquadro (con piu' account lo spazio e' minore)
+        String[] tl = {blk, "Oggi  (" + c.todayMsgs + " risposte)", "Oggi - output", "Oggi - letti da cache", "Ultimi 7 giorni",
+                c.topModel != null ? c.topModel : "modello: --"};
+        String[] tv = {c.blockEnd > 0 ? tok(c.blockTok) : "nessuno attivo", tok(c.todayTok), tok(c.todayOut),
+                tok(c.todayCacheR), tok(c.weekTok), c.topModel != null ? tok(c.topModelTok) : ""};
+        for (int i = 0; i < tl.length; i++)
+            if (y + (60 + 26 * i) * u < ybot) row(cv, x, y + (60 + 26 * i) * u, w, tl[i], tv[i]);
     }
 
     // v0.9.5: riga "etichetta ..... si ripristina tra 4 h 15 min  4%" + barra con tacca del tempo trascorso
