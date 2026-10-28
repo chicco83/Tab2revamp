@@ -5,6 +5,15 @@ Versione documento: v0.1.14 — 2026-10-22 01:35 (ora del PC)
 
 
 
+## 30. v0.3.5 server Windows — 2026-10-28 (sessione «Sorgente dati Windows»)
+- Campo **`procs_top`** (richiesto dalla sessione APK, `procs` invariato): `{ram:[{n,mb}], gpu:[{luid, list:[{n,pct,mb}]}], disk:[{n,r,w}]}`, 5 voci ciascuno,
+  aggiornato ogni 3 s. Fonti PDH: Working Set; GPU Engine (% = massimo tra i motori della scheda per processo) e GPU Process Memory (VRAM dedicata);
+  Process IO Read/Write Bytes/sec. ✅ Verificato dal vivo (RAM, entrambe le GPU, disco).
+- Limite: l'I/O per processo di Windows conta anche rete e dispositivi, non solo il disco (es. `svchost` 17 MB/s in lettura); non esiste un
+  contatore per processo del solo disco né per volume, quindi niente `vol`.
+- **Risorse del programma (misura 2026-10-28, servizio con admin, 60 s):** python (server) 3,3% di un core, Tab2Sensors 1,3%, supervisore 0%, adb 0,05% →
+  ≈ 4,6% di un core = 0,4% dei 12 thread; memoria ≈ 130 MB (60 + 59 + 13). Nessun intervento: il margine di riduzione e' ~1-2% di un core.
+
 ## 29. v0.3.2 – v0.3.4 server Windows — 2026-10-28 (sessione «Sorgente dati Windows»)
 - **v0.3.2**: ventole fino a **0%** (richiesta utente; `FAN_MIN_PCT` 20 → 0; restano il 100% con temperatura non letta e CPU ≥ 90 °C);
   `/config` v0.1.5 chiede conferma se una pompa/AIO va sotto il 30%.
