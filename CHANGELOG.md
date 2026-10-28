@@ -5,6 +5,20 @@ Versione documento: v0.1.14 — 2026-10-22 01:35 (ora del PC)
 
 
 
+## 29. v0.3.2 – v0.3.4 server Windows — 2026-10-28 (sessione «Sorgente dati Windows»)
+- **v0.3.2**: ventole fino a **0%** (richiesta utente; `FAN_MIN_PCT` 20 → 0; restano il 100% con temperatura non letta e CPU ≥ 90 °C);
+  `/config` v0.1.5 chiede conferma se una pompa/AIO va sotto il 30%.
+- **v0.3.2**: `claude_plan` dall'**ultimo account usato** in Claude Desktop. Causa del problema: i campioni dell'account aziendale
+  hanno solo `xu` (utilizzo extra %), prima scartati → si vedeva l'account personale (ultimo campione utile del 26/10). Ora vale
+  anche `xu` (→ `claude_plan.extra.pct`) e un campione recente (< 30 min) vince sul login della CLI (che e' ancora l'account personale,
+  token scaduto: 401).
+- **v0.3.3**: `claude_plan.accounts[]` = tutti gli account del file (id di 8 caratteri dell'org, `ts`, `current`, `session?`, `weekly?`, `extra?`).
+  Il file non contiene nomi ne' e-mail. Oggi: `d2102832` (in uso, solo extra 55,9%) e `1b6515cb` (sessione 12% scaduta, settimana 96%).
+- **v0.3.4**: `cpu.mhz_lo` / `cpu.mhz_hi` (min di `mhz_now` e max di `mhz_max` dell'ultima ora) per dare una scala al gauge della frequenza.
+  Causa della lancetta "ferma" sull'APK: la scala era `mhz_now / mhz_max` ≈ 85–89% sempre (CPU a riposo a 4,4–4,6 GHz). Dati del server verificati variabili.
+- ⏳ APK (sessione dell'APK): usare `mhz_lo..mhz_hi` come scala, togliere la % duplicata nel box CPU, mostrare `claude_plan.accounts[]`.
+- Rollback: `git rm` dei file server v0.3.2–v0.3.4 e riavvio del servizio (torna la v0.3.1).
+
 ## 28. v0.3.1 server Windows — 2026-10-28 11:15 (sessione «Sorgente dati Windows»): controllo ventole
 - Richiesta utente: FanControl non vede alcune ventole, il nostro server sì → controllo nel nostro progetto.
 - `Tab2Sensors.cs` **v0.2.0** (build `windows/agent/sensors/build_tab2sensors_v0.2.0_20261028-1200.sh`, che rinomina l'exe in uso

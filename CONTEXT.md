@@ -154,13 +154,15 @@ da Windows (`lhm.src` = `lib` Tab2Sensors / `lhm` app LHM / `win` solo Windows).
 | `claude_plan.src` (v0.2.8) | `oauth` o `history` (Claude Desktop, `plan-usage-history.json`: dal 2026-10-22 17:55 in `%LOCALAPPDATA%\Claude-Data\<pacchetto>\`, prima nella cartella MSIX; il server cerca in tutti e usa il più recente); con `history`: `session.stale` se > 5 h, `weekly.reset` da `/config` (default gio 09:00), niente `session.reset` |
 | `srv.adb` (v0.3.0) | per seriale: `ok`/`errore` (USB, reverse) e per `ip:5555`: `rete ok` / `rete: unauthorized` / `rete: offline` / `rete: non raggiungibile`; IP fissi in `/config` (`adb_ips`, default 192.168.1.234) |
 | `sensors.hw[].fans[].ctl` (v0.3.1) | solo ventole della scheda madre: `id` (controllo LHM), `mode` (`bios`/`fixed`/`curve`), `sw` (canale in manuale), `target` (% inviata, se controllata), `temp` (°C usati dalla curva); `srv.fanctl` = stato ("tutte al BIOS" / "N ventole controllate" / emergenza). Comando: `POST /api/fan` `{id: fans[].id, mode, pct?}` da 127.0.0.1 o IP fissi dei tablet |
+| `claude_plan.accounts[]` (v0.3.3), `claude_plan.extra` (v0.3.2) | tutti gli account di Claude Desktop: `id` (8 car. dell'org), `ts`, `current`, `session{pct,stale?}`, `weekly{pct}`, `extra{pct}` (utilizzo extra, account aziendale) |
+| `cpu.mhz_lo`, `cpu.mhz_hi` (v0.3.4) | min di `mhz_now` e max di `mhz_max` nell'ultima ora: scala per il gauge della frequenza |
 | `hidden` (v0.2.5) | `true` su `fans[]`/`temps[]` nascosti dall'utente in `/config`; se manca la voce si mostra |
 | `id`, `orig` (v0.2.4) | su `sensors.hw[]`, `temps[]`, `fans[]`: id stabile; se l'utente ha dato un nome, `name` è quello e `orig` l'originale. Nomi/abbinamenti da `http://localhost:8090/config` → `fan_config.json` (decisione: lato server, non APK) |
 | `disks[].r`, `disks[].w`, `disks[].busy` (v0.2.2) | byte/s lettura/scrittura e % tempo attivo per volume (PDH LogicalDisk); omessi se il volume non ha contatori (G:) |
 | `claude` (v0.2.1) | `today_tok` (input+output+cache_creation, senza cache_read), `today_out`, `today_cache_r`, `today_msgs`, `block_tok`, `block_start`/`block_end` (epoch, solo se il blocco di 5 h è aperto), `week_tok`, `models[{m,tok}]` (oggi, max 3), `scan_ts`; null senza `~/.claude/projects` o con `--no-claude` |
 
 Stato server: ✅ attività `Tab2Monitor` installata (all'accesso, elevata) · ✅ sensori CPU/scheda madre/
-ventole verificati con admin (vedi CHANGELOG v0.2.3) · ✅ v0.3.1 in servizio sulla 8090 (controllo ventole, CHANGELOG 28) (versioni: dopo v0.3.9 passare a v0.4.0, il supervisore sceglie per ordine di nome) (orfano chiuso
+ventole verificati con admin (vedi CHANGELOG v0.2.3) · ✅ v0.3.4 in servizio sulla 8090 (controllo ventole CHANGELOG 28; account Claude e scala frequenza CHANGELOG 29) (versioni: dopo v0.3.9 passare a v0.4.0, il supervisore sceglie per ordine di nome) (orfano chiuso
 dall'utente) · ⏳ l'utente dà nomi e abbinamenti alle ventole dalla pagina `/config` · ⏳ APK: disegnare `sensors.pairs`
 (file della sessione impostazioni APK) · ✅ CPU del server ~3% di un core con admin (v0.2.6: processi da PDH;
 la causa era `psutil.process_iter`, non `GPU Engine`) · ⛔ avvio prima dell'accesso: il progetto sta su G: (Google
