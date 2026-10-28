@@ -5,6 +5,24 @@ Versione documento: v0.1.14 — 2026-10-22 01:35 (ora del PC)
 
 
 
+## 28. v0.3.1 server Windows — 2026-10-28 11:15 (sessione «Sorgente dati Windows»): controllo ventole
+- Richiesta utente: FanControl non vede alcune ventole, il nostro server sì → controllo nel nostro progetto.
+- `Tab2Sensors.cs` **v0.2.0** (build `windows/agent/sensors/build_tab2sensors_v0.2.0_20261028-1200.sh`, che rinomina l'exe in uso
+  in `Tab2Sensors.old-<data>.exe`): comandi su stdin `SET <id controllo> <%>` / `AUTO <id>` / `AUTOALL`; `"Mode"` sui sensori Control.
+  Sicurezze: stdin chiuso (server fermo) → ventole al BIOS e uscita; watchdog: nessun `SET` per 20 s → BIOS.
+- Server **v0.3.1** (`tab2monitor_server_v0.3.1_20261028-1200.py`): `FanControl` a ogni campione (1 s). Modi per ventola: `bios` (default) /
+  `fixed` / `curve` (punti gradi:% su una temperatura qualsiasi, interpolazione lineare). Minimo 20%, temperatura non letta → 100%,
+  CPU ≥ 90 °C → 100% su tutte, discesa max 2 punti %/s. `fan_ctl` in `fan_config.json`; `POST /api/fan` per l'APK
+  (da 127.0.0.1 e dagli IP fissi dei tablet). Pagina `/config` **v0.1.4**: riga "Controllo" sotto ogni ventola.
+- Solo ventole della scheda madre (NCT6799D, 7 canali): il controllo GPU di LHM su RX 9070 XT (RDNA4) non è provato. ⛔ per ora.
+- ✅ Prova dal vivo (servizio, admin): Fan #6 `fixed 30` → registro 64,3% → 29,8% (`sw: true`), poi `bios` → 64,7% (`sw: false`).
+  I giri di Fan #6 sono scesi solo per pochi secondi (921 → 703 → 869): la ventola reagisce poco al PWM (forse 3 pin). ⏳ Non provati dal vivo:
+  watchdog e ritorno al BIOS alla chiusura del server (provati solo nel codice).
+- Q-Fan: con `fixed`/`curve` il canale passa in manuale e la curva Q-Fan di quel canale è ignorata finché il server gira; con `bios`
+  o a server fermo LHM rimette i registri letti all'avvio. Nessuna scrittura nelle impostazioni del BIOS (al riavvio vale Q-Fan).
+- Rollback: rimettere tutte le ventole su BIOS in `/config`, poi `git rm windows/agent/tab2monitor_server_v0.3.1_20261028-1200.py` (il supervisore
+  torna alla v0.3.0) e riavviare il servizio; exe: rinominare `Tab2Sensors.old-*.exe` in `Tab2Sensors.exe`.
+
 ## 27. v0.1.19 — 2026-10-27 10:00 (sessione locale, APK v0.9.9)
 - **CPU: gauge della frequenza con lancetta.** La scritta "MHz" sotto il carico usava `cpu.mhz`, valore fisso (3900) e quindi inutile.
   Tolta; a destra dell'anello del carico c'e' ora un gauge con lancetta che mostra `cpu.mhz_now` (frequenza istantanea) su `cpu.mhz_max`,

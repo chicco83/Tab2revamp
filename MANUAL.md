@@ -224,7 +224,7 @@ Con `-home` l'app diventa anche la schermata Home (kiosk); `-nohome` la toglie.
 - Avvio automatico all'accesso: doppio clic su `install_tab2monitor_service_v0.2.0_20261022-0055.cmd`
   (UAC). Togliere: stesso .cmd con `-Remove`. Log: `windows/agent/logs/tab2monitor_service.log`.
 - Sensori: dopo un nuovo download di LHM in `windows/lhm/LibreHardwareMonitor_vX/` ricompilare
-  `bash windows/agent/sensors/build_tab2sensors_v0.1.0_20261022-0040.sh`.
+  `bash windows/agent/sensors/build_tab2sensors_v0.2.0_20261028-1200.sh`.
 - Abbinare una ventola a una temperatura: modificare `windows/agent/fan_map_*.json` (nuova versione) e
   riavviare il server.
 - v0.2.1: campo `claude` con i token di Claude Code dai log locali; `--no-claude` per disattivarlo.
@@ -236,5 +236,9 @@ Con `-home` l'app diventa anche la schermata Home (kiosk); `-nohome` la toglie.
   ventola ("non mostrare" la toglie dal tablet; per le temperature c'è la casella "nascondi"), **Salva**. Effetto sul tablet entro 2 s.
 - Limiti del piano Claude (`claude_plan`): letti dall'app Claude Desktop; in `/config` impostare giorno e
   ora del reset settimanale (come su claude.ai → Utilizzo). Stato in `/api/metrics` → `srv.plan`.
+- Controllo ventole (v0.3.1, solo scheda madre): in `/config` riga "Controllo" sotto ogni ventola → *BIOS* (nessun intervento,
+  vale Q-Fan), *fissa* (%), *curva* (temperatura + punti `gradi:%`, es. `40:25, 60:45, 75:80, 85:100`), **Salva**. Minimo 20%;
+  100% se la temperatura non si legge o la CPU supera 90 °C; se il server si ferma le ventole tornano al BIOS. Per non usare il
+  controllo basta lasciare tutto su *BIOS*. Dopo aver ricompilato Tab2Sensors serve il riavvio del servizio.
 - adb via Wi‑Fi: il server rifà `adb connect <IP>:5555` da solo (IP in `/config` → "IP dei tablet"). Stato in
   `/api/metrics` → `srv.adb`. Se compare `rete: unauthorized` accettare la richiesta sul tablet.
