@@ -16,6 +16,7 @@ Versione documento: v0.1.14 — 2026-10-22 01:35 (ora del PC)
   Il file non contiene nomi ne' e-mail. Oggi: `d2102832` (in uso, solo extra 55,9%) e `1b6515cb` (sessione 12% scaduta, settimana 96%).
 - **v0.3.4**: `cpu.mhz_lo` / `cpu.mhz_hi` (min di `mhz_now` e max di `mhz_max` dell'ultima ora) per dare una scala al gauge della frequenza.
   Causa della lancetta "ferma" sull'APK: la scala era `mhz_now / mhz_max` ≈ 85–89% sempre (CPU a riposo a 4,4–4,6 GHz). Dati del server verificati variabili.
+- `/config` **v0.1.6**: pulsante Salva fisso in basso a destra (prima era in alto e spariva scorrendo: l'utente non lo trovava mentre impostava la curva di Fan #4 sulla MI50).
 - ⏳ APK (sessione dell'APK): usare `mhz_lo..mhz_hi` come scala, togliere la % duplicata nel box CPU, mostrare `claude_plan.accounts[]`.
 - Rollback: `git rm` dei file server v0.3.2–v0.3.4 e riavvio del servizio (torna la v0.3.1).
 
