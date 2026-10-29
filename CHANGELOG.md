@@ -14,6 +14,17 @@ Versione documento: v0.1.14 — 2026-10-22 01:35 (ora del PC)
 - **Rollback:** eliminare la cartella `LibreHardwareMonitor_v0.9.6-mi50` e riavviare l'attivita' (`schtasks /end /tn Tab2Monitor` poi `/run`): torna v0.9.6.
 - Quando la PR sara' fusa e uscira' una release: sostituire la cartella con la release ufficiale e togliere `-mi50`.
 
+## 31. v0.3.6 server Windows + /config v0.1.7 — 2026-10-29 (sessione «Sorgente dati Windows»)
+- Segnalazione utente: in `/config` la tendina "automatico" accanto alla ventola non si capiva. E' solo **visualizzazione** (quale temperatura
+  mostrare sul tablet accanto alla ventola); la temperatura che **pilota** la ventola e' "curva su" nella riga "Controllo".
+  Con una curva attiva `automatico` mostrava pero' la CPU (`cpu_default`), facendo credere che la ventola seguisse la CPU.
+- v0.3.6: con controllo "curva" e senza abbinamento scelto a mano, `sensors.pairs` usa la temperatura della curva (`how` = "user").
+  Pagina v0.1.7: intestazione "Mostrata sul tablet (solo visualizzazione)", "automatico (come la curva, se attiva)", "la curva segue".
+- ✅ Verificato dal vivo: Fan #4 ("MI 50") in curva → pair con la temperatura della MI50.
+- Nota: gli id LHM delle schede (`/gpu-amd/N`) possono cambiare tra avvii/driver (la MI50 e' passata da solo-Windows a `/gpu-amd/5`);
+  se un id salvato sparisce la curva mette la ventola al 100% (sicurezza), va riscelto in `/config`.
+- Rollback: `git rm` dei file v0.3.6 / v0.1.7 e riavvio del servizio.
+
 ## 30. v0.3.5 server Windows — 2026-10-28 (sessione «Sorgente dati Windows»)
 - Campo **`procs_top`** (richiesto dalla sessione APK, `procs` invariato): `{ram:[{n,mb}], gpu:[{luid, list:[{n,pct,mb}]}], disk:[{n,r,w}]}`, 5 voci ciascuno,
   aggiornato ogni 3 s. Fonti PDH: Working Set; GPU Engine (% = massimo tra i motori della scheda per processo) e GPU Process Memory (VRAM dedicata);
