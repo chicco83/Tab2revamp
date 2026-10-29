@@ -1,6 +1,7 @@
 // =============================================================================
 // Tab2Monitor - MonitorView (disegno su Canvas)
-// Versione: v0.10.2 - 2026-10-28 16:00
+// Versione: v0.10.3 - 2026-10-29 09:00
+//   v0.10.3: gauge della frequenza CPU con la stessa grafica e dimensione dell'anello della temperatura
 //   v0.10.2: Dischi: una torta (ciambella) per disco con lo spazio occupato; al centro in (lettura) / out (scrittura)
 //   v0.10.1: 'Top processi' con 4+ elenchi compatti in due colonne: CPU, RAM, GPU (una per scheda), I/O
 //   v0.10.0: CPU: % non piu' duplicata; gauge frequenza in scala mhz_lo..mhz_hi; Claude: tutti gli account
@@ -796,8 +797,8 @@ public class MonitorView extends View {
     private void heroCard(Canvas cv, float x, float y, float w, String title, float val, String sub,
                           float[] hist, String center, String centerLab, boolean mhz) {
         float h = 170 * u, r = 54 * u, gx = x + w - r - 22 * u, gy = y + 92 * u;
-        float rg = 40 * u;
-        if (mhz) gx -= 2 * rg + 24 * u;                      // spazio per il gauge a destra
+        // v0.10.3: gauge frequenza = anello identico a quello della temperatura (r 54u), a destra; prima r = 40u con lancetta
+        if (mhz) gx -= 2 * r + 14 * u;                       // spazio per il secondo anello a destra
         card(cv, x, y, w, h, title);
         // numero + unita'
         String num = Float.isNaN(val) ? "--" : String.valueOf(Math.round(val));
@@ -815,10 +816,12 @@ public class MonitorView extends View {
         }
         spark(cv, hist, x + 14 * u, y + 126 * u, leftW, 32 * u, accent);
         ring(cv, gx, gy, r, val, center, centerLab);
-        if (mhz) mhzGauge(cv, x + w - rg - 22 * u, gy, rg);
+        if (mhz) ring(cv, x + w - r - 22 * u, gy, r, dMhz,
+                Float.isNaN(m.mhzNow) ? "--" : String.format(java.util.Locale.US, "%.1f", m.mhzNow / 1000f), "GHz");
     }
 
     // v0.9.9: gauge frequenza: arco 270 gradi con lancetta; al centro-basso i GHz, sotto "frequenza"
+    // v0.10.3: non piu' usato (gauge a lancetta v0.9.9-v0.10.2), tenuto come riferimento
     private void mhzGauge(Canvas cv, float cx, float cy, float r) {
         if (!dy()) return;
         float p = Float.isNaN(dMhz) ? 0 : Math.max(0, Math.min(100, dMhz));

@@ -47,6 +47,14 @@ Versione documento: v0.1.14 — 2026-10-22 01:35 (ora del PC)
 - Rollback: rimettere tutte le ventole su BIOS in `/config`, poi `git rm windows/agent/tab2monitor_server_v0.3.1_20261028-1200.py` (il supervisore
   torna alla v0.3.0) e riavviare il servizio; exe: rinominare `Tab2Sensors.old-*.exe` in `Tab2Sensors.exe`.
 
+## 29. v0.1.19 — 2026-10-29 09:00 (sessione locale, APK v0.10.3)
+- **CPU: il gauge della frequenza e' ora un anello identico a quello della temperatura** (stessa grafica a gradiente e stesso raggio 54u), affiancato a destra;
+  al centro i GHz (es. 4.3) e "GHz" sotto; scala sempre `mhz_lo`..`mhz_hi`. Tolta la lancetta (era nel gauge piccolo v0.9.9-v0.10.2, la funzione `mhzGauge` resta nel codice, non usata).
+- ⚠️ La richiesta diceva "usa l'agente locale unsloth": `llama-server` di Unsloth Studio e' attivo su 127.0.0.1:50075 ma risponde 401 (serve una chiave API che non ho;
+  non l'ho cercata). La modifica e' stata fatta direttamente.
+- ✅ Installata sul GT-P5100 e verificata con screenshot.
+- Rollback: `git checkout 7fd00e8 -- android/tab2monitor_app/src`, ricostruire con `build_tab2monitor_v0.10.2_20261028-1600.sh`.
+
 ## 28. (4) v0.1.19 — 2026-10-28 16:00 (sessione locale, APK v0.10.2)
 - **Dischi: una "torta" (ciambella) per disco.** Arco = spazio occupato (arancio; giallo oltre 75%, rosso oltre 90%); **al centro in/out** del disco
   (↓ lettura sopra, ↑ scrittura sotto, in verde se attivi); a destra lettera, % usato e GB liberi. Fino a 6 dischi in griglia a due colonne. Sostituisce l'elenco con pallino e righe lettura/scrittura.
