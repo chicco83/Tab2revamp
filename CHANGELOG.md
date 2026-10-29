@@ -5,6 +5,15 @@ Versione documento: v0.1.14 — 2026-10-22 01:35 (ora del PC)
 
 
 
+## 31. Server Windows con la nostra build di LHM (MI50) — 2026-10-29
+- Il server usa ora la cartella `windows/lhm/LibreHardwareMonitor_v0.9.6-mi50/` (fuori da git): copia di v0.9.6 con `LibreHardwareMonitorLib.dll`, `BlackSharp.Core`, `DiskInfoToolkit`,
+  `RAMSPDToolkit-NDD` dalla build `x64/net472` del branch `amd-mi50-support` (PR LibreHardwareMonitor#2597, commit 17b0e1c + 529a670, base upstream 71040ce).
+  `find_tab2sensors()` sceglie la cartella `LibreHardwareMonitor_v*` piu' alta per nome: `-mi50` viene dopo `v0.9.6`. Il codice del server non e' cambiato.
+- ✅ Verificato dal vivo dopo riavvio dell'attivita' `Tab2Monitor`: `/api/metrics` `srv.lhm` = `lib ok`; MI50 (`/gpu-amd/5`) con temperature core, memoria, VR VDDC e hot spot e ventola; altri sensori presenti.
+- ⏳ Non ancora usati dal server/APK: potenza, tensioni, clock e carichi della MI50 (ora disponibili in LHM). Clock memoria in app: rifiutato dall'utente.
+- **Rollback:** eliminare la cartella `LibreHardwareMonitor_v0.9.6-mi50` e riavviare l'attivita' (`schtasks /end /tn Tab2Monitor` poi `/run`): torna v0.9.6.
+- Quando la PR sara' fusa e uscira' una release: sostituire la cartella con la release ufficiale e togliere `-mi50`.
+
 ## 30. v0.3.5 server Windows — 2026-10-28 (sessione «Sorgente dati Windows»)
 - Campo **`procs_top`** (richiesto dalla sessione APK, `procs` invariato): `{ram:[{n,mb}], gpu:[{luid, list:[{n,pct,mb}]}], disk:[{n,r,w}]}`, 5 voci ciascuno,
   aggiornato ogni 3 s. Fonti PDH: Working Set; GPU Engine (% = massimo tra i motori della scheda per processo) e GPU Process Memory (VRAM dedicata);
