@@ -1,6 +1,8 @@
 // =============================================================================
 // Tab2Monitor - MonitorView (disegno su Canvas)
-// Versione: v0.10.3 - 2026-10-29 09:00
+// Versione: v0.11.0 - 2026-10-30 09:00
+//   v0.11.0: GPU nella pagina 1 (sotto la RAM), Claude nella pagina 2 (con i sensori); tolta la pagina GPU
+//           'piu' lunga se sotto carico' e le sue due opzioni (gpu_busy_pct / gpu_busy_sec)
 //   v0.10.3: gauge della frequenza CPU con la stessa grafica e dimensione dell'anello della temperatura
 //   v0.10.2: Dischi: una torta (ciambella) per disco con lo spazio occupato; al centro in (lettura) / out (scrittura)
 //   v0.10.1: 'Top processi' con 4+ elenchi compatti in due colonne: CPU, RAM, GPU (una per scheda), I/O
@@ -155,10 +157,10 @@ public class MonitorView extends View {
             "p_temps", "p_net", "p_disk", "p_procs", "p_claude", "p_fans"};
     static final String[] PANEL_LABELS = {"CPU (totale e frequenza)  [pag. 1]",
             "Core (un istogramma per core)  [pag. 1]", "Storico 60 s (CPU / RAM)  [pag. 1]",
-            "RAM e swap  [pag. 1]", "GPU - tutte le schede  [pag. 2]",
+            "RAM e swap  [pag. 1]", "GPU - tutte le schede  [pag. 1]",
             "Temperature (box per hardware)  [pag. 2]", "Rete (download / upload)  [pag. 1]",
             "Disco I/O e spazio dischi  [pag. 1]", "Top processi per CPU  [pag. 1]",
-            "Claude - utilizzo account (token da Claude Code sul PC)  [pag. 1]",
+            "Claude - utilizzo account (token da Claude Code sul PC)  [pag. 2]",
             "Ventole (box per hardware)  [pag. 2]"};
     // Colonne come nella dashboard web
     // 2026-10-22 v0.3.0: Claude (9) tra GPU e temperature. Versione v0.2.0 sostituita:
@@ -172,17 +174,16 @@ public class MonitorView extends View {
     //   {{4}, {5}, {10}}};                       // 2 GPU e sensori
     //   private boolean[] panelOn = {true, true, true, true, true, true, true, true, true, true, true};
     static final int BOXES = 11;
+    // v0.11.0: GPU (4) in pagina 1, Claude (9) in pagina 2. Prima: {{0,1,2},{3,9},{6,7,8}} e {{4},{BOXES}}
     static final int[][][] PAGES = {
-            {{0, 1, 2}, {3, 9}, {6, 7, 8}},          // 1 Sistema
-            {{4}, {BOXES}}};                         // 2 GPU e sensori
-    static final String[] PAGE_NAMES = {"Sistema", "GPU e sensori"};
+            {{0, 1, 2}, {3, 4}, {6, 7, 8}},          // 1 Sistema e GPU
+            {{9}, {BOXES}}};                         // 2 Claude e sensori
+    static final String[] PAGE_NAMES = {"Sistema e GPU", "Claude e sensori"};
     private boolean[] panelOn = {true, true, true, true, true, true, true, true, true, true, true, true};
     private int page;                        // pagina mostrata
     private long pageAt;                     // uptimeMillis dell'ultimo cambio pagina
     private int pageSec = 15;                // 0 = niente rotazione automatica
-    // v0.4.0: la pagina GPU resta di piu' se almeno una GPU supera la soglia di carico
-    static final int GPU_PAGE = 1;
-    private int gpuBusyPct = 30, gpuBusySec = 60;
+    // v0.4.0-v0.10.3: la pagina GPU restava di piu' se una GPU superava la soglia (gpuBusyPct/gpuBusySec): tolto in v0.11.0
     private float gearX, gearY;              // centro dell'ingranaggio (per il tocco)
     private final GestureDetector gestures;
     // v0.4.0: animazione ventole. Un angolo per ventola (indice progressivo nel disegno);
@@ -257,13 +258,6 @@ public class MonitorView extends View {
         invalidate();
     }
 
-    private boolean gpuBusy() {
-        if (m == null) return false;
-        for (MainActivity.Metrics.Gpu g : m.gpus)
-            if (!Float.isNaN(g.load) && g.load >= gpuBusyPct) return true;
-        return false;
-    }
-
     private boolean pageOn(int p) {
         for (int[] col : PAGES[p]) for (int id : col) if (panelOn[id]) return true;
         return false;
@@ -271,14 +265,13 @@ public class MonitorView extends View {
 
     // 2026-10-22 v0.2.0 (era: void setUrls(String[] u) { urls = u; })
     // 2026-10-22 v0.4.0: + secondi per pagina (era: void setConfig(String[] u, boolean[] on))
-    void setConfig(String[] u, boolean[] on, int sec, boolean anim, int busyPct, int busySec) {
+    void setConfig(String[] u, boolean[] on, int sec, boolean anim) {
         // v0.5.0: panelOn ha una voce in piu' (BOXES) calcolata da temperature/ventole
         boolean[] all = new boolean[BOXES + 1];
         System.arraycopy(on, 0, all, 0, Math.min(on.length, BOXES));
         all[BOXES] = all[5] || all[10];
         on = all;
         urls = u; panelOn = on; pageSec = sec; pageAt = SystemClock.uptimeMillis(); animFans = anim;
-        gpuBusyPct = busyPct; gpuBusySec = busySec;
         baseDirty = true;                                    // v0.9.0
         if (u.length == 0) { m = null; src = null; }       // nessuna sorgente: schermata d'avviso
         invalidate();
@@ -506,10 +499,8 @@ public class MonitorView extends View {
         if (npages == 0) { if (st()) drawCentered(cv, W, H, "Tutti i pannelli sono spenti",
                 "tocca l'ingranaggio o tieni premuto per aprire le impostazioni"); return; }
         if (!pageOn(page)) nextPage();
-        // v0.4.0: durata della pagina GPU allungata se una scheda e' sotto carico
-        // (prima stesura: sempre pageSec)
-        int dur = page == GPU_PAGE && gpuBusy() ? Math.max(pageSec, gpuBusySec) : pageSec;
-        if (st() && pageSec > 0 && npages > 1 && SystemClock.uptimeMillis() - pageAt >= dur * 1000L) nextPage();
+        // v0.11.0: durata sempre pageSec (v0.4.0-v0.10.3: piu' lunga per la pagina GPU sotto carico)
+        if (st() && pageSec > 0 && npages > 1 && SystemClock.uptimeMillis() - pageAt >= pageSec * 1000L) nextPage();
         if (st()) drawPageIndicator(cv, W, hy);
         int[][] cols = PAGES[page];
         // v0.5.0: colonne con peso (il box per hardware vale 2). Era: larghezza uguale per tutte.

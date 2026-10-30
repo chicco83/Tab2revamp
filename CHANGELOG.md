@@ -67,6 +67,15 @@ Versione documento: v0.1.14 — 2026-10-22 01:35 (ora del PC)
 - Rollback: rimettere tutte le ventole su BIOS in `/config`, poi `git rm windows/agent/tab2monitor_server_v0.3.1_20261028-1200.py` (il supervisore
   torna alla v0.3.0) e riavviare il servizio; exe: rinominare `Tab2Sensors.old-*.exe` in `Tab2Sensors.exe`.
 
+## 30. v0.1.20 — 2026-10-30 09:00 (sessione locale, APK v0.11.0)
+- **Pagine riorganizzate:** le **GPU** passano nella pagina 1 (colonna centrale, sotto la RAM) che si chiama "Sistema e GPU"; **Claude (account)** passa nella pagina 2 insieme ai sensori ("Claude e sensori").
+  Le etichette dei pannelli nelle impostazioni mostrano la pagina giusta.
+- **Tolte le due opzioni "Pagina GPU"** (soglia di carico e secondi di permanenza) e la logica relativa: la pagina dura sempre `page_sec`. Rimossi anche gli extra `gpu_busy_pct` / `gpu_busy_sec` dell'intent.
+  Perche': la pagina GPU non esiste piu' separata, la regola "resta piu' a lungo sotto carico" non ha piu' senso.
+- ✅ Installata sul GT-P5100 (192.168.1.234:5555) e verificata con screenshot di entrambe le pagine e delle impostazioni.
+- ⚠️ adb vede ora anche un secondo dispositivo, `192.168.1.212:5555`: non l'ho toccato; con piu' dispositivi servono `adb -s <indirizzo>` nei comandi.
+- Rollback: `git checkout 02e2602 -- android/tab2monitor_app/src`, ricostruire con `build_tab2monitor_v0.10.3_20261029-0900.sh`.
+
 ## 29. v0.1.19 — 2026-10-29 09:00 (sessione locale, APK v0.10.3)
 - **CPU: il gauge della frequenza e' ora un anello identico a quello della temperatura** (stessa grafica a gradiente e stesso raggio 54u), affiancato a destra;
   al centro i GHz (es. 4.3) e "GHz" sotto; scala sempre `mhz_lo`..`mhz_hi`. Tolta la lancetta (era nel gauge piccolo v0.9.9-v0.10.2, la funzione `mhzGauge` resta nel codice, non usata).

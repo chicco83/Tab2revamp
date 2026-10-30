@@ -1,6 +1,7 @@
 // =============================================================================
 // Tab2Monitor - MainActivity + thread di polling
-// Versione: v0.10.1 - 2026-10-28 14:00
+// Versione: v0.11.0 - 2026-10-30 09:00
+//   v0.11.0: tolti gpu_busy_pct / gpu_busy_sec (pagina GPU non piu' separata)
 //   v0.10.1: procs_top (server v0.3.5): top 5 per RAM, per GPU e per I/O oltre a quello per CPU
 //   v0.10.0: cpu.mhz_lo/mhz_hi (scala del gauge frequenza); claude_plan.accounts[] (tutti gli account)
 //   v0.9.9: legge cpu.mhz_now / cpu.mhz_max (frequenza istantanea) per il gauge con lancetta
@@ -161,8 +162,6 @@ public class MainActivity extends Activity {
         if (i.hasExtra("url")) e.putString("wifi_url", trimUrl(i.getStringExtra("url")));
         if (i.hasExtra("poll_ms")) e.putInt("poll_ms", Math.max(500, i.getIntExtra("poll_ms", 1000)));
         if (i.hasExtra("page_sec")) e.putInt("page_sec", Math.max(0, i.getIntExtra("page_sec", DEF_PAGE_SEC)));
-        if (i.hasExtra("gpu_busy_pct")) e.putInt("gpu_busy_pct", i.getIntExtra("gpu_busy_pct", 30));
-        if (i.hasExtra("gpu_busy_sec")) e.putInt("gpu_busy_sec", i.getIntExtra("gpu_busy_sec", 60));
         if (i.hasExtra("presence_off_sec")) e.putInt("presence_off_sec", Math.max(10, i.getIntExtra("presence_off_sec", 120)));   // v0.6.0
         if (i.hasExtra("presence_sens")) e.putInt("presence_sens", Math.max(1, i.getIntExtra("presence_sens", 20)));
         for (String k : new String[]{"th_cpu", "th_gpu", "th_ram", "th_vram", "alarm_def"})   // v0.8.0
@@ -319,8 +318,7 @@ public class MainActivity extends Activity {
         // 2026-10-22 v0.4.0 (era: view.setConfig(urls, on);)
         view.setAnim(prefs.getBoolean("anim_smooth", true), prefs.getInt("poll_ms", 1000));   // v0.9.0
         view.setGaugeCheck(prefs.getBoolean("gauge_check", true));
-        view.setConfig(urls, on, prefs.getInt("page_sec", DEF_PAGE_SEC), prefs.getBoolean("anim_fans", true),
-                prefs.getInt("gpu_busy_pct", 30), prefs.getInt("gpu_busy_sec", 60));
+        view.setConfig(urls, on, prefs.getInt("page_sec", DEF_PAGE_SEC), prefs.getBoolean("anim_fans", true));
         if (urls.length == 0) return;          // nessuna sorgente: niente thread, solo il messaggio
         poller = new Poller(view, urls, prefs.getInt("poll_ms", 1000));
         poller.start();

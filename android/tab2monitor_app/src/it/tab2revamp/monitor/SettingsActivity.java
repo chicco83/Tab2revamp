@@ -1,6 +1,7 @@
 // =============================================================================
 // Tab2Monitor - SettingsActivity (pannello impostazioni)
-// Versione: v0.9.3 - 2026-10-22 04:25
+// Versione: v0.11.0 - 2026-10-30 09:00
+//   v0.11.0: tolte le due opzioni 'Pagina GPU' (soglia di carico e secondi)
 //   v0.9.3: rotazione automatica (interruttore + pulsante di calibrazione)
 //   v0.9.2: interruttore "Capovolgi l'interfaccia di 180 gradi" (applicato subito anche qui)
 //   v0.9.0: interruttore "Animazioni fluide"
@@ -46,7 +47,7 @@ import android.widget.TextView;
 
 public class SettingsActivity extends Activity {
     private SharedPreferences prefs;
-    private EditText url, poll, pageSec, busyPct, busySec;   // v0.4.0: + pageSec, soglie GPU
+    private EditText url, poll, pageSec;                      // v0.4.0: + pageSec (v0.11.0: tolte le soglie GPU)
     private EditText offSec, sens;                     // v0.6.0: presenza
     private EditText thCpu, thGpu, thRam, thVram, alarmDef;   // v0.8.0
     private final java.util.ArrayList<String> sensKeys = new java.util.ArrayList<String>();
@@ -103,10 +104,6 @@ public class SettingsActivity extends Activity {
         label("Cambio pagina automatico ogni (secondi, 0 = resta sulla pagina; tocco = pagina successiva)");
         pageSec = field(String.valueOf(prefs.getInt("page_sec", MainActivity.DEF_PAGE_SEC)),
                 String.valueOf(MainActivity.DEF_PAGE_SEC), InputType.TYPE_CLASS_NUMBER);
-        label("Pagina GPU: una scheda e' \"sotto carico\" sopra questa percentuale");
-        busyPct = field(String.valueOf(prefs.getInt("gpu_busy_pct", 30)), "30", InputType.TYPE_CLASS_NUMBER);
-        label("Pagina GPU sotto carico: resta visibile per (secondi)");
-        busySec = field(String.valueOf(prefs.getInt("gpu_busy_sec", 60)), "60", InputType.TYPE_CLASS_NUMBER);
 
         // ---- v0.6.0: presenza con la fotocamera frontale
         header("Presenza (fotocamera frontale)");
@@ -212,7 +209,6 @@ public class SettingsActivity extends Activity {
         prefs.edit().putInt("presence_off_sec", num(offSec, 120, 10, 86400))      // v0.6.0
                 .putInt("presence_sens", num(sens, 20, 1, 500)).apply();
         prefs.edit().putString("wifi_url", u).putInt("poll_ms", ms).putInt("page_sec", ps)
-                .putInt("gpu_busy_pct", num(busyPct, 30, 1, 100)).putInt("gpu_busy_sec", num(busySec, 60, 1, 3600))
                 .apply();
         super.onPause();
     }
