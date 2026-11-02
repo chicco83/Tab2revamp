@@ -14,7 +14,15 @@ Versione documento: v0.1.14 — 2026-10-22 01:35 (ora del PC)
 - **Rollback:** eliminare la cartella `LibreHardwareMonitor_v0.9.6-mi50` e riavviare l'attivita' (`schtasks /end /tn Tab2Monitor` poi `/run`): torna v0.9.6.
 - Quando la PR sara' fusa e uscira' una release: sostituire la cartella con la release ufficiale e togliere `-mi50`.
 
-## 33. Indagine sul crash di Tab2Sensors — 2026-11-02 23:10 (sessione «Sorgente dati Windows»)
+## 34. Finestra cmd vuota che compare e scompare — 2026-11-03 00:00 (sessione «Sorgente dati Windows»)
+- Segnalazione utente: ogni tanto compare un cmd vuoto che sparisce. Due ascolti: 25 min su tutti i nuovi `cmd/conhost/powershell/...` (con catena dei genitori) e 12 min sulle sole finestre di console **visibili**.
+- Legato al progetto: ogni 60 s il server lancia `adb connect` verso il tablet spento → un `conhost.exe` (catena `adb <= python <= pythonw`). Provato con lo stesso flag `CREATE_NO_WINDOW`: **nessuna finestra visibile**.
+  Tutte le chiamate a programmi del progetto (adb, Tab2Sensors, server dal supervisore) usano `CREATE_NO_WINDOW`.
+- Non nostri: Unsloth Studio lancia ogni 90 s `powershell … Get-CimInstance Win32_VideoController` (+ `Get-Counter` GPU); l'app Claude apre `cmd.exe /d /s /c` per i server MCP, `chrome-native-host` e i comandi delle sessioni.
+- ⏳ **Non riprodotto:** in 12 min nessuna finestra visibile nuova (solo la PowerShell amministratore gia' aperta dall'utente). Causa NON accertata; escluso solo che sia adb del progetto.
+- Per catturarlo: `python -I windows/agent/diagnostica/watch_finestre_console_v0.1.0_20261103-0000.py 120` (minuti) lasciato in un terminale; al primo lampo il log `watch_visible.log` accanto allo script riporta ora, finestra e processi appena creati.
+- Decisione: nessuna modifica al server (ridurre i tentativi `adb connect` a tablet spento non serve: non mostrano finestre).
+ di Tab2Sensors — 2026-11-02 23:10 (sessione «Sorgente dati Windows»)
 - **Crash registrati da Windows (Application log, minidump in `%LOCALAPPDATA%\CrashDumps`):** 2026-10-26 22:59 (build LHM v0.9.6, exe v0.1.0): `0xc00000fd` stack overflow in `clr.dll`;
   2026-11-01 21:36 (build `-mi50`, exe v0.2.0, dopo 4 h 27 min di esecuzione): `0xc0000005` lettura all'indirizzo `0x4000000` in `clr.dll+0x185a9`, thread principale.
 - **Evidenze dai dump** (analizzati con `windows/agent/sensors/minidump_lettore_v0.1.0_20261102-2310.py`): in entrambi l'errore e' DENTRO il runtime .NET (frame `clr.dll` e `mscorlib.ni.dll`, nessun frame di LHM
