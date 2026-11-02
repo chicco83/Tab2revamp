@@ -14,6 +14,20 @@ Versione documento: v0.1.14 — 2026-10-22 01:35 (ora del PC)
 - **Rollback:** eliminare la cartella `LibreHardwareMonitor_v0.9.6-mi50` e riavviare l'attivita' (`schtasks /end /tn Tab2Monitor` poi `/run`): torna v0.9.6.
 - Quando la PR sara' fusa e uscira' una release: sostituire la cartella con la release ufficiale e togliere `-mi50`.
 
+## 32. v0.3.7 server Windows — 2026-11-02 23:05 (sessione «Sorgente dati Windows»): robustezza dopo un guasto
+- **Guasto 2026-11-01/02:** server vivo ma «a metà»: `srv.lhm` vuoto (solo sensori da Windows), `srv.adb` vuoto, log fermo alle 17:10.
+  `Tab2Sensors.exe` (cartella `windows/lhm/LibreHardwareMonitor_v0.9.6-mi50`, non creata da questa sessione: il server sceglie la cartella LHM con il nome piu' alto)
+  era andato in crash il 01/11 alle 21:36 (0xc0000005 in `clr.dll`) e non era stato rilanciato. `schtasks /End` non ha chiuso il vecchio server
+  (processo elevato orfano, chiuso dall'utente come amministratore), quindi la copia nuova falliva con 10048.
+- **Causa probabile (NON provata):** il server scriveva il log direttamente su un file su Google Drive; una scrittura appesa blocca il thread che logga
+  (lettore sensori / adb). Alle 22:47 Drive segnalava molti eventi di errore.
+- v0.3.7: `log()` con coda (500) e thread scrittore: scrive su stdout (log del supervisore su Drive) e su `%LOCALAPPDATA%\Tab2Monitor\server.log` (fuori da Drive, ruotato a 1 MB);
+  se il lettore sensori e' vivo ma muto da 60 s viene chiuso e rilanciato; `srv.sensors` = `{age_s, restarts}`, `srv.logq`.
+- ✅ In servizio e verificato: sensori da `lib`, `age_s` 1, ventole (Fan "MI 50" in curva). ⏳ Non provato dal vivo il controllo "muto da 60 s" ne' un nuovo crash di Tab2Sensors.
+- ⏳ Causa del crash di Tab2Sensors (0xc0000005 nella build `-mi50`) non indagata.
+- Se `schtasks /End` lascia un server orfano: Esegui come amministratore `Stop-Process -Id <PID del python.exe vecchio> -Force`; la copia nuova parte da sola entro 10 s.
+- Rollback: `git rm` del file v0.3.7 e riavvio del servizio (torna la v0.3.6).
+
 ## 31. v0.3.6 server Windows + /config v0.1.7 — 2026-10-29 (sessione «Sorgente dati Windows»)
 - Segnalazione utente: in `/config` la tendina "automatico" accanto alla ventola non si capiva. E' solo **visualizzazione** (quale temperatura
   mostrare sul tablet accanto alla ventola); la temperatura che **pilota** la ventola e' "curva su" nella riga "Controllo".
