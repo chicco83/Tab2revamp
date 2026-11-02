@@ -14,6 +14,18 @@ Versione documento: v0.1.14 — 2026-10-22 01:35 (ora del PC)
 - **Rollback:** eliminare la cartella `LibreHardwareMonitor_v0.9.6-mi50` e riavviare l'attivita' (`schtasks /end /tn Tab2Monitor` poi `/run`): torna v0.9.6.
 - Quando la PR sara' fusa e uscira' una release: sostituire la cartella con la release ufficiale e togliere `-mi50`.
 
+## 33. Indagine sul crash di Tab2Sensors — 2026-11-02 23:10 (sessione «Sorgente dati Windows»)
+- **Crash registrati da Windows (Application log, minidump in `%LOCALAPPDATA%\CrashDumps`):** 2026-10-26 22:59 (build LHM v0.9.6, exe v0.1.0): `0xc00000fd` stack overflow in `clr.dll`;
+  2026-11-01 21:36 (build `-mi50`, exe v0.2.0, dopo 4 h 27 min di esecuzione): `0xc0000005` lettura all'indirizzo `0x4000000` in `clr.dll+0x185a9`, thread principale.
+- **Evidenze dai dump** (analizzati con `windows/agent/sensors/minidump_lettore_v0.1.0_20261102-2310.py`): in entrambi l'errore e' DENTRO il runtime .NET (frame `clr.dll` e `mscorlib.ni.dll`, nessun frame di LHM
+  sul thread in errore); l'unico modulo nativo di hardware caricato e' `atiadlxx.dll` (AMD ADL, usata da LHM per le GPU); un indirizzo non valido letto dal CLR e uno stack overflow nel CLR sono
+  compatibili con memoria gestita danneggiata, ma **la causa esatta non e' stata trovata**: mancano i simboli di `clr.dll` e un dump completo. Nessun evento di sistema vicino (nessun reset/TDR della GPU).
+  Non e' specifico della build `-mi50` (il primo crash e' della v0.9.6) ne' del codice dei comandi ventola (il primo crash e' della v0.1.0 di Tab2Sensors, senza comandi).
+- ✅ **Provato dal vivo (prima solo nel codice):** kill del figlio → rilancio dopo 10 s con dati di nuovo disponibili (11 s); figlio sospeso (bloccato) → il controllo «muto da 60 s» lo chiude e lo rilancia (76 s in totale, dati dopo 2 s).
+- ⏳ **Rischio ragionato, NON provato:** se Tab2Sensors muore mentre una ventola e' in modo software, la ventola resta all'ultima percentuale (fino al rilancio, ~12 s) e il nuovo processo potrebbe
+  considerare quel valore come «predefinito» per il ritorno al BIOS. Da verificare con un crash vero (ventola di test, a mano).
+- Decisione: nessun riavvio preventivo periodico di Tab2Sensors (non c'e' una scadenza nota: 4 h 27 min e un tempo non rilevato); si lascia il rilancio automatico e si guardano `srv.sensors.restarts` e i nuovi minidump.
+
 ## 32. v0.3.7 server Windows — 2026-11-02 23:05 (sessione «Sorgente dati Windows»): robustezza dopo un guasto
 - **Guasto 2026-11-01/02:** server vivo ma «a metà»: `srv.lhm` vuoto (solo sensori da Windows), `srv.adb` vuoto, log fermo alle 17:10.
   `Tab2Sensors.exe` (cartella `windows/lhm/LibreHardwareMonitor_v0.9.6-mi50`, non creata da questa sessione: il server sceglie la cartella LHM con il nome piu' alto)
