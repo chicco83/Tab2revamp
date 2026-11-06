@@ -240,5 +240,6 @@ Con `-home` l'app diventa anche la schermata Home (kiosk); `-nohome` la toglie.
   vale Q-Fan), *fissa* (%), *curva* (temperatura + punti `gradi:%`, es. `40:25, 60:45, 75:80, 85:100`), **Salva**. Minimo 20%;
   100% se la temperatura non si legge o la CPU supera 90 °C; se il server si ferma le ventole tornano al BIOS. Per non usare il
   controllo basta lasciare tutto su *BIOS*. Dopo aver ricompilato Tab2Sensors serve il riavvio del servizio.
+- Scheda senza ventola propria (MI50): impostare il suo header a piena velocità nel BIOS. A server fermo, o prima che parta, le ventole seguono il BIOS.
 - adb via Wi‑Fi: il server rifà `adb connect <IP>:5555` da solo (IP in `/config` → "IP dei tablet"). Stato in
   `/api/metrics` → `srv.adb`. Se compare `rete: unauthorized` accettare la richiesta sul tablet.

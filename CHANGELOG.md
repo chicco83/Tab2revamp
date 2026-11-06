@@ -14,6 +14,20 @@ Versione documento: v0.1.14 — 2026-10-22 01:35 (ora del PC)
 - **Rollback:** eliminare la cartella `LibreHardwareMonitor_v0.9.6-mi50` e riavviare l'attivita' (`schtasks /end /tn Tab2Monitor` poi `/run`): torna v0.9.6.
 - Quando la PR sara' fusa e uscira' una release: sostituire la cartella con la release ufficiale e togliere `-mi50`.
 
+## 35. v0.3.8 – v0.4.0 server Windows, /config v0.2.0, Tab2Sensors v0.2.1 — 2026-11-06 (sessione «Sorgente dati Windows»)
+- **Incidente:** la MI50 (passiva, ventola sull'header Fan #4 della scheda madre) si e' surriscaldata con il server fermo: la ventola tornava alla curva Q-Fan, che non conosce la temperatura della scheda.
+  Scheda disattivata in Gestione dispositivi (errore 22); ⏳ riattivazione dell'utente. Il design «server fermo = BIOS» (voce 28) non proteggeva una scheda passiva.
+- ✅ **Soluzione adottata (utente):** header della ventola MI50 a piena velocita' nel BIOS: server fermo o non ancora partito → 100%. Verificato: dopo un ritorno al BIOS il registro di Fan #4 e' 100% (`sw` false).
+- **Segnalazione «tutte su Temperature #1», due cause:** (1) difetto di `/config` da v0.1.4: se la temperatura salvata non e' nell'elenco, o non c'e', il browser seleziona la prima voce e Salva la scrive;
+  (2) gli id delle GPU cambiano tra gli avvii (`/gpu-amd/5`, `/gpu-amd/7`, `win/<luid>`). Nel file c'erano 5 ventole in `bios` con il valore predefinito (nessun effetto sulle ventole): tolte. Backup: `scratchpad/fan_config_prima_v0.3.8.json`.
+- **v0.3.8:** `fan_ctl[].ref` e `map_ref{}` = «hardware|sensore»: si cerca per nome e l'id si aggiorna da solo; scheda assente → sensore perso, mai un'altra scheda con lo stesso id. `fans[].ctl.lost` = curva senza temperatura (ventola al 100%). Curva senza temperatura = `bios`.
+  `/config`: temperatura mancante mostrata come «non disponibile» e conservata; voce iniziale «- scegli -». ✅ Logica provata (id cambiato, scheda assente, solo Windows) e abbinamenti migrati dal vivo.
+- **v0.3.9 (ritirata):** FAILSAFE: a server fermo canale in manuale al 100%. Il valore resta davvero (✅ provato su Fan #6: 50% → 100% a server fermo), ma il Tab2Sensors rilanciato lo salva come «default»:
+  il ritorno a `bios` resta al 100% fino al riavvio del PC. E' il rischio ⏳ della voce 33, ora **provato**: vale anche per un crash di Tab2Sensors con una ventola controllata.
+- **v0.4.0:** FAILSAFE disattivato (`FAN_FAILSAFE_PCT = None`), comando lasciato in Tab2Sensors v0.2.1. Decisione: basta il BIOS a piena velocita'; niente scritture dirette nei registri del chip.
+- ⏳ Fan #6 resta al 100% fino al prossimo riavvio del PC, per la prova qui sopra (poi torna a Q-Fan). ⏳ Curva di Fan #4 oggi su «GPU Hot Spot» della RX 9070 XT: riattivata la MI50, va riscelta in `/config`.
+- Rollback: `git rm` dei file server v0.3.8–v0.4.0 e pagine v0.1.8–v0.2.0, riavvio del servizio; la configurazione precedente e' nel backup sopra.
+
 ## 34. Finestra cmd vuota che compare e scompare — 2026-11-03 00:00 (sessione «Sorgente dati Windows»)
 - Segnalazione utente: ogni tanto compare un cmd vuoto che sparisce. Due ascolti: 25 min su tutti i nuovi `cmd/conhost/powershell/...` (con catena dei genitori) e 12 min sulle sole finestre di console **visibili**.
 - Legato al progetto: ogni 60 s il server lancia `adb connect` verso il tablet spento → un `conhost.exe` (catena `adb <= python <= pythonw`). Provato con lo stesso flag `CREATE_NO_WINDOW`: **nessuna finestra visibile**.

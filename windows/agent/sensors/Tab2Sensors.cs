@@ -1,6 +1,12 @@
 // =============================================================================
 // Tab2Sensors - lettore sensori per il server Tab2Monitor
-// Versione: v0.2.0 - 2026-10-28 (ora locale)
+// Versione: v0.2.1 - 2026-11-06 09:45 (ora locale)
+// v0.2.1: FAILSAFE <id> <pct>: valore da lasciare sul canale se il server si ferma. Dopo il
+//         surriscaldamento della MI50 (scheda passiva, ventola su header della scheda madre,
+//         server fermo -> curva Q-Fan che non conosce la sua temperatura) a stdin chiuso e col
+//         watchdog i canali con FAILSAFE restano in manuale a quel valore, e si esce SENZA
+//         pc.Close() (che rimetterebbe il BIOS): il registro del chip tiene il valore fino al
+//         riavvio del PC o al ritorno del server. Canali senza FAILSAFE: BIOS, come prima.
 // v0.2.0: CONTROLLO VENTOLE. Comandi su stdin, una riga ciascuno:
 //           SET <SensorId del controllo> <percentuale 0-100>
 //           AUTO <SensorId del controllo>      (torna alla curva del BIOS)
@@ -42,6 +48,7 @@ class Tab2Sensors
     static readonly ConcurrentQueue<string> Cmds = new ConcurrentQueue<string>();
     static readonly Dictionary<string, IControl> Controls = new Dictionary<string, IControl>();
     static readonly HashSet<string> Owned = new HashSet<string>();   // controlli messi in Software da noi
+    static readonly Dictionary<string, float> Failsafe = new Dictionary<string, float>();   // v0.2.1
     static DateTime lastSet = DateTime.UtcNow;
     static volatile bool stdinClosed;
     static Computer pc;
@@ -70,18 +77,19 @@ class Tab2Sensors
         });
         watcher.IsBackground = true;
         watcher.Start();
-        AppDomain.CurrentDomain.ProcessExit += (o, e) => RestoreAll();
+        AppDomain.CurrentDomain.ProcessExit += (o, e) => SafeStop();
         DateTime nextOut = DateTime.UtcNow;
         while (true)
         {
             // --- comandi e sicurezze (ogni 100 ms) ---
-            if (stdinClosed) { RestoreAll(); try { pc.Close(); } catch { } return; }
+            // 2026-10-28 v0.2.0 (sostituito): if (stdinClosed) { RestoreAll(); try { pc.Close(); } catch { } return; }
+            if (stdinClosed) { if (!SafeStop()) { try { pc.Close(); } catch { } } return; }
             string cmd;
             while (Cmds.TryDequeue(out cmd)) Exec(cmd);
             if (Owned.Count > 0 && (DateTime.UtcNow - lastSet).TotalSeconds > WATCHDOG_S)
             {
-                Console.Error.WriteLine("watchdog: nessun comando da " + WATCHDOG_S + " s, ventole al BIOS");
-                RestoreAll();
+                Console.Error.WriteLine("watchdog: nessun comando da " + WATCHDOG_S + " s");
+                SafeStop();
             }
             if (DateTime.UtcNow < nextOut) { Thread.Sleep(100); continue; }
             nextOut = DateTime.UtcNow.AddMilliseconds(ms);
@@ -98,7 +106,7 @@ class Tab2Sensors
             }
             sb.Append("]}]}");
             try { Console.Out.WriteLine(sb.ToString()); Console.Out.Flush(); }
-            catch { RestoreAll(); return; }         // pipe chiusa: il server e' terminato
+            catch { SafeStop(); return; }           // pipe chiusa: il server e' terminato
             // 2026-10-22 v0.1.0 (sostituito): Thread.Sleep(ms);
         }
     }
@@ -113,7 +121,12 @@ class Tab2Sensors
             if (p[0] == "AUTOALL") { RestoreAll(); return; }
             IControl c;
             if (p.Length < 2 || !Controls.TryGetValue(p[1], out c)) return;
-            if (p[0] == "SET" && p.Length >= 3)
+            if (p[0] == "FAILSAFE" && p.Length >= 3)
+            {
+                float f;
+                if (float.TryParse(p[2], NumberStyles.Float, Inv, out f)) Failsafe[p[1]] = f;
+            }
+            else if (p[0] == "SET" && p.Length >= 3)
             {
                 float v;
                 if (!float.TryParse(p[2], NumberStyles.Float, Inv, out v)) return;
@@ -126,9 +139,34 @@ class Tab2Sensors
             {
                 c.SetDefault();
                 Owned.Remove(p[1]);
+                Failsafe.Remove(p[1]);
             }
         }
         catch (Exception e) { Console.Error.WriteLine("comando '" + line + "': " + e.Message); }
+    }
+
+    // v0.2.1: server fermo: canali con FAILSAFE al loro valore, gli altri al BIOS.
+    // true = almeno un canale tenuto in manuale (allora niente pc.Close()).
+    static bool SafeStop()
+    {
+        bool held = false;
+        lock (Owned)
+        {
+            foreach (var id in new List<string>(Owned))
+            {
+                IControl c;
+                float f;
+                if (!Controls.TryGetValue(id, out c)) continue;
+                try
+                {
+                    if (Failsafe.TryGetValue(id, out f)) { c.SetSoftware(f); held = true; }
+                    else c.SetDefault();
+                }
+                catch { }
+            }
+            Owned.Clear();
+        }
+        return held;
     }
 
     static void RestoreAll()
