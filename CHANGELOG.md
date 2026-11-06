@@ -33,7 +33,8 @@ Versione documento: v0.1.14 — 2026-10-22 01:35 (ora del PC)
 - Legato al progetto: ogni 60 s il server lancia `adb connect` verso il tablet spento → un `conhost.exe` (catena `adb <= python <= pythonw`). Provato con lo stesso flag `CREATE_NO_WINDOW`: **nessuna finestra visibile**.
   Tutte le chiamate a programmi del progetto (adb, Tab2Sensors, server dal supervisore) usano `CREATE_NO_WINDOW`.
 - Non nostri: Unsloth Studio lancia ogni 90 s `powershell … Get-CimInstance Win32_VideoController` (+ `Get-Counter` GPU); l'app Claude apre `cmd.exe /d /s /c` per i server MCP, `chrome-native-host` e i comandi delle sessioni.
-- ⏳ **Non riprodotto:** in 12 min nessuna finestra visibile nuova (solo la PowerShell amministratore gia' aperta dall'utente). Causa NON accertata; escluso solo che sia adb del progetto.
+- ✅ **Causa trovata il 2026-11-06 (NON e' questo progetto):** l'ascolto ha catturato la finestra alle 09:19:41, stesso secondo dell'attivita' pianificata `\Claude - Import transcript cloud` (ogni ora, archivio sessioni): `powershell.exe -NoProfile -WindowStyle Hidden -File ...Import-CloudTranscripts_v1.1_2026-10-26_1630.ps1`. `-WindowStyle Hidden` nasconde la finestra solo dopo che PowerShell e' partito, quindi per un attimo si vede.
+- Nei primi 12 min di ascolto (2026-11-02) la finestra non era comparsa.
 - Per catturarlo: `python -I windows/agent/diagnostica/watch_finestre_console_v0.1.0_20261103-0000.py 120` (minuti) lasciato in un terminale; al primo lampo il log `watch_visible.log` accanto allo script riporta ora, finestra e processi appena creati.
 - Decisione: nessuna modifica al server (ridurre i tentativi `adb connect` a tablet spento non serve: non mostrano finestre).
  di Tab2Sensors — 2026-11-02 23:10 (sessione «Sorgente dati Windows»)
