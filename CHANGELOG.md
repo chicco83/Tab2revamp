@@ -14,6 +14,18 @@ Versione documento: v0.1.14 — 2026-10-22 01:35 (ora del PC)
 - **Rollback:** eliminare la cartella `LibreHardwareMonitor_v0.9.6-mi50` e riavviare l'attivita' (`schtasks /end /tn Tab2Monitor` poi `/run`): torna v0.9.6.
 - Quando la PR sara' fusa e uscira' una release: sostituire la cartella con la release ufficiale e togliere `-mi50`.
 
+## 37. Tablet senza dati dopo un cambio di indirizzi IP — 2026-11-12 16:20 (sessione «Sorgente dati Windows»)
+- **Sintomo:** dopo il riavvio del servizio il GT-P5100 non riceveva dati, anche dopo un riavvio del tablet.
+- **Causa (misurata):** il router (DHCP) ha cambiato gli indirizzi. Il **GT-P5100** e' passato da `192.168.1.234` a **`192.168.1.208`**
+  (adb: `model:Galaxy_Tab_2_3G device:espresso3g`; su `.234` ora risponde un altro dispositivo, TTL 255, MAC `48-E1-E9-1E-E4-D4`, porta 5555 rifiutata).
+  Il **PC** e' passato da `192.168.1.237` (URL Wi-Fi salvato nell'app) a **`192.168.1.239`**. L'app prova `127.0.0.1:8090` (adb reverse via USB) e poi l'URL Wi-Fi: nessuno dei due funzionava.
+  Sulla rete la porta 5555 era aperta anche su `.206` (Mi Box) e `.212` (SM-T530, l'altro tablet, collegato per identificarlo e poi scollegato).
+- **Correzioni:** `adb_ips` in `/config` da `["192.168.1.234"]` a `["192.168.1.208"]`; URL Wi-Fi dell'app impostato da PC con
+  `adb -s 192.168.1.208:5555 shell am start -n it.tab2revamp.monitor/.MainActivity --es url http://192.168.1.239:8090`.
+- ✅ Verificato: connessioni stabilite da `192.168.1.208` alla porta 8090; `srv.adb` = `{"192.168.1.208:5555": "rete ok"}`.
+- ⚠️ `adb reverse` su questo tablet via Wi-Fi risponde «more than one device/emulator» anche con `-s` (adb del PC con Android 4): la via USB/127.0.0.1 in Wi-Fi non e' disponibile.
+- ⏳ Consigliato (utente, sul router): prenotazione DHCP per PC (`192.168.1.239`) e tablet (`192.168.1.208`), altrimenti al prossimo cambio si ripete.
+
 ## 36. v0.4.1 server Windows + installer v0.2.1 — 2026-11-12 15:10 (sessione «Sorgente dati Windows»): servizio bloccato dalla CPU piena
 - **Sintomo (utente):** il servizio non parte anche se l'attività "Tab2Monitor" risulta in esecuzione.
 - **Misure 14:42:** server vivo (porta 8090 in ascolto) ma 0% di CPU in 5 s; HTTP in timeout; `Tab2Sensors` chiuso come "muto da 60 s" ogni 1–2 minuti
