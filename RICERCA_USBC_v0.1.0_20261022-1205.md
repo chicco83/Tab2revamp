@@ -277,3 +277,16 @@ collegata ai rossi (⚠️ dipende dallo SMB347S, vedi sopra), seconda strada:
 - **Contro / rischi:** la cella resta a 4,2 V fissi (invecchia e può gonfiarsi se è vecchia): usare una cella sana, ispezionarla spesso, non lasciare il
   tablet incustodito a lungo; la percentuale resta ~100 %; il limite 40–80 % non si ottiene (il kernel non ha un nodo per sospendere la carica, verificato).
 - **Decisione:** prima la prova con i fili rossi interrotti; solo se fallisce, la cella piccola. Il pacco da 7000 mAh resta intatto in entrambi i casi.
+
+### Esito della prova coi fili rossi interrotti (2026-11-12, riferito dall'utente) — ⛔ non funziona
+- L'utente ha isolato i due fili rossi del pacco (NTC blu–nero ancora collegato), caricabatterie USB sul 30 pin: **il tablet non si accende**.
+  (Un primo «si è acceso» era dovuto a un rosso ancora collegato; l'utente ha poi corretto.) Non misurato altro (tensioni, corrente del caricatore).
+- Conclusione: il caricatore interno (SMB347S) **non alimenta il sistema senza una cella collegata ai pin 1-2** (V_BATT), almeno in queste condizioni:
+  probabile che serva batteria presente/carica oltre una soglia per chiudere il percorso di alimentazione, oppure che il tablet non parta con il solo
+  ingresso USB. ⚠️ causa non verificata (nessuna misura su V_BATT con il caricatore collegato).
+- **Passi successivi, in ordine di semplicità:**
+  1. (opzionale, 5 minuti) con caricatore collegato misurare la tensione sul lato tablet dei rossi: se è ~0 V il FET Q700 non si chiude senza cella;
+     se è > 3 V ma il tablet non parte, il problema è un altro (PMIC/software).
+  2. **Modulo buck regolabile** (5 V → 3,9 V, ≥3 A) alimentato dal caricabatterie USB e collegato ai rossi: non serve il banco, sta in una scatolina,
+     il tablet vede V_BATT e il NTC (10 kΩ o il pacco). Il 30 pin resta scollegato.
+  3. **Cella piccola con PCM** al posto del pacco (vedi sopra): il caricatore la porta a 4,2 V e poi alimenta il sistema.
