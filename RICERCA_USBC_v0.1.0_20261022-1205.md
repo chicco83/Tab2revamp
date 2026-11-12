@@ -300,3 +300,14 @@ collegata ai rossi (⚠️ dipende dallo SMB347S, vedi sopra), seconda strada:
 - **Prova economica da fare (5 minuti, ⏳):** collegare un condensatore **470–1000 µF / ≥10 V** (polarità!) tra rossi (lato tablet) e neri, caricatore
   collegato, e misurare di nuovo: se la tensione diventa stabile (e scende verso 4,2 V) provare ad accendere. In seconda battuta un carico fittizio
   (resistenza ~100 Ω 0,5 W, ~45 mA) in parallelo. Se non basta: modulo buck 3,9 V sui rossi o cella piccola con PCM.
+
+### Misura dell'utente (2026-11-12): senza cella, col caricatore sul 30 pin, sui rossi lato tablet ~4,7 V che oscillano — ✅ misurato (valore a multimetro), causa ⚠️ ipotesi
+- 4,7 V è **sopra il massimo di una cella Li-ion (4,2 V; V_BATT del PMIC tollerato ~4,5 V circa, ⚠️ non verificato sul TWL6032)**. L'oscillazione fa pensare
+  che lo SMB347S, senza cella (batteria mancante), faccia un tentativo/ripresa continui («hiccup») e non regoli la tensione in modo stabile: ecco perché il tablet non parte.
+  Il tablet non va avviato con 4,7 V sui rossi: rischio per PMIC/fuel gauge.
+- **Decisione:** abbandonata la strada «caricatore del tablet senza cella». ⛔ (motivo: V_BATT instabile e troppo alta senza cella.)
+- **Strada scelta: modulo buck 5 V → 3,9 V sui rossi** (il 30 pin non si usa). Poiché il pacco resta collegato coi soli neri e il blu, il **NTC originale
+  è già visto dal tablet**: non serve nemmeno la resistenza da 10 kΩ. Lista: caricatore USB 5 V ≥2 A (o presa USB-A/C breakout), modulo buck regolabile
+  ≥3 A (tipo MP1584/XL4015, con regolazione), condensatore 470–1000 µF/10 V sull'uscita, fusibile 3 A, multimetro.
+  Collegamenti: ingresso del buck dal USB 5 V; uscita 3,9 V → lato **tablet** dei due fili rossi (rossi lato cella restano isolati), GND uscita → neri.
+  **Regolare e misurare 3,9 V a vuoto prima di collegare il tablet.** Alimentare il buck solo da un caricatore che regga 2 A.
