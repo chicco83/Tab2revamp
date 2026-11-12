@@ -265,3 +265,15 @@ caricabatterie sul 30 pin (cavo originale, caricatore Samsung 2 A, che il tablet
 - **Rollback:** riunire i due fili rossi (saldatura o nastro conduttivo) e controllare con il multimetro 3,7–4,2 V sui rossi–neri.
 - **Rischi:** i due capi dei fili rossi tagliati vanno isolati subito e mai toccare i neri o altri contatti della cella; non lasciare il tablet
   acceso con la cella scollegata senza controllare le temperature del tablet.
+
+### Chiarimento dell'utente (2026-11-12) e seconda strada, la cella piccola
+L'utente precisa l'obiettivo: il tablet deve solo **sentire una batteria presente, anche appena carica**, e **alimentarsi direttamente dal connettore**
+(caricabatterie USB sul 30 pin). La prova sopra (fili rossi interrotti, NTC visto) è la prima da fare. Se il tablet non parte senza una cella vera
+collegata ai rossi (⚠️ dipende dallo SMB347S, vedi sopra), seconda strada:
+- **Cella piccola come «batteria di presenza»:** al posto del pacco da 7000 mAh, una cella Li-ion/Li-Po di recupero da telefono (~500–1500 mAh)
+  **con la sua scheda di protezione (PCM)** e un **NTC/resistenza 10 kΩ** sul filo VF (pin 3). Il tablet la vede come batteria, il caricatore la porta a 4,2 V
+  in pochi minuti, poi alimenta il sistema dal caricabatterie (percorso di alimentazione) e la cella resta quasi ferma.
+- **Pro:** MAX17042 e PMIC vedono una batteria reale; piccolo tampone ai picchi; protezione PCM.
+- **Contro / rischi:** la cella resta a 4,2 V fissi (invecchia e può gonfiarsi se è vecchia): usare una cella sana, ispezionarla spesso, non lasciare il
+  tablet incustodito a lungo; la percentuale resta ~100 %; il limite 40–80 % non si ottiene (il kernel non ha un nodo per sospendere la carica, verificato).
+- **Decisione:** prima la prova con i fili rossi interrotti; solo se fallisce, la cella piccola. Il pacco da 7000 mAh resta intatto in entrambi i casi.

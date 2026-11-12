@@ -276,6 +276,7 @@ Versione documento: v0.1.14 — 2026-10-22 01:35 (ora del PC)
 - 2026-11-12 (4): dallo schema, il tablet vede dal connettore batteria solo V_BATT e VF (NTC 10 kΩ); BAT_REMOVAL non passa dal connettore. Inganno = alimentazione sui rossi + 10 kΩ sul blu; da provare.
 - 2026-11-12 (5): valutata l'idea «due condensatori al posto delle celle con BMS e connettore originali»: scartata (i condensatori non sono una sorgente, il caricatore del tablet li farebbe ciclare, rischio sul taglio delle celle); si resta sulla prova a banco.
 - 2026-11-12 (6): richiesta dell'utente di evitare il banco: proposta prova col caricabatterie USB sul 30 pin e fili rossi del pacco interrotti (NTC visto, cella isolata). Esito dipende dallo SMB347S senza cella: da provare.
+- 2026-11-12 (7): chiarito l'obiettivo (il tablet deve sentire una batteria e alimentarsi dal connettore); aggiunta la seconda strada della cella piccola con PCM e 10 kΩ, da usare solo se la prova coi rossi interrotti fallisce.
 
 ## 17. (6) v0.1.16 — 2026-10-22 23:58 (sessione locale, verifica APK v0.9.6)
 - APK **v0.9.6 installata** sul GT-P5100 (via ADB Wi-Fi 192.168.1.234:5555) e **verificata con i dati reali**
