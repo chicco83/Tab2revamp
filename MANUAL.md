@@ -221,7 +221,7 @@ Con `-home` l'app diventa anche la schermata Home (kiosk); `-nohome` la toglie.
 ## Server Windows v0.2.0 (2026-10-22)
 - Avvio manuale: `windows/agent/start_tab2monitor_v0.2.0_20261022-0055.cmd` (tasto destro → Esegui come
   amministratore per CPU/scheda madre/ventole). `adb reverse` lo rifà il server da solo.
-- Avvio automatico all'accesso: doppio clic su `install_tab2monitor_service_v0.2.0_20261022-0055.cmd`
+- Avvio automatico all'accesso: doppio clic su `install_tab2monitor_service_v0.2.1_20261112-1510.cmd` (crea l'attività con priorità normale, 4)
   (UAC). Togliere: stesso .cmd con `-Remove`. Log: `windows/agent/logs/tab2monitor_service.log`.
 - Sensori: dopo un nuovo download di LHM in `windows/lhm/LibreHardwareMonitor_vX/` ricompilare
   `bash windows/agent/sensors/build_tab2sensors_v0.2.0_20261028-1200.sh`.
@@ -243,3 +243,12 @@ Con `-home` l'app diventa anche la schermata Home (kiosk); `-nohome` la toglie.
 - Scheda senza ventola propria (MI50): impostare il suo header a piena velocità nel BIOS. A server fermo, o prima che parta, le ventole seguono il BIOS.
 - adb via Wi‑Fi: il server rifà `adb connect <IP>:5555` da solo (IP in `/config` → "IP dei tablet"). Stato in
   `/api/metrics` → `srv.adb`. Se compare `rete: unauthorized` accettare la richiesta sul tablet.
+- Priorità del servizio: l'attività "Tab2Monitor" deve avere priorità 4 (normale). Con la 7 predefinita di Task Scheduler ("sotto la norma")
+  il server si blocca quando un altro programma occupa tutta la CPU. Controllo: `(Get-ScheduledTask -TaskName Tab2Monitor).Settings.Priority`.
+  Correzione su un'attività esistente (PowerShell come amministratore):
+  `$s=(Get-ScheduledTask -TaskName Tab2Monitor).Settings; $s.Priority=4; Set-ScheduledTask -TaskName Tab2Monitor -Settings $s`, poi
+  `schtasks /End /TN Tab2Monitor` e `schtasks /Run /TN Tab2Monitor`.
+
+## Storico modifiche (sezione server Windows)
+- 2026-11-12: installer `install_tab2monitor_service_v0.2.1_20261112-1510` al posto della v0.2.0 (2026-10-22). Prima: attività con la priorità
+  predefinita 7, sotto la norma. Ora: priorità 4. Perché: con Citrix Workspace al 100% su tutti i core il server non riceveva CPU e non rispondeva.

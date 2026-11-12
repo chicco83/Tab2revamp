@@ -14,6 +14,19 @@ Versione documento: v0.1.14 — 2026-10-22 01:35 (ora del PC)
 - **Rollback:** eliminare la cartella `LibreHardwareMonitor_v0.9.6-mi50` e riavviare l'attivita' (`schtasks /end /tn Tab2Monitor` poi `/run`): torna v0.9.6.
 - Quando la PR sara' fusa e uscira' una release: sostituire la cartella con la release ufficiale e togliere `-mi50`.
 
+## 36. v0.4.1 server Windows + installer v0.2.1 — 2026-11-12 15:10 (sessione «Sorgente dati Windows»): servizio bloccato dalla CPU piena
+- **Sintomo (utente):** il servizio non parte anche se l'attività "Tab2Monitor" risulta in esecuzione.
+- **Misure 14:42:** server vivo (porta 8090 in ascolto) ma 0% di CPU in 5 s; HTTP in timeout; `Tab2Sensors` chiuso come "muto da 60 s" ogni 1–2 minuti
+  e ripartito con 9 MB di memoria invece di 59 (non finiva nemmeno di caricare); la scansione dei log di Claude Code ha impiegato 3215 s (di solito 1,5 s);
+  il server, avviato alle 13:08, ha scritto la prima riga di log alle 13:22. Google Drive risponde normalmente (letture in 0,5 s).
+- **Causa (misurata):** Citrix Workspace `wfcrun32.exe` usa 1202% di un core, cioè tutti i 12 thread (177969 s di CPU dall'avvio delle 09:43), a priorità normale (8).
+  Task Scheduler avvia supervisore e server con la priorità 7 predefinita = base 6, «sotto la norma»: non ricevono CPU.
+- **v0.4.1:** il server si mette «sopra la norma» appena arriva a `main()` e lancia `Tab2Sensors` con `ABOVE_NORMAL_PRIORITY_CLASS`. Consuma circa 5% di un core.
+  Da solo **non basta**: a CPU satura Python impiega oltre 10 minuti a partire, prima di arrivare a quella riga (provato: server avviato alle 14:58, ancora a priorità 6 e senza risposta alle 15:08).
+- **Installer v0.2.1:** `-Priority 4` (normale). ⏳ Sull'attività esistente la priorità va cambiata a mano come amministratore (comando nel MANUAL); da utente normale Windows nega la modifica.
+- ⏳ Non verificato: v0.4.1 in esecuzione con la priorità corretta (dipende dal passo sopra). Il carico di Citrix non dipende da questo progetto.
+- Rollback: `git rm windows/agent/tab2monitor_server_v0.4.1_20261112-1500.py` e riavvio del servizio (torna la v0.4.0); attività: `$s.Priority=7`.
+
 ## 35. v0.3.8 – v0.4.0 server Windows, /config v0.2.0, Tab2Sensors v0.2.1 — 2026-11-06 (sessione «Sorgente dati Windows»)
 - **Incidente:** la MI50 (passiva, ventola sull'header Fan #4 della scheda madre) si e' surriscaldata con il server fermo: la ventola tornava alla curva Q-Fan, che non conosce la temperatura della scheda.
   Scheda disattivata in Gestione dispositivi (errore 22); ⏳ riattivazione dell'utente. Il design «server fermo = BIOS» (voce 28) non proteggeva una scheda passiva.
