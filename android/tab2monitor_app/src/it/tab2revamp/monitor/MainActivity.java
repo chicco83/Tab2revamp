@@ -1,6 +1,7 @@
 // =============================================================================
 // Tab2Monitor - MainActivity + thread di polling
-// Versione: v0.11.0 - 2026-10-30 09:00
+// Versione: v0.11.1 - 2026-11-12 10:00
+//   v0.11.1: scartata la temperatura 'GPU VR VDDC' (MI50): il box tagliava la riga Hot Spot
 //   v0.11.0: tolti gpu_busy_pct / gpu_busy_sec (pagina GPU non piu' separata)
 //   v0.10.1: procs_top (server v0.3.5): top 5 per RAM, per GPU e per I/O oltre a quello per CPU
 //   v0.10.0: cpu.mhz_lo/mhz_hi (scala del gauge frequenza); claude_plan.accounts[] (tutti gli account)
@@ -474,7 +475,11 @@ public class MainActivity extends Activity {
         static boolean isTemp(String n) {                  // v0.4.1
             String l = n.toLowerCase();
             // anche "Warning/Critical Temperature" degli SSD NVMe: soglie, non misure
-            return !(l.contains("limit") || l.contains("resolution") || l.startsWith("warning") || l.startsWith("critical"));
+            // v0.11.1: anche "GPU VR VDDC" (regolatore di tensione della MI50), tolta su richiesta utente:
+            // occupava la terza riga del box e l'Hot Spot (quarta) restava fuori.
+            // (v0.4.1-v0.11.0: return !(limit || resolution || warning || critical);)
+            return !(l.contains("limit") || l.contains("resolution") || l.startsWith("warning") || l.startsWith("critical")
+                    || l.contains("vr vddc"));
         }
 
         static float f(JSONObject o, String k) { return o == null ? Float.NaN : (float) o.optDouble(k); }

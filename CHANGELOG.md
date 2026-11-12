@@ -14,6 +14,13 @@ Versione documento: v0.1.14 — 2026-10-22 01:35 (ora del PC)
 - **Rollback:** eliminare la cartella `LibreHardwareMonitor_v0.9.6-mi50` e riavviare l'attivita' (`schtasks /end /tn Tab2Monitor` poi `/run`): torna v0.9.6.
 - Quando la PR sara' fusa e uscira' una release: sostituire la cartella con la release ufficiale e togliere `-mi50`.
 
+## 38. APK v0.11.1 — 2026-11-12 17:25: tolta la temperatura «GPU VR VDDC» della MI50
+- **Richiesta utente:** sul tablet non si vedeva l'Hot Spot della MI50 (Radeon Pro VII); togliere «GPU VR VDDC».
+- **Causa:** il server manda 4 temperature per la MI50 (Core, Memory, VR VDDC, Hot Spot); il riquadro della GPU ha posto per 3 righe, quindi l'Hot Spot (quarta) restava fuori.
+- **Modifica:** `MainActivity.isTemp()` scarta anche i nomi che contengono `vr vddc` (prima scartava solo limit / resolution / warning / critical). Script di build `build_tab2monitor_v0.11.1_20261112-1000.sh` (VERSION_CODE 26).
+- ✅ Verificato con screenshot sul GT-P5100 (ora `192.168.1.208`): GPU 2 mostra GPU Core, GPU Memory, GPU Hot Spot.
+- **Rollback:** reinstallare `dist/Tab2Monitor_v0.11.0.apk` oppure `git checkout 07a6c10 -- android/tab2monitor_app/src/it/tab2revamp/monitor/MainActivity.java` e ricompilare con lo script v0.11.0.
+
 ## 37. Tablet senza dati dopo un cambio di indirizzi IP — 2026-11-12 16:20 (sessione «Sorgente dati Windows»)
 - **Sintomo:** dopo il riavvio del servizio il GT-P5100 non riceveva dati, anche dopo un riavvio del tablet.
 - **Causa (misurata):** il router (DHCP) ha cambiato gli indirizzi. Il **GT-P5100** e' passato da `192.168.1.234` a **`192.168.1.208`**
