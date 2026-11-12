@@ -273,6 +273,7 @@ Versione documento: v0.1.14 — 2026-10-22 01:35 (ora del PC)
 - 2026-11-12: l'utente descrive il contatto batteria (5 fili: 2 rossi, 2 neri, 1 blu; sigla GB/T 18287). Corrisponde a BTC700 (rossi V_BATT, blu VF, neri GND); GB/T 18287 è una norma, non un modello. VF da misurare.
 - 2026-11-12 (2): misurato dall'utente: batteria SP3676B1A, 3,7 V, blu–nero 9,83 kΩ che scende col calore = NTC 10 kΩ. Per la prova senza batteria: resistenza 10 kΩ 1% tra VF e massa. Prova a banco ancora da fare.
 - 2026-11-12 (3): aggiunti alla nota lista componenti, schema e sequenza per la prova a banco senza batteria (3,9 V, limite 0,5 A→2 A, 10 kΩ sul blu); non eseguita.
+- 2026-11-12 (4): dallo schema, il tablet vede dal connettore batteria solo V_BATT e VF (NTC 10 kΩ); BAT_REMOVAL non passa dal connettore. Inganno = alimentazione sui rossi + 10 kΩ sul blu; da provare.
 
 ## 17. (6) v0.1.16 — 2026-10-22 23:58 (sessione locale, verifica APK v0.9.6)
 - APK **v0.9.6 installata** sul GT-P5100 (via ADB Wi-Fi 192.168.1.234:5555) e **verificata con i dati reali**

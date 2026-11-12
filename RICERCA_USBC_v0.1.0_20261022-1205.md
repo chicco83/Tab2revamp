@@ -214,3 +214,12 @@ schema BTC700; fili rossi / blu / neri), con il blu sostituito da una resistenza
 - Il MAX17042 senza cella può dare percentuale incoerente: non è un blocco per la prova, ma per l'uso reale col monitor va valutato.
 - Senza batteria il tablet si spegne **subito** se l'alimentazione cade: per l'uso reale servirebbe un alimentatore stabile (e, volendo, un UPS).
 - Rollback: rimettere la batteria originale (nessuna modifica permanente al tablet con questa prova).
+
+## Come far credere al tablet che la batteria ci sia (2026-11-12, dallo schema scaricato di nuovo in `scratchpad/p5100_docs/`, non committato)
+- **Cosa legge il tablet dal connettore batteria:** solo V_BATT (pin 1-2, alimentazione di tutto il sistema, vista anche dal MAX17042 e dal PMIC) e
+  **VF** (pin 3): VF va al GPADC_IN0 del TWL6032 (via R769) e all'AIN del MAX17042 (via R729) e serve a misurare la temperatura/presenza
+  del pacco tramite il NTC da 10 kΩ misurato. Nessun altro filo (niente linea dati), i pin 6-9 sono NC.
+- **Inganno:** alimentare i pin 1-2 a ~3,9 V + 10 kΩ 1 % tra pin 3 e GND (pin 4-5). Il NTC a ~25 °C vale 9,83 kΩ: 10 kΩ = «temperatura normale».
+- **BAT_REMOVAL:** nello schema è una rete tra il pin BATREMOVAL del TWL6032 (J10) e il processore (pagine 6-7); **non passa dal connettore
+  batteria** e non ha componenti sul percorso → il rilevamento della rimozione è probabilmente interno al PMIC (da VBAT/GPADC), non da un pin dedicato
+  sul connettore. ⚠️ Inferenza dallo schema, non dal datasheet del TWL6032: si conferma con la prova.
