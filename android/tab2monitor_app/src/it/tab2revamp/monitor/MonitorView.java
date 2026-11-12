@@ -1,6 +1,7 @@
 // =============================================================================
 // Tab2Monitor - MonitorView (disegno su Canvas)
-// Versione: v0.11.0 - 2026-10-30 09:00
+// Versione: v0.11.2 - 2026-11-12 18:00
+//   v0.11.2: grafico che scorre (come quello della RAM) tra il nome e il valore di ogni temperatura (GPU e box sensori)
 //   v0.11.0: GPU nella pagina 1 (sotto la RAM), Claude nella pagina 2 (con i sensori); tolta la pagina GPU
 //           'piu' lunga se sotto carico' e le sue due opzioni (gpu_busy_pct / gpu_busy_sec)
 //   v0.10.3: gauge della frequenza CPU con la stessa grafica e dimensione dell'anello della temperatura
@@ -213,6 +214,9 @@ public class MonitorView extends View {
     private String[] urls = new String[0];
     private long lastOk;                     // uptimeMillis dell'ultimo campione valido
     private final float[] hCpu = new float[HIST], hRam = new float[HIST];
+    // v0.11.2: storico di ogni temperatura, chiave = "G<nome GPU>|<sensore>" o "B<titolo box>|<sensore>";
+    // stessi indici di hCpu/hRam (0..hLen-1), NaN dove il sensore mancava.
+    private final java.util.HashMap<String, float[]> tHist = new java.util.HashMap<String, float[]>();
     private int hLen;
     private float u = 1;                     // unita' di misura (altezza/800)
 
@@ -386,12 +390,14 @@ public class MonitorView extends View {
             animStart = SystemClock.uptimeMillis();
             tabletLoad();                                    // v0.9.0
             m = nm; src = from; lastOk = SystemClock.uptimeMillis();
+            boolean shift = hLen == HIST;                    // v0.11.2
             if (hLen == HIST) {
                 System.arraycopy(hCpu, 1, hCpu, 0, HIST - 1);
                 System.arraycopy(hRam, 1, hRam, 0, HIST - 1);
                 hLen--;
             }
             hCpu[hLen] = nm.cpu; hRam[hLen] = nm.ram; hLen++;
+            tHistAdd(nm, shift);                             // v0.11.2
         }
         invalidate();
     }
@@ -1040,6 +1046,66 @@ public class MonitorView extends View {
         }
     }
 
+    // v0.11.2: aggiunge un campione allo storico di ogni temperatura (GPU e box sensori)
+    private void tHistAdd(MainActivity.Metrics nm, boolean shift) {
+        int k = hLen - 1;
+        for (float[] a : tHist.values()) {
+            if (shift) System.arraycopy(a, 1, a, 0, HIST - 1);
+            a[k] = Float.NaN;
+        }
+        for (MainActivity.Metrics.Gpu g : nm.gpus) tHistRows("G" + g.name, g, k);
+        for (MainActivity.Metrics.Box b : nm.boxes) tHistRows("B" + b.title, b, k);
+    }
+
+    private void tHistRows(String key, MainActivity.Metrics.Rows r, int k) {
+        for (int i = 0; i < r.lab.length; i++) {
+            if (r.fan[i]) continue;
+            String id = key + "|" + r.lab[i];
+            float[] a = tHist.get(id);
+            if (a == null) { a = new float[HIST]; java.util.Arrays.fill(a, Float.NaN); tHist.put(id, a); }
+            a[k] = r.val[i];
+        }
+    }
+
+    private static String rowsKey(MainActivity.Metrics.Rows r) {
+        if (r instanceof MainActivity.Metrics.Gpu) return "G" + ((MainActivity.Metrics.Gpu) r).name;
+        if (r instanceof MainActivity.Metrics.Box) return "B" + ((MainActivity.Metrics.Box) r).title;
+        return "";
+    }
+
+    // v0.11.2: mini-grafico di una temperatura. Scala automatica (min..max dei valori visibili,
+    // almeno 10 gradi), scorrimento continuo come spark(); si parte dal primo campione presente.
+    private void tSpark(Canvas cv, float[] a, float gx, float gy, float gw, float gh, int col) {
+        if (!dy() || a == null || hLen < 2) return;
+        int f = 0;
+        while (f < hLen && Float.isNaN(a[f])) f++;
+        if (hLen - f < 2 || Float.isNaN(a[hLen - 1])) return;
+        float lo = Float.MAX_VALUE, hi = -Float.MAX_VALUE;
+        for (int i = f; i < hLen; i++) if (!Float.isNaN(a[i])) { lo = Math.min(lo, a[i]); hi = Math.max(hi, a[i]); }
+        if (hi - lo < 10) { float c = (hi + lo) / 2; lo = c - 5; hi = c + 5; }
+        cv.save();
+        cv.clipRect(gx, gy - 4 * u, gx + gw, gy + gh + 1);
+        path.rewind();
+        float x0 = 0, px = 0, shift = 1 - eLin, stepW = gw / (HIST - 1), prev = a[f];
+        boolean first = true;
+        for (int i = f; i < hLen; i++) {
+            float raw = Float.isNaN(a[i]) ? prev : a[i];
+            if (i == hLen - 1 && i > f) raw = lerp(prev, raw, eEase);
+            prev = Float.isNaN(a[i]) ? prev : a[i];
+            px = gx + (HIST - hLen + i + shift) * stepW;
+            float py = gy + gh - (raw - lo) * gh / (hi - lo);
+            if (first) { path.moveTo(px, py); x0 = px; first = false; } else path.lineTo(px, py);
+        }
+        line.setColor(col); line.setStrokeWidth(2 * u);
+        cv.drawPath(path, line);
+        path.lineTo(px, gy + gh); path.lineTo(x0, gy + gh); path.close();
+        fill.setShader(new LinearGradient(0, gy, 0, gy + gh, (col & 0x00ffffff) | 0x70000000,
+                col & 0x00ffffff, Shader.TileMode.CLAMP));
+        cv.drawPath(path, fill);
+        fill.setShader(null);
+        cv.restore();
+    }
+
     // Riga con icona a sinistra (etichetta spostata di 22u)
     private void rowIcon(Canvas cv, float x, float y, float w, String l, String v) {
         row(cv, x + 22 * u, y, w - 22 * u, l, v);
@@ -1340,7 +1406,13 @@ public class MonitorView extends View {
                 ry += 32 * u;
             } else {
                 thermo(cv, x + 14 * u, ry, r.val[i]);
-                rowIcon(cv, x, ry, w, r.lab[i], num1(r.val[i]) + " °C");
+                String v = num1(r.val[i]) + " °C";
+                rowIcon(cv, x, ry, w, r.lab[i], v);
+                // v0.11.2: grafico nello spazio tra nome e valore (colonna da meta' riquadro, o dopo il nome se piu' lungo)
+                text.setTextSize(17 * u);
+                float gx = Math.max(x + w * 0.45f, x + 34 * u + text.measureText(r.lab[i]) + 10 * u);
+                float ge = x + w - 12 * u - text.measureText("100.0 °C") - 10 * u;
+                if (ge - gx >= 30 * u) tSpark(cv, tHist.get(rowsKey(r) + "|" + r.lab[i]), gx, ry - 17 * u, ge - gx, 18 * u, accent);
                 ry += 28 * u;
             }
         }

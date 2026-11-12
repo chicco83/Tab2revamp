@@ -14,6 +14,15 @@ Versione documento: v0.1.14 — 2026-10-22 01:35 (ora del PC)
 - **Rollback:** eliminare la cartella `LibreHardwareMonitor_v0.9.6-mi50` e riavviare l'attivita' (`schtasks /end /tn Tab2Monitor` poi `/run`): torna v0.9.6.
 - Quando la PR sara' fusa e uscira' una release: sostituire la cartella con la release ufficiale e togliere `-mi50`.
 
+## 39. APK v0.11.2 — 2026-11-12 18:00: grafico che scorre accanto a ogni temperatura
+- **Richiesta utente:** nello spazio tra il nome della temperatura e il suo valore, un grafico che scorre come quello della RAM.
+- **Modifica (`MonitorView.java`):** storico per sensore `tHist` (chiave `G<nome GPU>|<sensore>` o `B<titolo box>|<sensore>`, 60 campioni come CPU/RAM, NaN dove il sensore mancava), riempito in `update()` da `tHistAdd()`.
+  Nuovo `tSpark()`: linea + area sfumata nel colore del riquadro, scorrimento continuo come `spark()`, ma scala **automatica** (min..max dei valori visibili, almeno 10 °C) perche' con 0..100 le temperature sembrerebbero piatte.
+  Disegnato in `sensorRows()` per le righe temperatura (riquadri GPU e box sensori della pagina 2): colonna da meta' riquadro (o dopo il nome se piu' lungo) fino a prima del valore; se lo spazio e' meno di 30u non si disegna. Le ventole non hanno grafico.
+- Build: `build_tab2monitor_v0.11.2_20261112-1800.sh` (VERSION_CODE 27).
+- ✅ Verificato con screenshot sul GT-P5100 (`192.168.1.208`): grafici presenti sulle righe Core / Memory / Hot Spot delle due GPU, che si riempiono da destra. ⏳ Box sensori della pagina 2 non ancora controllati a schermo.
+- **Rollback:** reinstallare `dist/Tab2Monitor_v0.11.1.apk` oppure `git checkout 7b5102a -- android/tab2monitor_app/src/it/tab2revamp/monitor/MonitorView.java` e ricompilare con lo script v0.11.1.
+
 ## 38. APK v0.11.1 — 2026-11-12 17:25: tolta la temperatura «GPU VR VDDC» della MI50
 - **Richiesta utente:** sul tablet non si vedeva l'Hot Spot della MI50 (Radeon Pro VII); togliere «GPU VR VDDC».
 - **Causa:** il server manda 4 temperature per la MI50 (Core, Memory, VR VDDC, Hot Spot); il riquadro della GPU ha posto per 3 righe, quindi l'Hot Spot (quarta) restava fuori.
