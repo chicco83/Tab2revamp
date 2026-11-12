@@ -396,3 +396,11 @@ Tablet in recovery, schermo acceso: **5,097 V, 0,680 A** (~3,4 W, 7,49 Ω di car
   Un cavo con contatti migliori dà più corrente: coerente con 0,53 → 0,68 A.
 - Cosa si può misurare per confermarlo (senza strumenti nuovi): tensione tra V_BUS e massa **sul lato tablet** a carico (sonda sui pin 7/8 e 1/2 del connettore del tablet a spina inserita: difficile) oppure
   provare cavi diversi e la pulizia dei contatti e vedere se la corrente sale ancora.
+
+### Ricerca di un cavo/caricatore migliore (2026-11-12, solo ricerca, nessun acquisto) — ⏳
+Trovati online (dati dai negozi, non da schede tecniche; ⚠️ la sezione dei fili è dichiarata solo dal venditore):
+- **Cavo originale Samsung ECC1DP0U**, 30 pin → USB-A, 1 m (rivenditori in Irlanda e Australia); altre inserzioni lo danno 3 m: scegliere **1 m** o meno.
+- **JuicEBitz «Super Core 20AWG Tip-Top»** 30 pin → USB-A (Regno Unito/desertcart), conduttori di rame stagnato (inserzione: 20*2C+28*2D); ne esiste anche uno da 0,5 m a 22 AWG.
+- **Cellonic** cavo 1 m (subtel) e **caricatore 5 V / 2 A con cavo 30 pin integrato da 1,2 m** (subtel): provare anche questo come caricatore completo per il Tab.
+- **Samsung ETA-P10JBEGSTA** (caricatore 2 A con cavo 30 pin staccabile, elencato da un rivenditore di ricambi) = l'alimentatore originale del tablet.
+- Criteri: cavo **corto** (≤1 m), fili di alimentazione **spessi**, spine del 30 pin con contatti puliti; uno stesso cavo non garantisce la corrente se il limite è sul connettore del tablet.
