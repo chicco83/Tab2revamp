@@ -433,3 +433,9 @@ scende in ~20 s fino a **−622 … −656 mA** (stabile, ultime 10 letture: −
 - Schermo spento nuovo cavo: +445 mA (vedi sopra). Differenza tra schermo spento e acceso ≈ 1,09 A (consumo dello schermo + app).
 - Quadro: l'ingresso è cresciuto (~0,53 → ~0,7 A + ancora un po' dal cavo), ma per pareggiare a schermo acceso servirebbe ~+0,65 A in più nella cella, cioè circa 1,2 A d'ingresso totali.
   Ipotesi: cavo ancora troppo resistivo; oppure ridurre il consumo (luminosità più bassa, meno risvegli).
+
+### Prova con luminosità ridotta (2026-11-12) — ✅ misurato
+Nuovo cavo, schermo acceso, luminosità abbassata da 226 a 110 (su 255), timeout schermo portato a 10 min durante la prova e poi ripristinato a 60 s, luminosità riportata a 226.
+`current_avg` si assesta a **+20 … +32 mA** (tensione 3,63–3,65 V) contro −640 mA a luminosità 226: la cella non si scarica più, ma nemmeno si ricarica (pareggio).
+Conclusione: la retroilluminazione pesa circa 0,65 A; con luminosità ~110 il tablet regge sul caricatore da 0,7 A. Per ricaricare serve luminosità più bassa o schermo spento.
+Nota: una prima misura a luminosità 110 era falsa (schermo spento per timeout, +443 mA): controllare sempre `dumpsys power | grep mWakefulness`.
