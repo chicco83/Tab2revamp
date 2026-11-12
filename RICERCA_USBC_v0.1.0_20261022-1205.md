@@ -425,3 +425,11 @@ Sei letture in 15 s da `/sys/class/power_supply/battery`: `current_avg` **+439, 
 - Confronto a schermo spento: vecchio cavo **+142…+212 mA** → nuovo cavo **~+445 mA**: la carica netta nella cella è **più che raddoppiata** cambiando solo il cavo.
   Conferma che il cavo/percorso di alimentazione è il fattore principale (ipotesi della resistenza serie).
 - Resta da vedere a schermo acceso (prima −850…−900 mA) e quale corrente d'ingresso dà il misuratore ora a schermo spento.
+
+### Lettura adb con il nuovo cavo, schermo acceso (2026-11-12) — ✅ misurato
+Schermo acceso via `input keyevent 224` (luminosità 226/255 dalla lettura del 22 ottobre), caricatore AC, nuovo cavo. `current_avg` è una media mobile: parte da +23 mA e
+scende in ~20 s fino a **−622 … −656 mA** (stabile, ultime 10 letture: −622, −632, −637, −634, −638, −638, −648, −656, −644, −652), tensione cella 3,45–3,50 V, capacità indicata ancora 1 %.
+- Confronto a schermo acceso: vecchio cavo **−850…−900 mA** → nuovo cavo **~−640 mA**: miglioramento di ~**230 mA**, ma la cella si **scarica ancora**.
+- Schermo spento nuovo cavo: +445 mA (vedi sopra). Differenza tra schermo spento e acceso ≈ 1,09 A (consumo dello schermo + app).
+- Quadro: l'ingresso è cresciuto (~0,53 → ~0,7 A + ancora un po' dal cavo), ma per pareggiare a schermo acceso servirebbe ~+0,65 A in più nella cella, cioè circa 1,2 A d'ingresso totali.
+  Ipotesi: cavo ancora troppo resistivo; oppure ridurre il consumo (luminosità più bassa, meno risvegli).

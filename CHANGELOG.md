@@ -286,6 +286,7 @@ Versione documento: v0.1.14 — 2026-10-22 01:35 (ora del PC)
 - 2026-11-12 (14): con un altro cavo 30 pin l'ingresso in recovery sale da 0,5 a 0,7 A: il cavo conta. Prossimo: cavo corto/spesso (20 AWG), pulizia contatti, poi D+/D− in corto.
 - 2026-11-12 (16): pulizia contatti con isopropilico: ancora 0,7 A. Registri SMB347 decodificati col driver upstream (carica rapida, 2,2 A / 1,8 A); ipotesi: resistenza serie del percorso (~1,2–1,5 Ω) fa ridurre l'assorbimento; cavo 20 AWG corto da provare.
 - 2026-11-12 (17): lettura adb col nuovo cavo a schermo spento: +445 mA in cella (prima +142…+212 mA): più che raddoppiata cambiando solo il cavo. Fuel gauge a 1 % dopo il riavvio con 3,74 V: incoerente.
+- 2026-11-12 (18): col nuovo cavo a schermo acceso la cella perde ~640 mA (prima 850–900): meglio di ~230 mA ma ancora in scarica; a schermo spento resta +445 mA.
 - 2026-11-12 (15): foto misuratore col nuovo cavo: 5,097 V e 0,680 A (in recovery); vecchio cavo 5,072 V e 0,529 A. Tensione lato caricatore stabile: sospetto contatto cattivo sul 30 pin (pin 7/8).
 - 2026-11-12 (9): misurati ~4,7 V instabili sui rossi (lato tablet) col caricatore collegato e senza cella: ipotesi hiccup del caricatore; da provare un condensatore 470-1000 µF (poi un carico fittizio) prima del buck.
 
