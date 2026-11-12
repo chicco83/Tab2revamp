@@ -24,7 +24,9 @@ Versione documento: v0.1.14 — 2026-10-22 01:35 (ora del PC)
 - **v0.4.1:** il server si mette «sopra la norma» appena arriva a `main()` e lancia `Tab2Sensors` con `ABOVE_NORMAL_PRIORITY_CLASS`. Consuma circa 5% di un core.
   Da solo **non basta**: a CPU satura Python impiega oltre 10 minuti a partire, prima di arrivare a quella riga (provato: server avviato alle 14:58, ancora a priorità 6 e senza risposta alle 15:08).
 - **Installer v0.2.1:** `-Priority 4` (normale). ⏳ Sull'attività esistente la priorità va cambiata a mano come amministratore (comando nel MANUAL); da utente normale Windows nega la modifica.
-- ⏳ Non verificato: v0.4.1 in esecuzione con la priorità corretta (dipende dal passo sopra). Il carico di Citrix non dipende da questo progetto.
+- ✅ Verificato 15:52 dopo il comando dell'utente (amministratore): attività a priorità 4; supervisore base 8, server e Tab2Sensors base 10 («sopra la norma»); HTTP 200 in 17–18 ms;
+  sensori da `lib` con età 0 s e 1 solo avvio di Tab2Sensors; scansione log di Claude Code in 2,0 s; ventola MI50 controllata. Citrix `wfcrun32` non era piu' in esecuzione: la prova sotto CPU satura non e' stata ripetuta.
+- ✅ Stesso giorno, attività `Claude - Import transcript cloud` (archivio sessioni, la finestra cmd vuota della voce 34) cambiata dall'utente come amministratore: ora `conhost.exe --headless powershell.exe …` (prima `powershell.exe -WindowStyle Hidden …`, che mostrava un lampo di finestra ogni ora). Backup della vecchia definizione: `scratchpad/attivita_import_transcript_prima.xml`. ⏳ Da confermare che all'esecuzione delle 16:19:40 non compaia la finestra.
 - Rollback: `git rm windows/agent/tab2monitor_server_v0.4.1_20261112-1500.py` e riavvio del servizio (torna la v0.4.0); attività: `$s.Priority=7`.
 
 ## 35. v0.3.8 – v0.4.0 server Windows, /config v0.2.0, Tab2Sensors v0.2.1 — 2026-11-06 (sessione «Sorgente dati Windows»)
