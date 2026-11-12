@@ -1,6 +1,7 @@
 // =============================================================================
 // Tab2Monitor - MonitorView (disegno su Canvas)
-// Versione: v0.11.3 - 2026-11-12 18:30
+// Versione: v0.11.4 - 2026-11-12 19:00
+//   v0.11.4: grafici delle temperature colorati punto per punto in base alla temperatura (blu-verde-giallo-rosso)
 //   v0.11.3: grafici delle temperature con l'ombra piena (linea nella parte alta, area piu' marcata)
 //   v0.11.2: grafico che scorre (come quello della RAM) tra il nome e il valore di ogni temperatura (GPU e box sensori)
 //   v0.11.0: GPU nella pagina 1 (sotto la RAM), Claude nella pagina 2 (con i sensori); tolta la pagina GPU
@@ -1092,6 +1093,8 @@ public class MonitorView extends View {
         path.rewind();
         float x0 = 0, px = 0, shift = 1 - eLin, stepW = gw / (HIST - 1), prev = a[f];
         boolean first = true;
+        int n = hLen - f;
+        float[] xs = new float[n]; int[] cl = new int[n], cf = new int[n];   // v0.11.4: colore per punto
         for (int i = f; i < hLen; i++) {
             float raw = Float.isNaN(a[i]) ? prev : a[i];
             if (i == hLen - 1 && i > f) raw = lerp(prev, raw, eEase);
@@ -1099,16 +1102,39 @@ public class MonitorView extends View {
             px = gx + (HIST - hLen + i + shift) * stepW;
             float py = gy + gh - (raw - lo) * gh / (hi - lo);
             if (first) { path.moveTo(px, py); x0 = px; first = false; } else path.lineTo(px, py);
+            xs[i - f] = px; cl[i - f] = tCol(raw); cf[i - f] = (cl[i - f] & 0x00ffffff) | 0x60000000;
         }
-        line.setColor(col); line.setStrokeWidth(2 * u);
+        // v0.11.4: sfumatura orizzontale che segue la temperatura di ogni punto (linea piena, area trasparente).
+        // (v0.11.3: linea nel colore del riquadro `col`; area con sfumatura verticale alfa 0x90 -> 0x18)
+        float span = Math.max(1, px - x0);
+        for (int k = 0; k < n; k++) xs[k] = Math.max(0, Math.min(1, (xs[k] - x0) / span));
+        for (int k = 1; k < n; k++) if (xs[k] < xs[k - 1]) xs[k] = xs[k - 1];
+        line.setShader(new LinearGradient(x0, 0, px, 0, cl, xs, Shader.TileMode.CLAMP));
+        line.setStrokeWidth(2 * u);
         cv.drawPath(path, line);
+        line.setShader(null);
         path.lineTo(px, gy + gh); path.lineTo(x0, gy + gh); path.close();
-        // v0.11.3: ombra piu' marcata (alfa 0x90 -> 0x18; era 0x70 -> 0x00)
-        fill.setShader(new LinearGradient(0, gy, 0, gy + gh, (col & 0x00ffffff) | 0x90000000,
-                (col & 0x00ffffff) | 0x18000000, Shader.TileMode.CLAMP));
+        fill.setShader(new LinearGradient(x0, 0, px, 0, cf, xs, Shader.TileMode.CLAMP));
         cv.drawPath(path, fill);
         fill.setShader(null);
         cv.restore();
+    }
+
+    // v0.11.4: colore continuo di una temperatura: <=35 blu, 55 verde, 70 giallo, >=85 rosso (interpolato)
+    private static final float[] TC_T = {35, 55, 70, 85};
+    private static final int[] TC_C = {BLUE, GREEN, YELLOW, RED};
+    private static int tCol(float c) {
+        if (Float.isNaN(c) || c <= TC_T[0]) return TC_C[0];
+        for (int i = 1; i < TC_T.length; i++)
+            if (c <= TC_T[i]) return mix(TC_C[i - 1], TC_C[i], (c - TC_T[i - 1]) / (TC_T[i] - TC_T[i - 1]));
+        return TC_C[TC_C.length - 1];
+    }
+
+    private static int mix(int a, int b, float t) {
+        int ar = (a >> 16) & 255, ag = (a >> 8) & 255, ab = a & 255;
+        int br = (b >> 16) & 255, bg = (b >> 8) & 255, bb = b & 255;
+        return 0xff000000 | (Math.round(ar + (br - ar) * t) << 16) | (Math.round(ag + (bg - ag) * t) << 8)
+                | Math.round(ab + (bb - ab) * t);
     }
 
     // Riga con icona a sinistra (etichetta spostata di 22u)

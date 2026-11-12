@@ -14,6 +14,15 @@ Versione documento: v0.1.14 — 2026-10-22 01:35 (ora del PC)
 - **Rollback:** eliminare la cartella `LibreHardwareMonitor_v0.9.6-mi50` e riavviare l'attivita' (`schtasks /end /tn Tab2Monitor` poi `/run`): torna v0.9.6.
 - Quando la PR sara' fusa e uscira' una release: sostituire la cartella con la release ufficiale e togliere `-mi50`.
 
+## 41. APK v0.11.4 — 2026-11-12 19:00: colore dei grafici delle temperature proporzionale alla temperatura
+- **Richiesta utente:** il colore del grafico deve cambiare nel tempo in proporzione alla temperatura.
+- **Modifica (`MonitorView.tSpark()`):** ogni punto ha il colore della sua temperatura; linea e area usano una sfumatura **orizzontale** che passa da un punto all'altro (linea piena, area con alfa 0x60).
+  Scala continua `tCol()`: <=35 °C blu, 55 verde, 70 giallo, >=85 rosso, interpolata in RGB (`mix()`).
+  Prima (v0.11.3): linea nel colore fisso del riquadro e area con sfumatura verticale alfa 0x90 -> 0x18.
+- Build `build_tab2monitor_v0.11.4_20261112-1900.sh` (VERSION_CODE 29).
+- ✅ Verificato con screenshot sul GT-P5100 (`192.168.1.208`): GPU Memory 68 °C giallo-verde, le altre (46-51 °C) verde-azzurro.
+- **Rollback:** reinstallare `dist/Tab2Monitor_v0.11.3.apk` oppure `git checkout 9824c7f -- android/tab2monitor_app/src/it/tab2revamp/monitor/MonitorView.java` e ricompilare con lo script v0.11.3.
+
 ## 40. APK v0.11.3 — 2026-11-12 18:30: ombra piena sotto i grafici delle temperature
 - **Segnalazione utente:** i grafici delle GPU avevano solo la linea, mentre quelli di CPU/RAM (e dei box della pagina 2) hanno l'ombra colorata sotto.
 - **Causa:** l'ombra c'era, ma in `tSpark()` la scala automatica lo..hi usava tutta l'altezza (18u): con temperature stabili la linea stava in basso e sotto restavano pochi pixel, con sfumatura che partiva da alfa 0x70 e arrivava a 0.
