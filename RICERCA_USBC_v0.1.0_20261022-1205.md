@@ -372,3 +372,10 @@ Risultato: **nessun bug di configurazione trovato nell'immagine LineageOS 14.1 (
   oppure una limitazione interna dello SMB347S (dello stato non decodificato). Non misurata la tensione sul lato tablet.
 - **Test decisivo, da fare (richiede il riavvio del tablet in recovery, ⏳ solo con conferma dell'utente):** in TWRP (dove non gira il driver Lineage)
   leggere con il misuratore USB la corrente a schermo acceso: ~1 A o più = problema software di Lineage; ~0,5 A anche lì = hardware/cavo/connettore.
+
+### Esito del test in recovery (2026-11-12, riferito dall'utente con misuratore USB) — ✅ misurato
+- In **TWRP** (senza driver Lineage) l'ingresso è ancora **~0,5 A**, uguale a Lineage.
+- Conclusione: **non è un bug del sistema Lineage né della recovery**; il limite è a monte del software: caricatore/cavo/connettore oppure il rilevamento hardware
+  del caricatore dello SMB347S (APSD su D+/D−). Coerente con: stesso ~0,5 A con porta PC e con due caricatori da muro (CONTEXT, 2026-10-22/23).
+- **Prossimi test, in ordine di costo:** (1) D+ e D− in corto con la prolunga USB-A (procedura sopra); (2) pulizia dei contatti del connettore 30 pin e prova con un altro cavo 30 pin;
+  (3) caricatore Samsung originale 2 A, se se ne trova uno; (4) partitore a ~1,2 V. La prova 1 è la più probabile e la più economica.
