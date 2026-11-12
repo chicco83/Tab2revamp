@@ -284,6 +284,7 @@ Versione documento: v0.1.14 — 2026-10-22 01:35 (ora del PC)
 - 2026-11-12 (12): verifica bug ricarica Lineage/recovery: nessuna segnalazione online; registri SMB347 riletti (ingresso 1,8 A, 4,2 V, carica rapida) = nessun bug di configurazione; ingresso reale 0,53 A, indipendente dal caricatore. Recovery da provare con misuratore USB.
 - 2026-11-12 (13): provato in TWRP con il misuratore USB: ingresso ~0,5 A anche lì → non è un bug di Lineage/recovery; restano D+/D− non marcati, cavo/connettore o limite hardware. Prossimo test: D+/D− in corto.
 - 2026-11-12 (14): con un altro cavo 30 pin l'ingresso in recovery sale da 0,5 a 0,7 A: il cavo conta. Prossimo: cavo corto/spesso (20 AWG), pulizia contatti, poi D+/D− in corto.
+- 2026-11-12 (16): pulizia contatti con isopropilico: ancora 0,7 A. Registri SMB347 decodificati col driver upstream (carica rapida, 2,2 A / 1,8 A); ipotesi: resistenza serie del percorso (~1,2–1,5 Ω) fa ridurre l'assorbimento; cavo 20 AWG corto da provare.
 - 2026-11-12 (15): foto misuratore col nuovo cavo: 5,097 V e 0,680 A (in recovery); vecchio cavo 5,072 V e 0,529 A. Tensione lato caricatore stabile: sospetto contatto cattivo sul 30 pin (pin 7/8).
 - 2026-11-12 (9): misurati ~4,7 V instabili sui rossi (lato tablet) col caricatore collegato e senza cella: ipotesi hiccup del caricatore; da provare un condensatore 470-1000 µF (poi un carico fittizio) prima del buck.
 

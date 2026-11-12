@@ -404,3 +404,16 @@ Trovati online (dati dai negozi, non da schede tecniche; ⚠️ la sezione dei f
 - **Cellonic** cavo 1 m (subtel) e **caricatore 5 V / 2 A con cavo 30 pin integrato da 1,2 m** (subtel): provare anche questo come caricatore completo per il Tab.
 - **Samsung ETA-P10JBEGSTA** (caricatore 2 A con cavo 30 pin staccabile, elencato da un rivenditore di ricambi) = l'alimentatore originale del tablet.
 - Criteri: cavo **corto** (≤1 m), fili di alimentazione **spessi**, spine del 30 pin con contatti puliti; uno stesso cavo non garantisce la corrente se il limite è sul connettore del tablet.
+
+### Dopo la pulizia dei contatti con alcol isopropilico (2026-11-12, riferito dall'utente) — ✅ misurato / ⚠️ spiegazione ipotetica
+- Pulito il connettore del tablet: **nessun cambiamento, sempre 0,7 A**. I contatti del 30 pin non sono quindi il problema principale.
+- **Decodifica dei registri SMB347 letti** (driver Linux upstream): `3B=A3` → tensione di fine carica 4,2 V; `3C=3E` → corrente di carica in uso 2,2 A (tabella FCC); `3D=05` → carica abilitata, stato
+  «fast»; `00=DD`/`01=66` → 2,2 A di carica e 1,8 A d'ingresso. Cioè **il chip crede di essere in carica rapida con 1,8 A permessi**, ma dal caricatore entrano solo 0,5–0,7 A.
+  Il datasheet Summit (con i bit di `3F`) non è stato trovato online: `3F=86` resta non decodificato.
+- **Ipotesi di lavoro (non provata): resistenza serie del percorso di alimentazione.** Se il chip riduce l'assorbimento per tenere la tensione sul proprio ingresso sopra ~4,3 V
+  (soglia tipica, ⚠️ non verificata per lo SMB347), la corrente massima è circa I = (5,1 V − 4,3 V) / R. Con R ≈ 1,2–1,5 Ω si ottengono proprio 0,53–0,68 A.
+  Una resistenza di 1,2–1,5 Ω è realistica per un cavo sottile (28–30 AWG, ~0,4–0,7 Ω andata e ritorno su 1 m) più le spine USB-A, il misuratore in linea e il 30 pin.
+  Un cavo **20 AWG corto** porterebbe R sotto 0,3 Ω e la corrente verso >1,5 A, se l'ipotesi è giusta.
+- **Test economici prima di comprare:** (a) togliere il misuratore dal percorso e leggere solo `current_avg` via adb (nei valori di lunedì: schermo spento +142…+212 mA con il misuratore); (b) prova con un cavo molto corto
+  (~0,3 m) se se ne ha uno; (c) misurare la tensione tra V_BUS e massa sul lato tablet a carico, se si riesce a raggiungere i contatti.
+- **Acquisto consigliato (⏳):** cavo 30 pin → USB-A 20 AWG di ≤1 m (vedi ricerca sopra).
