@@ -152,3 +152,13 @@ L'utente riferisce che il contatto della batteria ha **5 pin/fili: 2 rossi, 2 ne
 - **Cosa misurare per simulare la batteria:** con la batteria collegata o a banco, resistenza tra filo blu e nero (batteria scollegata dal tablet)
   e tensione blu→nero; se è un NTC varierà con la temperatura (scaldare con le dita). Quel valore, messo come resistenza fissa tra pin 3 e
   massa, è ciò che il tablet deve vedere senza batteria. ⏳ valore non ancora misurato.
+
+## Misure dell'utente sulla batteria (2026-11-12) — ✅ misurato
+- Etichetta: batteria **SP3676B1A** confermata (è la batteria originale del P5100).
+- Tensione tra rosso e nero: **3,7 V** (batteria a riposo).
+- Resistenza tra blu e nero: **9,83 kΩ** a temperatura ambiente; **scaldando diminuisce** → il blu è un **NTC da 10 kΩ** (coefficiente negativo).
+- Conclusione: VF (pin 3) è il termistore da 10 kΩ verso massa. Per far credere al tablet che la batteria ci sia, senza batteria basta una
+  **resistenza fissa da 10 kΩ (1%) tra VF (pin 3) e massa (pin 4/5)**: corrisponde a ~25 °C e quindi a «temperatura normale».
+  Svantaggio accettato: nessun controllo di temperatura, ma senza batteria non c'è nulla da proteggere (la protezione della cella non serve).
+- Stato: ⏳ la prova a banco non è ancora fatta. Alimentazione: 3,8–4,0 V con limite di corrente (2 A) su rossi, massa sui neri, 10 kΩ sul blu.
+  Dubbio residuo ⚠️: come il PMIC usa BAT_REMOVAL (pin J10 del TWL6032): potrebbe bastare il VF, oppure leggere il livello del pin; si vede alla prova.
