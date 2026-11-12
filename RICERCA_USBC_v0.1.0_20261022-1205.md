@@ -328,3 +328,21 @@ diversi, anche da 3 A), batteria ~8–9 %. Letture da `/sys/class/power_supply/b
   corrente d'ingresso + 0,85 A a schermo acceso.
 - L'uptime del tablet era di soli 126 s durante la lettura: il tablet si era riavviato da poco (non so se per scelta dell'utente o per un calo di alimentazione).
 - Lo schermo è stato riacceso a fine prova (`keyevent 224`). `adbd` resta in modalità root finché non si riavvia il tablet.
+
+## Misura con misuratore USB in linea (2026-11-12, foto dell'utente) — ✅ misurato
+Lettura sul misuratore tra caricabatterie e cavo 30 pin (tablet acceso, Android, schermo acceso al momento della lettura via adb): **5,072 V, 0,529 A**
+(2,68 W), 9,58 Ω di carico, 117 mAh e 0,613 Wh accumulati in 10 min 23 s, 25 °C. Caricatore usato: non annotato (scatola nera con presa a muro).
+Nello stesso momento via adb: corrente cella **−895 mA**, 3,42–3,43 V, capacità 7 %.
+- **La tensione d'ingresso regge (5,07 V): il caricatore e il cavo non cadono sotto carico.** Il problema è che il tablet **assorbe solo ~0,53 A**: è il limite
+  d'ingresso di ~500 mA di una porta USB standard, **non** quello di 1,8 A scritto dal kernel.
+- Bilancio a schermo acceso: ingresso 2,7 W (~0,5 A a 5 V) contro un consumo totale di ~4,8–5 W → la cella copre la differenza (~0,85–0,9 A). Per non scaricarsi a
+  schermo acceso servono almeno ~1,1–1,2 A in ingresso; per caricare, di più.
+- **Causa probabile (⚠️ ipotesi):** il software (driver Samsung/Lineage) legge il tipo di caricatore dal **pin ID del 30 pin** (dmesg: «Charger type is [AC], adc = 2743»)
+  e scrive 1,8 A nel registro dello SMB347S, ma il chip ha **anche un rilevamento hardware su D+/D−** (APSD): se il caricatore **non mette D+ e D− in corto** (o a
+  ~1,2 V), lo SMB347S lo tratta come porta USB standard e limita l'ingresso a 500 mA, qualunque cosa dica il software. Coerente con 0,529 A.
+- **Prossimi test, in ordine:**
+  1. Stesso cavo e stesso misuratore con il **caricatore Samsung originale 2 A**: deve dare >1 A a schermo acceso. Se sì, è il caricatore generico a non marcare D+/D−.
+  2. Con il caricatore generico: **mettere in corto D+ e D−** sul lato USB-A (adattatore «charge‑only» con dati cortocircuitati, oppure saldatura/morsetto sui due pin
+     dati di una presa USB‑A di appoggio) e rileggere la corrente.
+  3. Se non cambia: provare il partitore a ~1,2 V su D+/D− (33 kΩ / 10 kΩ).
+- Per far ricaricare il pacco nel frattempo: **tenere lo schermo spento**.
