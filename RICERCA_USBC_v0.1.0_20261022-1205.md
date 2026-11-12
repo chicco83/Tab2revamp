@@ -355,3 +355,20 @@ tutti e quattro i capi** (D+ e D− di entrambi i lati), isolando con nastro; ro
 - **Atteso:** corrente d'ingresso a schermo acceso > 1 A (oggi 0,53 A) e `current_avg` della cella ≥ 0 mA. Se resta ~0,5 A, passare al partitore a ~1,2 V (33 kΩ da 5 V a D+,
   10 kΩ da D+ a massa, D− unito a D+) o escludere il caricatore usato.
 - Rischio: basso; mai collegare D+/D− a 5 V o a massa. Rollback: togliere la prolunga.
+
+## Verifica bug di ricarica in Lineage / recovery (2026-11-12) — ✅ Lineage verificato, ⏳ recovery non provata
+Risultato: **nessun bug di configurazione trovato nell'immagine LineageOS 14.1 (andi34, kernel 3.0.101)**; la recovery TWRP non è stata provata.
+- Ricerca online: nessuna segnalazione di bug di ricarica per espresso3g/P5100 su Lineage 14.1 o TWRP (le uniche note generali sono limiti di temperatura e, su altri
+  telefoni, flag di ricarica rapida Samsung, non applicabili qui).
+- Riuso del lavoro del 2026-10-23 (CHANGELOG voce 20, CONTEXT «Analisi driver»): il kernel imposta 1,8 A d'ingresso per qualsiasi caricatore
+  («charging current limit set to 1.8A for all power supplies, html6405»).
+- **Registri SMB347 riletti oggi** (bus 5, addr 0x06, sola lettura, `/data/local/tmp/smbdump` già presente sul tablet; schermo acceso, cella −888 mA, 3,37 V, 6 %):
+  `00=DD` (corrente di carica 2,2 A), `01=66` (limite d'ingresso 1,8 A), `03=63` (tensione di fine carica 4,2 V), `05=1A`, `06=60`, `31=03` (modo ad alta corrente),
+  `30=80`, `3D=05` (carica rapida attiva), `3B=A3`, `3C=3E`, `3E=00`, `3F=86` (questi ultimi non decodificati: serve il datasheet). Nessun errore evidente.
+  ⚠️ La lettura dei registri di stato 3B/3C/3F non è stata interpretata: non si sa se uno indichi un limite effettivo più basso.
+- Quindi: il driver chiede la corrente giusta e il chip è configurato per 1,8 A, ma il misuratore USB indica **0,53 A in ingresso** (5,07 V). Dato che l'ingresso era
+  già ~0,5 A sia con la USB del PC sia con due caricatori da muro (CONTEXT, 2026-10-22/23), il limite **non dipende dal caricatore** e **non dal software**.
+- Sospetti rimasti: percorso fisico (cavo 30 pin, **contatti del connettore 30 pin usurati/sporchi** che fanno cadere la tensione sul lato tablet),
+  oppure una limitazione interna dello SMB347S (dello stato non decodificato). Non misurata la tensione sul lato tablet.
+- **Test decisivo, da fare (richiede il riavvio del tablet in recovery, ⏳ solo con conferma dell'utente):** in TWRP (dove non gira il driver Lineage)
+  leggere con il misuratore USB la corrente a schermo acceso: ~1 A o più = problema software di Lineage; ~0,5 A anche lì = hardware/cavo/connettore.
