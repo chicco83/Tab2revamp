@@ -346,3 +346,12 @@ Nello stesso momento via adb: corrente cella **−895 mA**, 3,42–3,43 V, capac
      dati di una presa USB‑A di appoggio) e rileggere la corrente.
   3. Se non cambia: provare il partitore a ~1,2 V su D+/D− (33 kΩ / 10 kΩ).
 - Per far ricaricare il pacco nel frattempo: **tenere lo schermo spento**.
+
+### Prova D+/D− in corto con una prolunga USB-A (2026-11-12, utente senza caricatore Samsung originale) — ⏳ da fare
+Procedura senza saldature: prendere una **prolunga USB-A maschio→femmina** (o un cavo USB‑A di scarto); sul cavo si aprono 2–3 cm di guaina, si trovano i 4 fili
+(rosso = 5 V, nero = massa, **verde = D+, bianco = D−**; ⚠️ colori standard, da verificare col multimetro), si **tagliano solo il verde e il bianco** e si **uniscono tra loro
+tutti e quattro i capi** (D+ e D− di entrambi i lati), isolando con nastro; rosso e nero restano intatti. Si inserisce tra caricatore e cavo 30 pin, con il misuratore USB in linea.
+- **Verifica prima di collegare il tablet:** resistenza tra i due pin dati < 200 Ω (deve essere ~0 Ω), nessun contatto con rosso/nero.
+- **Atteso:** corrente d'ingresso a schermo acceso > 1 A (oggi 0,53 A) e `current_avg` della cella ≥ 0 mA. Se resta ~0,5 A, passare al partitore a ~1,2 V (33 kΩ da 5 V a D+,
+  10 kΩ da D+ a massa, D− unito a D+) o escludere il caricatore usato.
+- Rischio: basso; mai collegare D+/D− a 5 V o a massa. Rollback: togliere la prolunga.
