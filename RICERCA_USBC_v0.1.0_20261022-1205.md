@@ -311,3 +311,20 @@ collegata ai rossi (⚠️ dipende dallo SMB347S, vedi sopra), seconda strada:
   ≥3 A (tipo MP1584/XL4015, con regolazione), condensatore 470–1000 µF/10 V sull'uscita, fusibile 3 A, multimetro.
   Collegamenti: ingresso del buck dal USB 5 V; uscita 3,9 V → lato **tablet** dei due fili rossi (rossi lato cella restano isolati), GND uscita → neri.
   **Regolare e misurare 3,9 V a vuoto prima di collegare il tablet.** Alimentare il buck solo da un caricatore che regga 2 A.
+
+## Lettura via adb del tablet sotto carica (2026-11-12, adb Wi-Fi 192.168.1.208:5555 con `adb root`) — ✅ misurato
+Condizioni: Android LineageOS 14.1 (kernel 3.0.101), pacco originale collegato, caricabatterie USB sul 30 pin (tipo non annotato: l'utente ne ha provati
+diversi, anche da 3 A), batteria ~8–9 %. Letture da `/sys/class/power_supply/battery` (richiedono root: `adb root`) e da `dumpsys battery`.
+| Condizione | `current_avg` (MAX17042) | Tensione cella | Significato |
+|---|---|---|---|
+| Schermo **acceso** | **−850 mA** (stabile −847…−853) | 3,48–3,51 V | la batteria si **scarica** anche con il caricatore collegato |
+| Schermo **spento** (25 s dopo `input keyevent 223`) | **+142 → +212 mA** (in salita) | 3,74 V | carica, ma con soli ~0,2 A verso la cella |
+- Il sistema vede il caricatore come **AC** (`AC powered: true`, `status Charging`, `power_supply/ac/online=1`, `type Mains`); `usb/online=0`. dmesg:
+  «Charger type is [AC], adc = 2743», «smb347-charger 5-0006: charging current limit set to 1.8A for all power supplies» (patch del kernel LineageOS).
+- Quindi **il riconoscimento del caricatore NON è il problema**: il tablet lo prende per AC e imposta 1,8 A. Eppure l'energia che arriva davvero è poca:
+  il consumo del tablet a schermo acceso supera ciò che entra di circa 0,85 A. Con lo schermo spento resta ~0,2 A per caricare.
+- Ipotesi (⚠️ da verificare con un misuratore USB in linea, non è stata misurata la corrente d'ingresso): la sorgente non regge la corrente (cavo 30 pin lungo/sottile con
+  caduta di tensione, caricatore che non tiene i 5 V sotto carico), oppure il limite effettivo dello SMB347S è più basso di quello scritto. Il consumo totale è circa
+  corrente d'ingresso + 0,85 A a schermo acceso.
+- L'uptime del tablet era di soli 126 s durante la lettura: il tablet si era riavviato da poco (non so se per scelta dell'utente o per un calo di alimentazione).
+- Lo schermo è stato riacceso a fine prova (`keyevent 224`). `adbd` resta in modalità root finché non si riavvia il tablet.

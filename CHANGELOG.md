@@ -279,6 +279,7 @@ Versione documento: v0.1.14 — 2026-10-22 01:35 (ora del PC)
 - 2026-11-12 (7): chiarito l'obiettivo (il tablet deve sentire una batteria e alimentarsi dal connettore); aggiunta la seconda strada della cella piccola con PCM e 10 kΩ, da usare solo se la prova coi rossi interrotti fallisce.
 - 2026-11-12 (8): prova coi fili rossi interrotti eseguita dall'utente: ⛔ il tablet non si accende col solo caricabatterie sul 30 pin. Prossimi passi: misura V_BATT, modulo buck 3,9 V sui rossi, o cella piccola.
 - 2026-11-12 (9): misurati 4,7 V oscillanti sui rossi lato tablet col caricatore e senza cella: abbandonata la strada del caricatore interno; scelta: modulo buck 5→3,9 V sui rossi (NTC del pacco già visto).
+- 2026-11-12 (10): lettura via adb sotto carica: caricatore riconosciuto come AC (limite 1,8 A nel kernel), ma corrente cella −850 mA a schermo acceso e +140…210 mA a schermo spento: arriva poca energia dalla sorgente; da misurare la corrente d'ingresso con misuratore USB.
 - 2026-11-12 (9): misurati ~4,7 V instabili sui rossi (lato tablet) col caricatore collegato e senza cella: ipotesi hiccup del caricatore; da provare un condensatore 470-1000 µF (poi un carico fittizio) prima del buck.
 
 ## 17. (6) v0.1.16 — 2026-10-22 23:58 (sessione locale, verifica APK v0.9.6)
