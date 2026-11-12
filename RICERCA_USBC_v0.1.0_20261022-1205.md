@@ -379,3 +379,11 @@ Risultato: **nessun bug di configurazione trovato nell'immagine LineageOS 14.1 (
   del caricatore dello SMB347S (APSD su D+/D−). Coerente con: stesso ~0,5 A con porta PC e con due caricatori da muro (CONTEXT, 2026-10-22/23).
 - **Prossimi test, in ordine di costo:** (1) D+ e D− in corto con la prolunga USB-A (procedura sopra); (2) pulizia dei contatti del connettore 30 pin e prova con un altro cavo 30 pin;
   (3) caricatore Samsung originale 2 A, se se ne trova uno; (4) partitore a ~1,2 V. La prova 1 è la più probabile e la più economica.
+
+### Cambio cavo 30 pin (2026-11-12, riferito dall'utente) — ✅ misurato
+- Con un **altro cavo** 30 pin l'assorbimento in recovery sale da ~0,5 A a **~0,7 A** (+40 %). Tensione/altro non annotati.
+- Lettura: il **cavo conta** (a parità di caricatore e di recovery cambia la corrente), quindi il limite non è solo il rilevamento D+/D− del chip. Ipotesi (⚠️ non provate):
+  resistenza del cavo/contatti (il misuratore è sul lato caricatore e non vede la caduta sul lato tablet) → sotto un certo livello di tensione d'ingresso il caricatore del tablet
+  riduce la corrente; oppure il nuovo cavo ha D+/D− o il pin ID cablati diversamente.
+- Dal 0,5 A al 0,7 A non è ancora l'1–1,8 A atteso: probabilmente il nuovo cavo è migliore ma non ottimo, oppure restano contatti sporchi/D+/D− non marcati.
+- **Prossimo:** cavo **corto e spesso** (30 pin→USB-A in 20 AWG, come i cavi originali Samsung/ricambi «20AWG»), contatti del connettore del tablet puliti (alcol isopropilico, stuzzicadenti), e poi D+/D− in corto.

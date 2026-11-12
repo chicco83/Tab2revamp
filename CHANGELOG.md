@@ -283,6 +283,7 @@ Versione documento: v0.1.14 — 2026-10-22 01:35 (ora del PC)
 - 2026-11-12 (11): misuratore USB in linea: 5,07 V e 0,529 A (2,7 W): il tablet assorbe ~500 mA, non 1,8 A; la tensione regge. Ipotesi: il caricatore non marca D+/D− e lo SMB347S limita a 500 mA; test con caricatore Samsung originale e con D+/D− in corto.
 - 2026-11-12 (12): verifica bug ricarica Lineage/recovery: nessuna segnalazione online; registri SMB347 riletti (ingresso 1,8 A, 4,2 V, carica rapida) = nessun bug di configurazione; ingresso reale 0,53 A, indipendente dal caricatore. Recovery da provare con misuratore USB.
 - 2026-11-12 (13): provato in TWRP con il misuratore USB: ingresso ~0,5 A anche lì → non è un bug di Lineage/recovery; restano D+/D− non marcati, cavo/connettore o limite hardware. Prossimo test: D+/D− in corto.
+- 2026-11-12 (14): con un altro cavo 30 pin l'ingresso in recovery sale da 0,5 a 0,7 A: il cavo conta. Prossimo: cavo corto/spesso (20 AWG), pulizia contatti, poi D+/D− in corto.
 - 2026-11-12 (9): misurati ~4,7 V instabili sui rossi (lato tablet) col caricatore collegato e senza cella: ipotesi hiccup del caricatore; da provare un condensatore 470-1000 µF (poi un carico fittizio) prima del buck.
 
 ## 17. (6) v0.1.16 — 2026-10-22 23:58 (sessione locale, verifica APK v0.9.6)
