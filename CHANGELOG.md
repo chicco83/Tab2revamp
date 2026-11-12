@@ -14,6 +14,13 @@ Versione documento: v0.1.14 — 2026-10-22 01:35 (ora del PC)
 - **Rollback:** eliminare la cartella `LibreHardwareMonitor_v0.9.6-mi50` e riavviare l'attivita' (`schtasks /end /tn Tab2Monitor` poi `/run`): torna v0.9.6.
 - Quando la PR sara' fusa e uscira' una release: sostituire la cartella con la release ufficiale e togliere `-mi50`.
 
+## 40. APK v0.11.3 — 2026-11-12 18:30: ombra piena sotto i grafici delle temperature
+- **Segnalazione utente:** i grafici delle GPU avevano solo la linea, mentre quelli di CPU/RAM (e dei box della pagina 2) hanno l'ombra colorata sotto.
+- **Causa:** l'ombra c'era, ma in `tSpark()` la scala automatica lo..hi usava tutta l'altezza (18u): con temperature stabili la linea stava in basso e sotto restavano pochi pixel, con sfumatura che partiva da alfa 0x70 e arrivava a 0.
+- **Modifica:** scala abbassata (`lo -= (hi - lo) * 1.5`), cosi' la linea sta nel 40% alto e sotto c'e' l'area; sfumatura da alfa 0x90 a 0x18 (prima 0x70 -> 0x00). Build `build_tab2monitor_v0.11.3_20261112-1830.sh` (VERSION_CODE 28).
+- ✅ Verificato con screenshot sul GT-P5100 (`192.168.1.208`): area colorata visibile sotto le linee delle due GPU.
+- **Rollback:** reinstallare `dist/Tab2Monitor_v0.11.2.apk` oppure `git checkout cbca403 -- android/tab2monitor_app/src/it/tab2revamp/monitor/MonitorView.java` e ricompilare con lo script v0.11.2.
+
 ## 39. APK v0.11.2 — 2026-11-12 18:00: grafico che scorre accanto a ogni temperatura
 - **Richiesta utente:** nello spazio tra il nome della temperatura e il suo valore, un grafico che scorre come quello della RAM.
 - **Modifica (`MonitorView.java`):** storico per sensore `tHist` (chiave `G<nome GPU>|<sensore>` o `B<titolo box>|<sensore>`, 60 campioni come CPU/RAM, NaN dove il sensore mancava), riempito in `update()` da `tHistAdd()`.

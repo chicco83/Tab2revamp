@@ -1,6 +1,7 @@
 // =============================================================================
 // Tab2Monitor - MonitorView (disegno su Canvas)
-// Versione: v0.11.2 - 2026-11-12 18:00
+// Versione: v0.11.3 - 2026-11-12 18:30
+//   v0.11.3: grafici delle temperature con l'ombra piena (linea nella parte alta, area piu' marcata)
 //   v0.11.2: grafico che scorre (come quello della RAM) tra il nome e il valore di ogni temperatura (GPU e box sensori)
 //   v0.11.0: GPU nella pagina 1 (sotto la RAM), Claude nella pagina 2 (con i sensori); tolta la pagina GPU
 //           'piu' lunga se sotto carico' e le sue due opzioni (gpu_busy_pct / gpu_busy_sec)
@@ -1083,6 +1084,9 @@ public class MonitorView extends View {
         float lo = Float.MAX_VALUE, hi = -Float.MAX_VALUE;
         for (int i = f; i < hLen; i++) if (!Float.isNaN(a[i])) { lo = Math.min(lo, a[i]); hi = Math.max(hi, a[i]); }
         if (hi - lo < 10) { float c = (hi + lo) / 2; lo = c - 5; hi = c + 5; }
+        // v0.11.3: la linea occupa il 40% alto del grafico, cosi' sotto resta l'area colorata
+        // (v0.11.2: scala lo..hi su tutta l'altezza: la linea finiva in basso e l'ombra quasi non si vedeva)
+        lo -= (hi - lo) * 1.5f;
         cv.save();
         cv.clipRect(gx, gy - 4 * u, gx + gw, gy + gh + 1);
         path.rewind();
@@ -1099,8 +1103,9 @@ public class MonitorView extends View {
         line.setColor(col); line.setStrokeWidth(2 * u);
         cv.drawPath(path, line);
         path.lineTo(px, gy + gh); path.lineTo(x0, gy + gh); path.close();
-        fill.setShader(new LinearGradient(0, gy, 0, gy + gh, (col & 0x00ffffff) | 0x70000000,
-                col & 0x00ffffff, Shader.TileMode.CLAMP));
+        // v0.11.3: ombra piu' marcata (alfa 0x90 -> 0x18; era 0x70 -> 0x00)
+        fill.setShader(new LinearGradient(0, gy, 0, gy + gh, (col & 0x00ffffff) | 0x90000000,
+                (col & 0x00ffffff) | 0x18000000, Shader.TileMode.CLAMP));
         cv.drawPath(path, fill);
         fill.setShader(null);
         cv.restore();
