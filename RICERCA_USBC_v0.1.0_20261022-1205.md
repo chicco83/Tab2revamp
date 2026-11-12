@@ -417,3 +417,11 @@ Trovati online (dati dai negozi, non da schede tecniche; ⚠️ la sezione dei f
 - **Test economici prima di comprare:** (a) togliere il misuratore dal percorso e leggere solo `current_avg` via adb (nei valori di lunedì: schermo spento +142…+212 mA con il misuratore); (b) prova con un cavo molto corto
   (~0,3 m) se se ne ha uno; (c) misurare la tensione tra V_BUS e massa sul lato tablet a carico, se si riesce a raggiungere i contatti.
 - **Acquisto consigliato (⏳):** cavo 30 pin → USB-A 20 AWG di ≤1 m (vedi ricerca sopra).
+
+### Lettura adb con il nuovo cavo, schermo spento (2026-11-12) — ✅ misurato
+Tablet in Android, **schermo spento** (`mWakefulness=Asleep`), caricatore AC riconosciuto (`AC powered: true`, `status Charging`), appena riavviato (uptime 77 s), `adb root` rifatto.
+Sei letture in 15 s da `/sys/class/power_supply/battery`: `current_avg` **+439, +443, +444, +446, +449, +448 mA** (carica), tensione 3,74 V, capacità indicata **1 %** (non coerente con 3,74 V: il fuel gauge si
+è azzerato/ricalibrato dopo il riavvio, ⚠️ da tenere d'occhio).
+- Confronto a schermo spento: vecchio cavo **+142…+212 mA** → nuovo cavo **~+445 mA**: la carica netta nella cella è **più che raddoppiata** cambiando solo il cavo.
+  Conferma che il cavo/percorso di alimentazione è il fattore principale (ipotesi della resistenza serie).
+- Resta da vedere a schermo acceso (prima −850…−900 mA) e quale corrente d'ingresso dà il misuratore ora a schermo spento.
