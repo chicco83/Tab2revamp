@@ -223,3 +223,22 @@ schema BTC700; fili rossi / blu / neri), con il blu sostituito da una resistenza
 - **BAT_REMOVAL:** nello schema è una rete tra il pin BATREMOVAL del TWL6032 (J10) e il processore (pagine 6-7); **non passa dal connettore
   batteria** e non ha componenti sul percorso → il rilevamento della rimozione è probabilmente interno al PMIC (da VBAT/GPADC), non da un pin dedicato
   sul connettore. ⚠️ Inferenza dallo schema, non dal datasheet del TWL6032: si conferma con la prova.
+
+## Idea dell'utente: due condensatori al posto delle celle, scheda BMS e connettore originali (2026-11-12) — valutazione, non provata
+Idea: togliere le celle del pacco SP3676B1A, tenere la scheda di protezione (BMS/PCM) con il suo connettore a 5 fili, mettere due condensatori
+al posto delle celle e alimentare così il tablet dal connettore originale.
+- **I condensatori non sono una sorgente:** accumulano poca energia. Esempio: una supercap da 10 F che cala di 1 V a 0,5 A dura ~20 s
+  (t = C·ΔV/I); un tablet che assorbe 0,5–2 A scarica qualunque condensatore ragionevole in secondi. Servono comunque un alimentatore
+  esterno a ~3,9 V sui pad delle celle (B+/B−) o direttamente sui fili rossi/neri. I condensatori sarebbero solo un tampone per i picchi.
+- **Il tampone serve già, ma più piccolo:** 470–1000 µF elettrolitico vicino ai pin (già nella lista della prova a banco).
+  Una supercap (qualche F, ≤2,7 V l'una, due in serie = ≤5,4 V con bilanciamento) dà solo qualche secondo di autonomia e ha resistenza
+  interna che fa calare la tensione ai picchi: non vale la complicazione.
+- **Se invece si lascia caricare dal tablet (caricatore SMB347 dal cavo USB) con i condensatori come «batteria»:** sconsigliato ⛔. Il caricatore
+  carica a CV 4,2 V e termina quando la corrente cala; con un condensatore la corrente cala subito, poi il tablet scarica la cella finta in
+  secondi e riparte a caricare: cicli continui, percentuale senza senso, riavvii. Non è un modo per «alimentare il tablet».
+- **Rischio sulle celle:** togliere le celle da un pacco richiede di tagliare/dissaldare le linguette; un cortocircuito su una cella Li-Po
+  può incendiarla. Meglio **non toccare le celle**: staccare il pacco intero e alimentare i fili del connettore del tablet.
+- **Cosa darebbe di buono la scheda BMS:** protezione da sovracorrente/sovratensione/sottotensione e il NTC originale. Lo stesso si ottiene
+  con alimentatore a limite di corrente (+ fusibile 3 A) e la resistenza da 10 kΩ sul filo blu.
+- **Decisione:** si procede con la prova a banco (alimentatore su rossi/neri, 10 kΩ sul blu, 470–1000 µF), non con i condensatori al posto delle
+  celle. Si riconsidera solo se la prova mostra cadute di tensione ai picchi.
