@@ -162,3 +162,55 @@ L'utente riferisce che il contatto della batteria ha **5 pin/fili: 2 rossi, 2 ne
   Svantaggio accettato: nessun controllo di temperatura, ma senza batteria non c'è nulla da proteggere (la protezione della cella non serve).
 - Stato: ⏳ la prova a banco non è ancora fatta. Alimentazione: 3,8–4,0 V con limite di corrente (2 A) su rossi, massa sui neri, 10 kΩ sul blu.
   Dubbio residuo ⚠️: come il PMIC usa BAT_REMOVAL (pin J10 del TWL6032): potrebbe bastare il VF, oppure leggere il livello del pin; si vede alla prova.
+
+## Prova a banco senza batteria — lista componenti, schema, sequenza (progetto 2026-11-12, ⏳ NON eseguita)
+Obiettivo: verificare che il Tab 2 si avvii e funzioni alimentato direttamente ai contatti della batteria (pin 1-2 V_BATT, 3 VF, 4-5 GND dello
+schema BTC700; fili rossi / blu / neri), con il blu sostituito da una resistenza fissa da 10 kΩ (il NTC originale misurato 9,83 kΩ a ~25 °C).
+
+### Componenti
+| # | Componente | Note |
+|---|---|---|
+| 1 | Alimentatore da banco regolabile **con limite di corrente** (CV/CC), almeno 5 V / 3 A | tensione impostata a **3,9 V**, limite a **0,5 A** per la prima prova |
+| 2 | Resistenza **10 kΩ 1 %** (1/4 W) | sostituisce il NTC, tra VF (blu) e massa |
+| 3 | Condensatore elettrolitico **470–1000 µF / 10 V** | tampone sui contatti, vicino al tablet (rispetta la polarità) |
+| 4 | Multimetro (anche come amperometro in serie) | misura tensione e corrente |
+| 5 | Fili sottili / morsetti a coccodrillo piccoli, nastro isolante | contatti sul connettore: nessun corto tra i pin vicini |
+| 6 | Un modo per **contattare i 5 pin** senza saldare sul tablet: usare la **spina originale della batteria** (cavetti/plug del pacco) oppure pin/aghi isolati sul connettore BTC700 | se si usa la spina del pacco, separarla dalla cella: **mai** lasciare la cella collegata e **mai** mettere in corto i suoi fili |
+| 7 | Fusibile **3 A** in serie sul positivo (opzionale ma consigliato) | protezione se l'alimentatore non limita bene |
+| 8 | Cavo USB tra tablet e PC (con Tab2Monitor/adb) | **non** collegare un caricatore durante la prova |
+| 9 (alt.) | Se manca il banco: modulo **buck regolabile** (LM2596/XL4015, 5 V → 3,9 V, ≥3 A) da caricatore USB-C 5 V/3 A | impostare e **misurare 3,9 V a vuoto prima** di collegare il tablet |
+
+### Schema
+```
+ Alimentatore 3,9 V (limite 0,5 A) ──[amperometro]──[fusibile 3A]──┬── fili ROSSI  (pin 1+2, V_BATT)
+                                                                    │
+                                                               [470-1000 µF]
+                                                                    │
+ Alimentatore GND ──────────────────────────────────────────────────┴── fili NERI   (pin 4+5, GND)
+
+ filo BLU (pin 3, VF) ──[10 kΩ 1 %]── fili NERI (GND)
+```
+
+### Sequenza
+1. Tablet spento; **scollegare e togliere la batteria**, nessun caricatore/USB di alimentazione.
+2. Senza collegare il tablet: impostare 3,9 V, limite 0,5 A; verificare con multimetro la tensione e la polarità sui capi dei fili.
+3. Spegnere l'alimentatore, collegare rossi/neri/blu come da schema (blu con 10 kΩ), ricontrollare che nessun pin tocchi i vicini.
+4. Accendere l'alimentatore: la corrente a riposo deve essere ~0 (o poche decine di mA). Se sale al limite subito: spegnere e cercare il corto.
+5. Premere il tasto di accensione: osservare avvio, corrente (picco all'avvio), logo.
+6. Se non parte: alzare il limite a 1 A, poi a 2 A (un passo alla volta); se ancora no, sospettare BAT_REMOVAL / VF (⏳ capire l'altra rete).
+7. Se parte: annotare corrente a schermo spento/acceso/luminosità massima, percentuale batteria (Tab2Monitor/`adb shell dumpsys battery`), riavvii, spegnimenti spontanei.
+8. Fine: spegnere il tablet, poi l'alimentatore, poi scollegare.
+
+### Cosa registrare e criteri
+| Prova | ✅ buono | ⛔ problema |
+|---|---|---|
+| Avvio con 10 kΩ sul blu | arriva ad Android | resta spento / si spegne: VF o BAT_REMOVAL non soddisfatti |
+| Corrente a regime | <1 A, picchi <2 A senza cali di tensione | tensione cala o riavvii: più capacità/alimentatore più robusto |
+| Percentuale batteria | plausibile (3,9 V ≈ 80 %) e stabile | salti o 0 %/100 % a caso: il fuel gauge non è affidabile senza cella |
+| Spegnimento per «batteria scarica» | assente | presente: Android spegne per la lettura del fuel gauge |
+
+### Rischi e decisioni
+- La V_BATT non va superata oltre **4,2 V**: oltre si rischia la scheda; 3,9 V scelti per restare in zona sicura e avere una percentuale media-alta.
+- Il MAX17042 senza cella può dare percentuale incoerente: non è un blocco per la prova, ma per l'uso reale col monitor va valutato.
+- Senza batteria il tablet si spegne **subito** se l'alimentazione cade: per l'uso reale servirebbe un alimentatore stabile (e, volendo, un UPS).
+- Rollback: rimettere la batteria originale (nessuna modifica permanente al tablet con questa prova).
