@@ -290,3 +290,13 @@ collegata ai rossi (⚠️ dipende dallo SMB347S, vedi sopra), seconda strada:
   2. **Modulo buck regolabile** (5 V → 3,9 V, ≥3 A) alimentato dal caricabatterie USB e collegato ai rossi: non serve il banco, sta in una scatolina,
      il tablet vede V_BATT e il NTC (10 kΩ o il pacco). Il 30 pin resta scollegato.
   3. **Cella piccola con PCM** al posto del pacco (vedi sopra): il caricatore la porta a 4,2 V e poi alimenta il sistema.
+
+### Misura dell'utente (2026-11-12): con cavo di carica collegato e senza cella sui rossi ci sono ~4,7 V che «oscillano» — ✅ misurato, causa ⚠️ ipotesi
+- Condizioni: fili rossi del pacco interrotti; misura sul lato tablet dei rossi (rispetto ai neri) con il caricabatterie sul 30 pin; il tablet non parte.
+- Lettura: il caricatore (SMB347S) porta il nodo V_BATT/VSYS a ~4,7 V (cioè ~ ingresso 5 V meno la caduta del FET, più di 4,2 V di una cella)
+  e la tensione **non è stabile**. Un multimetro non mostra la forma d'onda; il comportamento è tipico di un caricatore che senza batteria entra in
+  **ripetizione di avvio (hiccup)** o non ha nessun carico/capacità sull'uscita.
+- Rischio: 4,7 V sono sopra il massimo di una cella Li-ion (4,2 V); non tenere il tablet acceso a lungo a questa tensione.
+- **Prova economica da fare (5 minuti, ⏳):** collegare un condensatore **470–1000 µF / ≥10 V** (polarità!) tra rossi (lato tablet) e neri, caricatore
+  collegato, e misurare di nuovo: se la tensione diventa stabile (e scende verso 4,2 V) provare ad accendere. In seconda battuta un carico fittizio
+  (resistenza ~100 Ω 0,5 W, ~45 mA) in parallelo. Se non basta: modulo buck 3,9 V sui rossi o cella piccola con PCM.
