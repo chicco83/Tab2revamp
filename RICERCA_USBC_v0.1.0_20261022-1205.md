@@ -387,3 +387,12 @@ Risultato: **nessun bug di configurazione trovato nell'immagine LineageOS 14.1 (
   riduce la corrente; oppure il nuovo cavo ha D+/D− o il pin ID cablati diversamente.
 - Dal 0,5 A al 0,7 A non è ancora l'1–1,8 A atteso: probabilmente il nuovo cavo è migliore ma non ottimo, oppure restano contatti sporchi/D+/D− non marcati.
 - **Prossimo:** cavo **corto e spesso** (30 pin→USB-A in 20 AWG, come i cavi originali Samsung/ricambi «20AWG»), contatti del connettore del tablet puliti (alcol isopropilico, stuzzicadenti), e poi D+/D− in corto.
+
+### Misuratore USB con il nuovo cavo (2026-11-12, foto dell'utente) — ✅ misurato
+Tablet in recovery, schermo acceso: **5,097 V, 0,680 A** (~3,4 W, 7,49 Ω di carico, 1 h 01 min di prova), ~28 °C. Prima, con il vecchio cavo: 5,072 V e 0,529 A.
+- La tensione **sul lato caricatore** è stabile a ~5,1 V in entrambi i casi: il caricatore non cede. La caduta di cavo e contatti non si vede da qui (misuratore lato caricatore).
+- Ipotesi più coerente (⚠️ non provata): ai due pin di alimentazione del 30 pin (7 e 8, V_BUS) il **contatto è cattivo** (connettore del tablet o spine del cavo): con corrente di 0,5–0,7 A
+  basterebbero 1–3 Ω di resistenza di contatto per far crollare la tensione sul lato tablet; il caricatore interno riduce allora l'assorbimento (limite sulla tensione d'ingresso).
+  Un cavo con contatti migliori dà più corrente: coerente con 0,53 → 0,68 A.
+- Cosa si può misurare per confermarlo (senza strumenti nuovi): tensione tra V_BUS e massa **sul lato tablet** a carico (sonda sui pin 7/8 e 1/2 del connettore del tablet a spina inserita: difficile) oppure
+  provare cavi diversi e la pulizia dei contatti e vedere se la corrente sale ancora.
