@@ -242,3 +242,26 @@ al posto delle celle e alimentare così il tablet dal connettore originale.
   con alimentatore a limite di corrente (+ fusibile 3 A) e la resistenza da 10 kΩ sul filo blu.
 - **Decisione:** si procede con la prova a banco (alimentatore su rossi/neri, 10 kΩ sul blu, 470–1000 µF), non con i condensatori al posto delle
   celle. Si riconsidera solo se la prova mostra cadute di tensione ai picchi.
+
+## Prova senza alimentatore da banco: caricabatterie USB sul connettore 30 pin, batteria scollegata elettricamente (2026-11-12) — ⏳ non provata
+Richiesta dell'utente: l'alimentatore da banco è scomodo; usare invece il connettore di carica e un caricabatterie USB.
+**Idea (reversibile, senza saldature sul tablet):** lasciare il pacco SP3676B1A al suo posto e col suo connettore inserito, ma **interrompere i due
+fili rossi** (positivo): tagliare e isolare ciascun capo, oppure inserire un interruttore/jumper sul rosso. Così il NTC (blu–nero, 9,83 kΩ)
+resta visto dal tablet, e la cella **non** alimenta più il tablet (nessuna corrente nei fili rossi). Il tablet è poi alimentato solo dal
+caricabatterie sul 30 pin (cavo originale, caricatore Samsung 2 A, che il tablet riconosce).
+- **Cosa non so (⚠️ dallo schema, pagina 7, blocco «SWITCHING CHARGING»):**
+  - Lo SMB347S (U716) ha uscita VSYS e pilota un FET (Q700, via FETDRV) verso il nodo V_BATT: è un caricatore con percorso di alimentazione.
+    Se **senza cella** mantiene V_BATT a ~4,2 V e dà corrente al sistema (fino al limite d'ingresso ~1,5–2 A) il tablet si avvia; se invece
+    rileva «batteria mancante» e spegne il FET, V_BATT cade e il tablet non parte. Non risolvibile dallo schema: **si prova**.
+  - Il pin THERM dello SMB347S sembra andare a una resistenza locale (R732) e non al filo VF: quindi il caricatore **non** legge il NTC della
+    batteria (⚠️ lettura dell'immagine dello schema).
+  - Android/kernel Samsung possono segnalare «batteria rimossa/assente» e spegnere dopo qualche secondo, anche se l'hardware regge.
+- **Cosa osservare:** avvio (logo, Android); corrente dal caricatore (misuratore USB in linea); tensione ai capi dei fili rossi lato tablet
+  (4,0–4,2 V attesi se il percorso di alimentazione tiene); percentuale e stato carica (Tab2Monitor / `adb shell dumpsys battery`);
+  riavvii a schermo acceso e luminosità massima.
+- **Esiti possibili e cosa fare:** parte e resta acceso → soluzione senza banco (⏳ da valutare a lungo termine: nessun tampone, spegnimento
+  immediato se manca la rete); non parte → il FET non si chiude senza cella: tornare alla prova a banco; parte ma si spegne → problema software
+  di «batteria assente»: valutare, solo allora, di tenere la cella (o i condensatori) come simulatore.
+- **Rollback:** riunire i due fili rossi (saldatura o nastro conduttivo) e controllare con il multimetro 3,7–4,2 V sui rossi–neri.
+- **Rischi:** i due capi dei fili rossi tagliati vanno isolati subito e mai toccare i neri o altri contatti della cella; non lasciare il tablet
+  acceso con la cella scollegata senza controllare le temperature del tablet.
