@@ -138,3 +138,17 @@ scratchpad). Pagina 7, blocco «BATTERY CONTACT», connettore **BTC700**, 9 pin 
 2. Togliere la batteria; collegare: pin 1+2 → +4,0 V (alimentatore con limite 2 A), pin 4+5 → massa, pin 3 → resistenza del valore misurato verso massa.
 3. Accendere e osservare avvio, percentuale (Tab2Monitor) e comportamento del caricatore (tolto il caricabatterie, il SMB347 non carica nulla).
 4. Se parte: sostituire l'alimentatore da banco con 5 V USB-C → convertitore 4,0 V (limite di corrente), con condensatore di tampone vicino ai pin.
+
+## Osservazione dell'utente sul connettore batteria (2026-11-12) e confronto con lo schema
+L'utente riferisce che il contatto della batteria ha **5 pin/fili: 2 rossi, 2 neri, 1 blu**, e che la batteria porta la sigla
+**GB/T 18287**.
+- **Corrispondenza con lo schema (BTC700, pin attivi 1–5):** 2 rossi = V_BATT (pin 1 e 2), 1 blu = VF (pin 3, identificazione/temperatura),
+  2 neri = V_BATTERY− (pin 4 e 5). I pin 6–9 dello schema sono NC: coerente con soli 5 fili. ⚠️ È un'ipotesi basata sui colori; il blu come
+  VF e l'ordine vanno **verificati col multimetro** (tensione tra rossi e neri ≈ 3,7–4,2 V; il blu non deve dare 4 V ma una tensione/resistenza
+  verso nero).
+- **GB/T 18287** non è un modello: è la **norma cinese** per le batterie agli ioni di litio dei telefoni cellulari (specifica generale), quindi la
+  sigla non dice capacità né pinout. Indica una batteria compatibile/di ricambio, non l'originale Samsung (SP3676B1A per P5100, da etichetta).
+  Per la prova servono comunque l'etichetta con capacità/tensione e la misura di VF.
+- **Cosa misurare per simulare la batteria:** con la batteria collegata o a banco, resistenza tra filo blu e nero (batteria scollegata dal tablet)
+  e tensione blu→nero; se è un NTC varierà con la temperatura (scaldare con le dita). Quel valore, messo come resistenza fissa tra pin 3 e
+  massa, è ciò che il tablet deve vedere senza batteria. ⏳ valore non ancora misurato.

@@ -270,6 +270,7 @@ Versione documento: v0.1.14 — 2026-10-22 01:35 (ora del PC)
 - Aggiunti lista componenti, schema e sequenza di prova per un cavo di prova USB-C → 30 pin (progetto, non costruito).
 - Idea «alimentare dai contatti batteria»: dal service manual risultano SMB347S (carica), MAX17042G (fuel gauge), TWL6032 (PMIC), segnali VF/CONTACT/BAT_REMOVAL; pinout del connettore ancora da trovare nello schema (Badcaps / s-manuals).
 - Scaricato lo schema (s-manuals.com, non nel repo): connettore batteria BTC700 = pin 1-2 V_BATT, 3 VF (ADC TWL6032 + MAX17042 AIN), 4-5 GND, 6-9 NC; ritagli in `docs/p5100_schema_pag7_*.png`; piano di prova con alimentatore da banco nella nota.
+- 2026-11-12: l'utente descrive il contatto batteria (5 fili: 2 rossi, 2 neri, 1 blu; sigla GB/T 18287). Corrisponde a BTC700 (rossi V_BATT, blu VF, neri GND); GB/T 18287 è una norma, non un modello. VF da misurare.
 
 ## 17. (6) v0.1.16 — 2026-10-22 23:58 (sessione locale, verifica APK v0.9.6)
 - APK **v0.9.6 installata** sul GT-P5100 (via ADB Wi-Fi 192.168.1.234:5555) e **verificata con i dati reali**
