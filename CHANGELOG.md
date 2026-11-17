@@ -46,6 +46,18 @@ Versione documento: v0.1.14 — 2026-10-22 01:35 (ora del PC)
 - ✅ Verificato con screenshot sul GT-P5100 (ora `192.168.1.208`): GPU 2 mostra GPU Core, GPU Memory, GPU Hot Spot.
 - **Rollback:** reinstallare `dist/Tab2Monitor_v0.11.0.apk` oppure `git checkout 07a6c10 -- android/tab2monitor_app/src/it/tab2revamp/monitor/MainActivity.java` e ricompilare con lo script v0.11.0.
 
+## 38. v0.4.2 server Windows — 2026-11-17 15:00 (sessione «Sorgente dati Windows»): MI50 con la sola temperatura «GPU»
+- **Sintomo (utente):** per la MI50 si vedeva di nuovo solo la temperatura della GPU.
+- **Causa (misurata):** il Tab2Sensors del servizio, avviato alle 14:43 mentre l'utente era collegato in Desktop remoto (sessione `rdp-tcp#0`; Windows elencava una
+  seconda «AMD Radeon RX 9070 XT» virtuale e il «Microsoft Remote Display Adapter»), non aveva la MI50 nell'elenco di LHM. LHM elenca le schede solo all'avvio.
+  Il server mostrava quindi la MI50 solo da Windows (`win/0x0805B2F0/temp`, nome «GPU», 60 °C). Lo stesso Tab2Sensors lanciato a mano alle 15:00 vedeva `/gpu-amd/5` con tutti i sensori.
+- La curva di Fan #4 «MI 50» non si e' persa: con il riferimento per nome (`AMD Radeon Pro VII|GPU Hot Spot`, dalla v0.3.8) si e' agganciata alla temperatura principale della stessa scheda letta da Windows.
+- **v0.4.2:** se una GPU vista da Windows (con temperatura) manca a LHM da 120 s, il server chiude Tab2Sensors e lo rilancia, al massimo ogni 10 minuti; esclusi gli adattatori «Microsoft»/«Remote».
+- ✅ Verificato dopo il riavvio del servizio: MI50 con GPU Core, GPU Memory, GPU VR VDDC, GPU Hot Spot; curva di nuovo su `/gpu-amd/5/temperature/7` (id aggiornato da solo), ventola al 58% a 65 °C.
+  ⏳ Il rilancio automatico non e' stato visto scattare dal vivo (il riavvio del servizio ha risolto prima).
+- `adb_ips` era tornato `["192.168.1.234"]` col salvataggio del 2026-11-16 18:53 (probabilmente una pagina `/config` aperta prima della correzione del 12/11): rimesso `["192.168.1.208"]`.
+- Rollback: `git rm windows/agent/tab2monitor_server_v0.4.2_20261117-1500.py` e riavvio del servizio (torna la v0.4.1).
+
 ## 37. Tablet senza dati dopo un cambio di indirizzi IP — 2026-11-12 16:20 (sessione «Sorgente dati Windows»)
 - **Sintomo:** dopo il riavvio del servizio il GT-P5100 non riceveva dati, anche dopo un riavvio del tablet.
 - **Causa (misurata):** il router (DHCP) ha cambiato gli indirizzi. Il **GT-P5100** e' passato da `192.168.1.234` a **`192.168.1.208`**
