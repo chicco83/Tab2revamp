@@ -253,6 +253,7 @@ Con `-home` l'app diventa anche la schermata Home (kiosk); `-nohome` la toglie.
 - Impostazioni -> «PC spento» (`pc_sleep`, default acceso). Se il server non risponde per 30 s il tablet spegne lo schermo e ferma il rilevamento movimento (fotocamera chiusa); non si riaccende per movimento, volto o carico.
 - Si riaccende da solo quando il server risponde di nuovo oppure riceve il pacchetto UDP `tab2monitor-up` (porta 8092) che il server invia all'avvio. A server assente l'app cerca il PC in rete (UDP 8091) anche a schermo spento.
 - Dalla v0.14.1 vale anche quando lo schermo del PC si spegne (campo `srv.display_on` del server, se presente).
+- Lato PC serve il server v0.4.7 o successivo: `srv.display_on` e' `false` solo quando i monitor si spengono per risparmio energia (non quando si blocca la sessione); nel log del server `%LOCALAPPDATA%\Tab2Monitor\server.log` compaiono le righe «schermo del PC: spento/acceso». Controllo: `(Invoke-RestMethod http://127.0.0.1:8090/api/metrics).srv.display_on`.
 - Per lo spegnimento reale serve l'amministratore dispositivo (altrimenti schermo nero a luminosita' minima).
 - Stato: provata sul tablet fermando e riavviando il server (spento in ~30 s, riacceso in ~4 s); da PowerShell `schtasks /End /TN Tab2Monitor` e `/Run`.
 
@@ -264,6 +265,7 @@ Con `-home` l'app diventa anche la schermata Home (kiosk); `-nohome` la toglie.
 - Storico: prima della v0.13.0 l'organizzazione (pagina 1 sistema+GPU, pagina 2 Claude+sensori) era fissa nel codice; ora e' quella predefinita.
 
 ## Storico modifiche (sezione server Windows)
+- 2026-11-19: server v0.4.7. Prima: nessuna informazione sullo schermo del PC. Ora: campo `srv.display_on`. Perche': l'APK v0.14.1 spegne il tablet quando si spengono i monitor del PC.
 - 2026-11-12: installer `install_tab2monitor_service_v0.2.1_20261112-1510` al posto della v0.2.0 (2026-10-22). Prima: attività con la priorità
   predefinita 7, sotto la norma. Ora: priorità 4. Perché: con Citrix Workspace al 100% su tutti i core il server non riceveva CPU e non rispondeva.
 

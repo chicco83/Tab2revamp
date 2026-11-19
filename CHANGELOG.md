@@ -1,6 +1,13 @@
 # CHANGELOG — Tab2revamp
 Versione documento: v0.1.19 — 2026-11-19 09:00 (ora del PC, branch installer-tab2monitor)
 
+## 47. Server Windows v0.4.7: campo `srv.display_on` (schermo del PC acceso/spento) — 2026-11-19 19:50
+- **Richiesta (sessione APK, per APK v0.14.1):** sapere se i monitor del PC sono spenti per risparmio energia, per spegnere anche il tablet.
+- **Prima (v0.4.6):** `/api/metrics` non diceva nulla sullo schermo del PC.
+- **Ora (v0.4.7, `tab2monitor_server_v0.4.7_20261119-1400.py`):** un thread crea una finestra message-only e si registra con `RegisterPowerSettingNotification` su `GUID_CONSOLE_DISPLAY_STATE` (6FE69556-704A-47A0-8F24-C28D936FDA47). Windows invia `WM_POWERBROADCAST` / `PBT_POWERSETTINGCHANGE` con 0 = spento, 1 = acceso, 2 = attenuato (contato come acceso). `srv.display_on` = booleano, iniziale `true`; omesso se l'API non funziona (l'APK lo tratta come acceso). Solo spegnimento dei monitor, non blocco della sessione. Ogni cambio scrive nel log «schermo del PC: acceso/spento (stato N)». Il valore entra nell'istantanea a ogni campione (circa 1 s di ritardo massimo).
+- ✅ **Verificato sul PC (2026-11-19 19:48):** servizio riavviato con `schtasks /End` + `/Run` -> `v0.4.7`, `display_on=True`; monitor spenti con `SC_MONITORPOWER` -> dopo 6 s `display_on=False` e log «spento (stato 0)»; mouse mosso -> `True` e log «acceso (stato 1)». ⏳ Non provato col timeout reale di risparmio energia e sul tablet (lo fa la sessione APK).
+- **Rollback:** rinominare o spostare `tab2monitor_server_v0.4.7_20261119-1400.py` fuori da `windows/agent/` (il supervisore riprende la v0.4.6, la piu' recente per nome) e riavviare l'attivita' (`schtasks /End /TN Tab2Monitor` poi `/Run`, da PowerShell); nel codice `git revert` del commit di questa voce.
+
 ## 46. Schermo del PC spento = tablet spento: APK v0.14.1 — 2026-11-19 14:00
 - **Richiesta:** se lo schermo del PC si spegne deve spegnersi anche il tablet.
 - **APK:** `PresenceService` legge `srv.display_on` da `/api/metrics`; se resta `false` per piu' di 5 s (con `pc_sleep` acceso) fa come per il PC spento (schermo e fotocamera spenti, nessuna riaccensione per movimento o carico); al ritorno a `true` riaccende. Campo assente = schermo acceso (compatibile con i server precedenti). Build `build_tab2monitor_v0.14.1_20261119-1400.sh` (VERSION_CODE 33), installata sul tablet 192.168.1.206.
