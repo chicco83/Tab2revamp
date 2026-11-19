@@ -253,7 +253,7 @@ Con `-home` l'app diventa anche la schermata Home (kiosk); `-nohome` la toglie.
 - Impostazioni -> «PC spento» (`pc_sleep`, default acceso). Se il server non risponde per 30 s il tablet spegne lo schermo e ferma il rilevamento movimento (fotocamera chiusa); non si riaccende per movimento, volto o carico.
 - Si riaccende da solo quando il server risponde di nuovo oppure riceve il pacchetto UDP `tab2monitor-up` (porta 8092) che il server invia all'avvio. A server assente l'app cerca il PC in rete (UDP 8091) anche a schermo spento.
 - Per lo spegnimento reale serve l'amministratore dispositivo (altrimenti schermo nero a luminosita' minima).
-- Stato: compilata, prova sul tablet ancora da fare (vedi CHANGELOG voce 45).
+- Stato: provata sul tablet fermando e riavviando il server (spento in ~30 s, riacceso in ~4 s); da PowerShell `schtasks /End /TN Tab2Monitor` e `/Run`.
 
 ## Pagine e modalita' «Modifica layout» (APK v0.13.0, 2026-11-19)
 - Ogni blocco (CPU, Core, Storico 60 s, RAM, GPU, Rete, Dischi, Top processi, Claude, Sensori) sta su una pagina (max 5) e in una colonna (max 3).

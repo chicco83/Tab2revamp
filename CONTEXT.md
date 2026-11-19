@@ -171,8 +171,8 @@ la causa era `psutil.process_iter`, non `GPU Engine`) · ⛔ avvio prima dell'ac
 Drive), montato solo dopo l'accesso. ✅ `claude_plan` via oauth verificato dal vivo il 2026-10-23 (token ora presente); ripiego history di Claude Desktop. ⛔ FanControl: vedi CHANGELOG v0.2.0.
 
 ## PC spento (APK v0.14.0, 2026-11-19)
-- ✅ Codice: `PresenceService` con `pcOff`, `serverGone()` / `serverBack()`, ascolto UDP 8092 (`udpLoop`), ricerca del PC a schermo spento, opzione `pc_sleep` (default true), wake lock Wi-Fi/multicast. ⏳ Non provato sul tablet (adb 192.168.1.208 «unauthorized»: accettare l'autorizzazione sul tablet).
-- ⏳ Lato server (sessione Windows): inviare `{"app":"tab2monitor-up","name","port","version"}` in broadcast UDP porta 8092 all'avvio, 5 volte (0, 2, 5, 10, 20 s). Senza, il risveglio avviene col polling.
+- ✅ Codice: `PresenceService` con `pcOff`, `serverGone()` / `serverBack()`, ascolto UDP 8092 (`udpLoop`), ricerca del PC a schermo spento, opzione `pc_sleep` (default true), wake lock Wi-Fi/multicast. ✅ Provato sul tablet (ora a 192.168.1.206; gli IP .206/.208 si erano scambiati): server fermato -> schermo spento in ~30 s; server riavviato -> schermo acceso in ~4 s. ⏳ Non provato con PC realmente spento.
+- ✅ Lato server (v0.4.6): invia `{"app":"tab2monitor-up","name","port","version"}` in broadcast UDP porta 8092 all'avvio, 5 volte (0, 2, 5, 10, 20 s).
 - Rollback: reinstallare APK v0.13.0 o `git revert` del commit.
 
 ## Layout configurabile (APK v0.13.0, 2026-11-19)
