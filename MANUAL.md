@@ -252,6 +252,7 @@ Con `-home` l'app diventa anche la schermata Home (kiosk); `-nohome` la toglie.
 ## PC spento: schermo spento e risveglio automatico (APK v0.14.0, 2026-11-19)
 - Impostazioni -> «PC spento» (`pc_sleep`, default acceso). Se il server non risponde per 30 s il tablet spegne lo schermo e ferma il rilevamento movimento (fotocamera chiusa); non si riaccende per movimento, volto o carico.
 - Si riaccende da solo quando il server risponde di nuovo oppure riceve il pacchetto UDP `tab2monitor-up` (porta 8092) che il server invia all'avvio. A server assente l'app cerca il PC in rete (UDP 8091) anche a schermo spento.
+- Dalla v0.14.1 vale anche quando lo schermo del PC si spegne (campo `srv.display_on` del server, se presente).
 - Per lo spegnimento reale serve l'amministratore dispositivo (altrimenti schermo nero a luminosita' minima).
 - Stato: provata sul tablet fermando e riavviando il server (spento in ~30 s, riacceso in ~4 s); da PowerShell `schtasks /End /TN Tab2Monitor` e `/Run`.
 

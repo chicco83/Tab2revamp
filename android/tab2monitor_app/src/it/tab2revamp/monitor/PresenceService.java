@@ -1,6 +1,9 @@
 // =============================================================================
 // Tab2Monitor - PresenceService (presenza con la fotocamera frontale)
-// Versione: v0.14.0 - 2026-11-19 13:00
+// Versione: v0.14.1 - 2026-11-19 14:00
+//   v0.14.1: anche lo schermo del PC spento (campo srv.display_on = false in /api/metrics per piu' di 5 s)
+//           spegne il tablet come il PC spento; al ritorno a true lo riaccende.
+// v0.14.0 - 2026-11-19 13:00
 //   v0.14.0: PC SPENTO = schermo spento e rilevamento movimento fermo. Se il server non risponde per
 //           OFFLINE_SEC secondi (opzione "pc_sleep", default acceso) spegne lo schermo, chiude la fotocamera
 //           e non si riaccende per movimento. Quando il server torna (una risposta a /api/metrics oppure il
@@ -325,16 +328,30 @@ public class PresenceService extends Service {
     private final Runnable poll = new Runnable() {
         public void run() {
             MainActivity.Metrics m = null;
+            boolean dispOn = true;                                   // v0.14.1: schermo del PC acceso?
             // v0.14.0: l'URL Wi-Fi puo' essere cambiato (ricerca automatica): si rilegge a ogni ciclo
             // (era: for (String u : urls) fissato in onStartCommand)
             for (String u : currentUrls()) {
-                try { m = MainActivity.Metrics.parse(new JSONObject(get(u + "/api/metrics"))); break; }
-                catch (Exception ignored) { }
+                try {
+                    JSONObject jo = new JSONObject(get(u + "/api/metrics"));
+                    JSONObject sv = jo.optJSONObject("srv");         // v0.14.1
+                    if (sv != null) dispOn = sv.optBoolean("display_on", true);
+                    m = MainActivity.Metrics.parse(jo);
+                    break;
+                } catch (Exception ignored) { }
+                // (v0.14.0: m = MainActivity.Metrics.parse(new JSONObject(get(u + "/api/metrics"))); break;)
             }
             if (m != null) {
                 last = m; pollFails = 0; lastOk = SystemClock.uptimeMillis();
-                if (pcOff) serverBack("risposta del server");
-                check(m);
+                long nowU = SystemClock.uptimeMillis();
+                if (!dispOn) {                                       // v0.14.1: schermo del PC spento
+                    if (dispOffSince == 0) dispOffSince = nowU;
+                    if (pcSleep && !pcOff && nowU - dispOffSince >= 5000) serverGone("schermo del PC spento");
+                } else {
+                    dispOffSince = 0;
+                    if (pcOff) serverBack("risposta del server");
+                }
+                if (!pcOff) check(m);
             } else {
                 pollFails++;
                 if (pollFails >= 3 && wifiOn() && SystemClock.uptimeMillis() - lastDisc > 10000) {
@@ -345,7 +362,7 @@ public class PresenceService extends Service {
                         pollFails = 0;
                     }
                 }
-                if (pcSleep && !pcOff && (SystemClock.uptimeMillis() - lastOk) / 1000 >= OFFLINE_SEC) serverGone();
+                if (pcSleep && !pcOff && (SystemClock.uptimeMillis() - lastOk) / 1000 >= OFFLINE_SEC) serverGone("server assente da " + OFFLINE_SEC + " s");
             }
             net.postDelayed(this, pcOff ? 3000 : 2000);
         }
@@ -361,10 +378,12 @@ public class PresenceService extends Service {
                 : usb ? new String[]{MainActivity.USB_URL} : wf ? new String[]{wifi} : new String[0];
     }
 
-    private void serverGone() {
-        Log.i(TAG, "server assente da " + OFFLINE_SEC + " s: PC spento, spengo schermo e fotocamera");
+    private long dispOffSince;                            // v0.14.1
+
+    private void serverGone(String why) {
+        Log.i(TAG, why + ": PC spento, spengo schermo e fotocamera");
         pcOff = true;
-        loadStatus = "PC spento (server non risponde)";
+        loadStatus = "PC spento (" + why + ")";
         h.post(new Runnable() { public void run() {
             closeCamera(); status = "fermo: PC spento";
         } });

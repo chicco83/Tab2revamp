@@ -1,6 +1,12 @@
 # CHANGELOG — Tab2revamp
 Versione documento: v0.1.19 — 2026-11-19 09:00 (ora del PC, branch installer-tab2monitor)
 
+## 46. Schermo del PC spento = tablet spento: APK v0.14.1 — 2026-11-19 14:00
+- **Richiesta:** se lo schermo del PC si spegne deve spegnersi anche il tablet.
+- **APK:** `PresenceService` legge `srv.display_on` da `/api/metrics`; se resta `false` per piu' di 5 s (con `pc_sleep` acceso) fa come per il PC spento (schermo e fotocamera spenti, nessuna riaccensione per movimento o carico); al ritorno a `true` riaccende. Campo assente = schermo acceso (compatibile con i server precedenti). Build `build_tab2monitor_v0.14.1_20261119-1400.sh` (VERSION_CODE 33), installata sul tablet 192.168.1.206.
+- **Server:** campo `srv.display_on` richiesto alla sessione Windows (notifica `GUID_CONSOLE_DISPLAY_STATE`); ⏳ finche' non e' in servizio la funzione non ha effetto e non e' provata.
+- **Rollback:** reinstallare `dist/Tab2Monitor_v0.14.0.apk`.
+
 ## 45. PC spento = schermo e rilevamento movimento fermi; risveglio al ritorno del server: APK v0.14.0 — 2026-11-19 13:00
 - **Richiesta:** se l'app non rileva il server perche' il PC e' spento, il tablet spegne schermo e rilevamento movimenti e si riaccende quando il PC torna online; il server deve dare un segnale di risveglio all'avvio.
 - **Prima:** il servizio `PresenceService` spegneva lo schermo solo per assenza di persone (fotocamera) e leggeva `/api/metrics` solo per carico/allarmi; a PC spento il tablet restava acceso su «In attesa del server». L'URL Wi-Fi nel servizio era fissato all'avvio e, a schermo spento, nessuno cercava il PC dopo un cambio di IP.
