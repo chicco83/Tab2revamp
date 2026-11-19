@@ -1,10 +1,25 @@
 // =============================================================================
 // Tab2Monitor - MainActivity + thread di polling
-// Versione: v0.10.0 - 2026-10-22 02:30 (branch installer)
-//   v0.10.0: minSdk 21 (Android 5.0+): permesso CAMERA chiesto a runtime solo da API 23;
-//           scoperta automatica del server (Discovery, UDP 8090) quando nessuna sorgente
-//           risponde: si salva il server trovato (wifi_url + server_name) e lo si ritrova
-//           per nome anche se cambia IP; lingua italiano/inglese (L, chiave "lang")
+// Versione: v0.12.0 - 2026-11-19 10:00
+//   v0.12.0: ricerca automatica del PC in rete (UDP broadcast, porta 8091): se il server non risponde per ~9 s
+//            il Poller lo cerca da solo, aggiorna wifi_url e riprende (IP cambiato dal DHCP)
+//   v0.11.1: scartata la temperatura 'GPU VR VDDC' (MI50): il box tagliava la riga Hot Spot
+//   v0.11.0: tolti gpu_busy_pct / gpu_busy_sec (pagina GPU non piu' separata)
+//   v0.10.1: procs_top (server v0.3.5): top 5 per RAM, per GPU e per I/O oltre a quello per CPU
+//   v0.10.0: cpu.mhz_lo/mhz_hi (scala del gauge frequenza); claude_plan.accounts[] (tutti gli account)
+//   v0.9.9: legge cpu.mhz_now / cpu.mhz_max (frequenza istantanea) per il gauge con lancetta
+//   v0.9.8: le ventole spostate in un altro box non hanno piu' il suffisso "(scheda madre)"
+//   v0.9.6: claude_plan.src ("oauth" / "history"), ts del campione, session.stale
+//   v0.9.5: campo opzionale "claude_plan" (limiti del piano dell'account: sessione 5 h e settimanale,
+//           percentuale e ora di reset), letto se il server lo invia
+//   v0.9.3: ROTAZIONE AUTOMATICA di 180 gradi senza il driver dei sensori: l'accelerometro BMA254
+//           si legge direttamente da /sys/class/sensors/accelerometer_sensor/raw_data ("x, y, z",
+//           ~1024 = 1 g, leggibile da tutti). Ogni 700 ms: se il tablet e' in verticale (|asse| > 600)
+//           e il segno dell'asse calibrato e' opposto a quello della posizione normale per 2 letture
+//           di fila -> flip180. Calibrazione dalle impostazioni ("il tablet adesso e' dritto").
+//   v0.9.2: opzione "flip180" (interfaccia capovolta di 180 gradi, orizzontale rovesciato): il
+//           driver dei sensori e' disattivato (SensorService al 50%), quindi niente rotazione
+//           automatica; si sceglie a mano dalle impostazioni o con am start --ez flip180 true
 //   v0.9.0: animazioni fluide (chiave anim_smooth, durata = poll_ms); gauge check all'accensione
 //           dello schermo (chiave gauge_check, receiver SCREEN_ON + fine oscuramento)
 //   v0.8.0: servizio avviato anche solo per gli allarmi vocali (alarm_on); chiavi load_wake,
@@ -65,8 +80,14 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.io.InputStream;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
 import java.net.HttpURLConnection;
+import java.net.InetAddress;
+import java.net.InterfaceAddress;
+import java.net.NetworkInterface;
 import java.net.URL;
+import java.util.Enumeration;
 
 public class MainActivity extends Activity {
     static final String PREFS = "tab2monitor";
@@ -83,7 +104,9 @@ public class MainActivity extends Activity {
             "p_cpu", "p_cores", "p_hist", "p_ram", "p_gpu", "p_temps", "p_net", "p_disk", "p_procs",
             "p_claude", "p_fans", "anim_fans", "presence",       // v0.6.0: + presence (default false)
             "load_wake", "alarm_on",                             // v0.8.0 (alarm_on default false)
-            "anim_smooth", "gauge_check"};                       // v0.9.0
+            "anim_smooth", "gauge_check",                        // v0.9.0
+            "flip180",                                           // v0.9.2 (default false)
+            "auto_rot"};                                         // v0.9.3 (default false: serve calibrare)
     static final int DEF_PAGE_SEC = 15;   // v0.4.0: secondi per pagina (0 = niente rotazione)
 
     private MonitorView view;
@@ -97,9 +120,6 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle b) {
         super.onCreate(b);
         prefs = getSharedPreferences(PREFS, 0);
-        if (getIntent() != null && getIntent().hasExtra("lang"))           // v0.10.0
-            prefs.edit().putString("lang", getIntent().getStringExtra("lang")).apply();
-        L.set(prefs.getString("lang", ""));
         // v0.6.0: + SHOW_WHEN_LOCKED / DISMISS_KEYGUARD / TURN_SCREEN_ON: quando PresenceService
         // riaccende lo schermo dopo lockNow() si vede subito la dashboard, non il blocco schermo.
         // (v0.5.x: solo KEEP_SCREEN_ON | FULLSCREEN)
@@ -149,12 +169,8 @@ public class MainActivity extends Activity {
         if (i == null) return;
         SharedPreferences.Editor e = prefs.edit();
         if (i.hasExtra("url")) e.putString("wifi_url", trimUrl(i.getStringExtra("url")));
-        if (i.hasExtra("lang")) { e.putString("lang", i.getStringExtra("lang")); L.set(i.getStringExtra("lang")); }   // v0.10.0
-        if (i.hasExtra("home")) setHome(this, i.getBooleanExtra("home", false));                                   // v0.10.0
         if (i.hasExtra("poll_ms")) e.putInt("poll_ms", Math.max(500, i.getIntExtra("poll_ms", 1000)));
         if (i.hasExtra("page_sec")) e.putInt("page_sec", Math.max(0, i.getIntExtra("page_sec", DEF_PAGE_SEC)));
-        if (i.hasExtra("gpu_busy_pct")) e.putInt("gpu_busy_pct", i.getIntExtra("gpu_busy_pct", 30));
-        if (i.hasExtra("gpu_busy_sec")) e.putInt("gpu_busy_sec", i.getIntExtra("gpu_busy_sec", 60));
         if (i.hasExtra("presence_off_sec")) e.putInt("presence_off_sec", Math.max(10, i.getIntExtra("presence_off_sec", 120)));   // v0.6.0
         if (i.hasExtra("presence_sens")) e.putInt("presence_sens", Math.max(1, i.getIntExtra("presence_sens", 20)));
         for (String k : new String[]{"th_cpu", "th_gpu", "th_ram", "th_vram", "alarm_def"})   // v0.8.0
@@ -179,39 +195,22 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         current = this;
+        applyFlip(this, prefs);                             // v0.9.2
+        rotH.removeCallbacks(rotTick); rotH.postDelayed(rotTick, 700);   // v0.9.3
         hideBars();
         restartPoller();
         // v0.6.0: servizio di presenza acceso/spento secondo l'opzione (serve il permesso CAMERA)
         // v0.8.0: il servizio serve per la presenza (con permesso CAMERA) oppure per gli allarmi.
         // Versione v0.6.0: solo presence && CAMERA
         Intent ps = new Intent(this, PresenceService.class);
-        // v0.10.0: checkSelfPermission esiste da API 23; sotto, il permesso e' dato all'installazione
-        boolean cam = prefs.getBoolean("presence", false) && hasCamera(this);
+        boolean cam = prefs.getBoolean("presence", false)
+                && checkSelfPermission(android.Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED;
         if (!cam && prefs.getBoolean("presence", false)) prefs.edit().putBoolean("presence", false).apply();
         if (cam || prefs.getBoolean("alarm_on", false)) startService(ps);
         else stopService(ps);
     }
 
-    // v0.10.0: modalita' Home (kiosk). L'app attiva/disattiva da se' il proprio HomeAlias: da
-    // Android 11 circa "adb shell pm enable <componente>" e' vietato alla shell per le app non
-    // debuggable (SecurityException vista sull'emulatore API 34). Poi la Home va scelta:
-    // adb "cmd role add-role-holder android.app.role.HOME" (API 29+) o il selettore di sistema.
-    static void setHome(android.content.Context c, boolean on) {
-        c.getPackageManager().setComponentEnabledSetting(
-                new android.content.ComponentName(c, "it.tab2revamp.monitor.HomeAlias"),
-                on ? android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_ENABLED
-                   : android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
-                android.content.pm.PackageManager.DONT_KILL_APP);
-        c.getSharedPreferences(PREFS, 0).edit().putBoolean("home", on).apply();
-    }
-
-    // v0.10.0: permesso fotocamera, compatibile con API 21-22 (permessi concessi all'installazione)
-    static boolean hasCamera(android.content.Context c) {
-        return android.os.Build.VERSION.SDK_INT < 23
-                || c.checkSelfPermission(android.Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED;
-    }
-
-    private final android.content.BroadcastReceiver screenOn =new android.content.BroadcastReceiver() {
+    private final android.content.BroadcastReceiver screenOn = new android.content.BroadcastReceiver() {
         public void onReceive(android.content.Context c, Intent i) { view.gaugeCheck(); }
     };
 
@@ -219,6 +218,61 @@ public class MainActivity extends Activity {
     protected void onDestroy() {
         unregisterReceiver(screenOn);                       // v0.9.0
         super.onDestroy();
+    }
+
+    // ------------------------------------------------------ rotazione automatica (v0.9.3)
+    static final String ACC = "/sys/class/sensors/accelerometer_sensor/raw_data";
+    private final android.os.Handler rotH = new android.os.Handler();
+    private int rotVotes;
+    private final Runnable rotTick = new Runnable() {
+        public void run() {
+            rotH.postDelayed(this, 700);
+            if (!prefs.getBoolean("auto_rot", false) || !prefs.contains("rot_axis")) return;
+            int[] a = readAcc();
+            if (a == null) return;
+            int v = a[prefs.getInt("rot_axis", 1)];
+            if (Math.abs(v) < 600) { rotVotes = 0; return; }   // in piano o inclinato: non decide
+            boolean flip = Integer.signum(v) != prefs.getInt("rot_sign", 1);
+            if (flip == prefs.getBoolean("flip180", false)) { rotVotes = 0; return; }
+            if (++rotVotes < 2) return;                          // 2 letture concordi
+            rotVotes = 0;
+            prefs.edit().putBoolean("flip180", flip).apply();
+            applyFlip(MainActivity.this, prefs);
+        }
+    };
+
+    // Legge "x, y, z" dall'accelerometro; null se non leggibile (SELinux, file assente)
+    static int[] readAcc() {
+        java.io.BufferedReader r = null;
+        try {
+            r = new java.io.BufferedReader(new java.io.FileReader(ACC));
+            String[] f = r.readLine().split(",");
+            return new int[]{Integer.parseInt(f[0].trim()), Integer.parseInt(f[1].trim()), Integer.parseInt(f[2].trim())};
+        } catch (Exception e) {
+            return null;
+        } finally {
+            if (r != null) try { r.close(); } catch (java.io.IOException ignored) { }
+        }
+    }
+
+    // Calibrazione: l'asse X o Y con il valore maggiore e il suo segno nella posizione "dritta"
+    // (tenendo conto che l'interfaccia potrebbe essere gia' capovolta). Restituisce un messaggio.
+    static String calibrate(SharedPreferences p) {
+        int[] a = readAcc();
+        if (a == null) return "accelerometro non leggibile: resta l'opzione manuale";
+        int axis = Math.abs(a[0]) >= Math.abs(a[1]) ? 0 : 1;
+        if (Math.abs(a[axis]) < 600) return "tieni il tablet in verticale e riprova (" + a[0] + ", " + a[1] + ", " + a[2] + ")";
+        int sign = Integer.signum(a[axis]);
+        if (p.getBoolean("flip180", false)) sign = -sign;     // adesso e' al rovescio rispetto al normale
+        p.edit().putInt("rot_axis", axis).putInt("rot_sign", sign).putBoolean("auto_rot", true).apply();
+        return "calibrato: asse " + (axis == 0 ? "X" : "Y") + ", segno " + (sign > 0 ? "+" : "-") + " (rotazione automatica attiva)";
+    }
+
+    // v0.9.2: orizzontale normale o rovesciato (sovrascrive screenOrientation="landscape" del manifest)
+    static void applyFlip(Activity a, SharedPreferences p) {
+        a.setRequestedOrientation(p.getBoolean("flip180", false)
+                ? android.content.pm.ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE
+                : android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
     }
 
     // v0.6.0: oscuramento di ripiego (senza amministratore dispositivo): velo nero + luminosita'
@@ -237,6 +291,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onPause() {
         if (current == this) current = null;            // v0.6.0
+        rotH.removeCallbacks(rotTick);                     // v0.9.3
         stopPoller();
         super.onPause();
     }
@@ -272,16 +327,12 @@ public class MainActivity extends Activity {
         // 2026-10-22 v0.4.0 (era: view.setConfig(urls, on);)
         view.setAnim(prefs.getBoolean("anim_smooth", true), prefs.getInt("poll_ms", 1000));   // v0.9.0
         view.setGaugeCheck(prefs.getBoolean("gauge_check", true));
-        view.setConfig(urls, on, prefs.getInt("page_sec", DEF_PAGE_SEC), prefs.getBoolean("anim_fans", true),
-                prefs.getInt("gpu_busy_pct", 30), prefs.getInt("gpu_busy_sec", 60));
-        // v0.10.0: con il Wi-Fi attivo ma senza URL si parte lo stesso: il poller cerca il server
-        // sulla rete (Discovery). Versione v0.9.0:
-        //   if (urls.length == 0) return;          // nessuna sorgente: niente thread, solo il messaggio
-        //   poller = new Poller(view, urls, prefs.getInt("poll_ms", 1000));
-        boolean disc = prefs.getBoolean("src_wifi", true);
-        view.discovery = disc;
-        if (urls.length == 0 && !disc) return; // nessuna sorgente: niente thread, solo il messaggio
-        poller = new Poller(view, urls, prefs.getInt("poll_ms", 1000), disc ? getApplicationContext() : null, usb);
+        view.setConfig(urls, on, prefs.getInt("page_sec", DEF_PAGE_SEC), prefs.getBoolean("anim_fans", true));
+        // v0.12.0: con la sorgente Wi-Fi accesa il thread parte anche senza URL: lo trova la ricerca in rete
+        // (era: if (urls.length == 0) return;  poller = new Poller(view, urls, prefs.getInt("poll_ms", 1000));)
+        boolean wfOn = prefs.getBoolean("src_wifi", true);
+        if (urls.length == 0 && !wfOn) return;          // nessuna sorgente: niente thread, solo il messaggio
+        poller = new Poller(view, usb, wfOn ? wifi : "", wfOn, prefs, prefs.getInt("poll_ms", 1000));
         poller.start();
     }
 
@@ -295,40 +346,74 @@ public class MainActivity extends Activity {
     // -------------------------------------------------------------------------
     static final class Poller extends Thread {
         private final MonitorView view;
-        private String[] urls;                                 // v0.10.0: non final (scoperta)
+        // v0.12.0: sorgenti = USB (127.0.0.1) + URL Wi-Fi, che la ricerca in rete puo' cambiare.
+        // (v0.4.0-v0.11.x: private final String[] urls; fissato all'avvio)
+        private final boolean usb, wfOn;
+        private String wifi;
+        private final SharedPreferences prefs;
+        private int fails = 0;                                 // cicli consecutivi senza risposta
+        private long lastDisc = 0;                             // uptimeMillis dell'ultima ricerca
         private final int pollMs;
         private volatile boolean running = true;
         private int good = 0;                                  // indice dell'ultimo URL ok
         private final byte[] buf = new byte[8192];
         private final ByteArrayOutputStream bos = new ByteArrayOutputStream(16384);
-        // v0.10.0: scoperta automatica (ctx == null = disattivata)
-        private final android.content.Context ctx;
-        private final boolean usb;
-        private int fails = 0;
-        private long lastDisc = -60000;
-        static final int DISC_AFTER_FAILS = 3;                 // ~10 s senza risposta (3 s a tentativo)
-        static final long DISC_EVERY_MS = 30000;
 
-        Poller(MonitorView v, String[] u, int ms, android.content.Context c, boolean usbOn) {
+        Poller(MonitorView v, boolean usb, String wifi, boolean wfOn, SharedPreferences p, int ms) {
             super("Tab2Poller");
-            view = v; urls = u; pollMs = ms; ctx = c; usb = usbOn;
+            view = v; this.usb = usb; this.wifi = wifi; this.wfOn = wfOn; prefs = p; pollMs = ms;
         }
 
-        // v0.10.0: nessuna sorgente risponde -> broadcast UDP. Si accetta il server con lo stesso
-        // nome di quello salvato (cambio di IP) oppure, se nessun nome e' salvato, l'unico trovato.
-        // Con piu' server e nessun nome salvato si sceglie dalle impostazioni ("Cerca server").
-        private void discover() {
-            lastDisc = SystemClock.uptimeMillis();
-            SharedPreferences p = ctx.getSharedPreferences(PREFS, 0);
-            String name = p.getString("server_name", "");
-            java.util.ArrayList<Discovery.Server> found = Discovery.find(ctx, 1500);
-            Discovery.Server pick = null;
-            for (Discovery.Server s : found) if (name.length() > 0 && s.name.equals(name)) pick = s;
-            if (pick == null && name.length() == 0 && found.size() == 1) pick = found.get(0);
-            if (pick == null) return;
-            p.edit().putString("wifi_url", pick.url).putString("server_name", pick.name).apply();
-            urls = usb ? new String[]{USB_URL, pick.url} : new String[]{pick.url};
-            good = urls.length - 1;
+        private String[] sources() {                           // v0.12.0
+            ArrayList<String> l = new ArrayList<String>();
+            if (usb) l.add(USB_URL);
+            if (wifi.length() > 0) l.add(wifi);
+            return l.toArray(new String[0]);
+        }
+
+        // v0.12.0: cerca il server Tab2Monitor sulla LAN. Invia "TAB2MON?" in UDP a 255.255.255.255 e al
+        // broadcast di ogni interfaccia (porta 8091); il server risponde con {"app","name","port",...} e
+        // l'indirizzo e' quello da cui arriva la risposta (cosi' non puo' essere vecchio).
+        // Restituisce "http://IP:porta" oppure null. Bloccante (~2,5 s al massimo): da thread non UI.
+        static String discover() {
+            DatagramSocket s = null;
+            try {
+                s = new DatagramSocket();
+                s.setBroadcast(true);
+                byte[] q = "TAB2MON?".getBytes("UTF-8");
+                ArrayList<InetAddress> dst = new ArrayList<InetAddress>();
+                dst.add(InetAddress.getByName("255.255.255.255"));
+                try {
+                    for (Enumeration<NetworkInterface> e = NetworkInterface.getNetworkInterfaces();
+                         e != null && e.hasMoreElements();) {
+                        NetworkInterface ni = e.nextElement();
+                        if (ni.isLoopback() || !ni.isUp()) continue;
+                        for (InterfaceAddress ia : ni.getInterfaceAddresses())
+                            if (ia.getBroadcast() != null) dst.add(ia.getBroadcast());
+                    }
+                } catch (Exception ignored) { /* resta il broadcast generale */ }
+                for (InetAddress d : dst) {
+                    try { s.send(new DatagramPacket(q, q.length, d, 8091)); } catch (Exception ignored) { }
+                }
+                byte[] b = new byte[1024];
+                long end = SystemClock.uptimeMillis() + 2500;
+                while (true) {
+                    long left = end - SystemClock.uptimeMillis();
+                    if (left <= 0) return null;
+                    s.setSoTimeout((int) left);
+                    DatagramPacket p = new DatagramPacket(b, b.length);
+                    try { s.receive(p); } catch (java.net.SocketTimeoutException e) { return null; }
+                    try {
+                        JSONObject o = new JSONObject(new String(p.getData(), 0, p.getLength(), "UTF-8"));
+                        if ("tab2monitor".equals(o.optString("app")))
+                            return "http://" + p.getAddress().getHostAddress() + ":" + o.optInt("port", 8090);
+                    } catch (Exception ignored) { /* pacchetto di altro tipo: si continua ad ascoltare */ }
+                }
+            } catch (Exception e) {
+                return null;
+            } finally {
+                if (s != null) s.close();
+            }
         }
 
         void quit() { running = false; interrupt(); }
@@ -339,6 +424,7 @@ public class MainActivity extends Activity {
                 long t0 = SystemClock.uptimeMillis();
                 Metrics m = null;
                 String src = null;
+                String[] urls = sources();                     // v0.12.0: ricalcolato a ogni ciclo
                 for (int k = 0; k < urls.length && running && m == null; k++) {
                     int i = (good + k) % urls.length;
                     try {
@@ -347,11 +433,19 @@ public class MainActivity extends Activity {
                     } catch (Exception ignored) { /* prova l'URL successivo */ }
                 }
                 if (!running) break;
-                fails = m != null ? 0 : fails + 1;        // v0.10.0
-                if (m == null && ctx != null && (fails >= DISC_AFTER_FAILS || urls.length == 0)
-                        && SystemClock.uptimeMillis() - lastDisc >= DISC_EVERY_MS) {
-                    try { discover(); } catch (Exception ignored) { }
-                    if (!running) break;
+                // v0.12.0: ricerca automatica. Dopo 3 cicli senza risposta (~9 s) e poi al piu' ogni 10 s.
+                if (m != null) fails = 0;
+                else if (wfOn && ++fails >= 3 && SystemClock.uptimeMillis() - lastDisc > 10000) {
+                    lastDisc = SystemClock.uptimeMillis();
+                    String f = discover();
+                    if (f != null && running) {
+                        if (!f.equals(wifi)) {
+                            wifi = f;
+                            prefs.edit().putString("wifi_url", f).apply();   // resta salvato per i prossimi avvii
+                        }
+                        good = 0; fails = 0;
+                        continue;                              // riprova subito col nuovo indirizzo
+                    }
                 }
                 if (m != null) lastMetrics = m;           // v0.8.0
                 final Metrics fm = m; final String fs = src;
@@ -392,6 +486,8 @@ public class MainActivity extends Activity {
         String host = "--";
         long uptime;
         float cpu, mhz, ram, ramUsed, ramTot, swap;
+        float mhzNow = Float.NaN, mhzMax = Float.NaN;   // v0.9.9
+        float mhzLo = Float.NaN, mhzHi = Float.NaN;     // v0.10.0: min/max dell'ultima ora
         int[] cores = new int[0];
         String gpuName; float gpuLoad = Float.NaN, gpuTemp = Float.NaN, gpuMem = Float.NaN;
         String[] tempName = new String[0]; float[] tempC = new float[0];
@@ -415,6 +511,46 @@ public class MainActivity extends Activity {
             String topModel; long topModelTok = -1;
         }
 
+        // v0.9.5: limiti del piano (schema proposto al server, tutti i campi opzionali):
+        // "claude_plan": {"plan": "Pro", "session": {"pct": 4, "reset": <epoch>},
+        //                 "weekly": {"pct": 1, "reset": <epoch>}, "ts": <epoch>}
+        // v0.10.1: elenchi "top 5" (CPU, RAM, ogni GPU, I/O); null se il server non invia procs_top
+        PList[] top;
+        static final class PList {
+            int kind;                    // 0 CPU (a = %, b = MB), 1 RAM (b = MB), 2 GPU (a = %, b = MB VRAM), 3 I/O (a = lettura, b = scrittura B/s)
+            String title = "", luid = "";
+            String[] n = new String[0]; float[] a = new float[0], b = new float[0];
+        }
+        static PList plist(int kind, String title, JSONArray arr, String ka, String kb) {
+            PList p = new PList(); p.kind = kind; p.title = title;
+            int k = arr == null ? 0 : Math.min(5, arr.length());
+            p.n = new String[k]; p.a = new float[k]; p.b = new float[k];
+            for (int i = 0; i < k; i++) {
+                JSONObject o = arr.optJSONObject(i);
+                if (o == null) { p.n[i] = ""; continue; }
+                p.n[i] = o.optString("n");
+                p.a[i] = ka == null ? 0 : (float) o.optDouble(ka, 0);
+                p.b[i] = kb == null ? 0 : (float) o.optDouble(kb, 0);
+            }
+            return p;
+        }
+        ClaudePlan plan;
+        // v0.10.0: un elemento per account (claude_plan.accounts[]), tutti i campi opzionali
+        static final class Acct {
+            String id = ""; boolean current; long ts;
+            float sess = Float.NaN, week = Float.NaN, extra = Float.NaN;
+            boolean sessStale;
+        }
+        static final class ClaudePlan {
+            Acct[] accts = new Acct[0];                     // v0.10.0
+            String name;
+            float sessPct = Float.NaN, weekPct = Float.NaN;
+            long sessReset, weekReset;
+            String src = "";                                // v0.9.6: "oauth" o "history"
+            long ts;                                        // v0.9.6: istante del dato
+            boolean sessStale;                              // v0.9.6: dato di sessione scaduto
+        }
+
         // v0.5.1: temperatura da mostrare = misura vera e non nascosta dall'utente
         static boolean shown(JSONObject x) {
             return x != null && !x.optBoolean("hidden", false) && isTemp(x.optString("name"));
@@ -423,7 +559,11 @@ public class MainActivity extends Activity {
         static boolean isTemp(String n) {                  // v0.4.1
             String l = n.toLowerCase();
             // anche "Warning/Critical Temperature" degli SSD NVMe: soglie, non misure
-            return !(l.contains("limit") || l.contains("resolution") || l.startsWith("warning") || l.startsWith("critical"));
+            // v0.11.1: anche "GPU VR VDDC" (regolatore di tensione della MI50), tolta su richiesta utente:
+            // occupava la terza riga del box e l'Hot Spot (quarta) restava fuori.
+            // (v0.4.1-v0.11.0: return !(limit || resolution || warning || critical);)
+            return !(l.contains("limit") || l.contains("resolution") || l.startsWith("warning") || l.startsWith("critical")
+                    || l.contains("vr vddc"));
         }
 
         static float f(JSONObject o, String k) { return o == null ? Float.NaN : (float) o.optDouble(k); }
@@ -434,6 +574,8 @@ public class MainActivity extends Activity {
             m.uptime = j.optLong("uptime_s");
             JSONObject c = j.optJSONObject("cpu");
             m.cpu = f(c, "pct"); m.mhz = f(c, "mhz");
+            m.mhzNow = f(c, "mhz_now"); m.mhzMax = f(c, "mhz_max");   // v0.9.9
+            m.mhzLo = f(c, "mhz_lo"); m.mhzHi = f(c, "mhz_hi");       // v0.10.0
             JSONArray ca = c != null ? c.optJSONArray("cores") : null;
             if (ca != null) {
                 m.cores = new int[ca.length()];
@@ -467,6 +609,49 @@ public class MainActivity extends Activity {
                     JSONObject o = ps.optJSONObject(i);
                     m.procN[i] = o.optString("n"); m.procCpu[i] = f(o, "cpu"); m.procMb[i] = o.optInt("mb");
                 }
+            }
+            JSONObject pt = j.optJSONObject("procs_top");      // v0.10.1
+            if (pt != null) {
+                java.util.ArrayList<PList> L = new java.util.ArrayList<PList>();
+                L.add(plist(0, "CPU", j.optJSONArray("procs"), "cpu", "mb"));
+                L.add(plist(1, "RAM", pt.optJSONArray("ram"), null, "mb"));
+                JSONArray ga = pt.optJSONArray("gpu");
+                for (int i = 0; ga != null && i < ga.length(); i++) {
+                    JSONObject go = ga.optJSONObject(i);
+                    if (go == null) continue;
+                    String nm = "GPU " + (i + 1), lu = go.optString("luid", "");
+                    L.add(plist(2, nm, go.optJSONArray("list"), "pct", "mb")); L.get(L.size() - 1).luid = lu;   // nome risolto in disegno (le GPU si leggono dopo)
+                }
+                L.add(plist(3, "I/O", pt.optJSONArray("disk"), "r", "w"));
+                m.top = L.toArray(new PList[0]);
+            }
+            JSONObject cp = j.optJSONObject("claude_plan");    // v0.9.5
+            if (cp != null) {
+                ClaudePlan k = new ClaudePlan();
+                k.name = cp.optString("plan", "");
+                JSONObject ss = cp.optJSONObject("session"), wk = cp.optJSONObject("weekly");
+                if (ss != null) { k.sessPct = f(ss, "pct"); k.sessReset = ss.optLong("reset");
+                                  k.sessStale = ss.optBoolean("stale", false); }      // v0.9.6
+                k.src = cp.optString("src", ""); k.ts = cp.optLong("ts");
+                JSONArray aa = cp.optJSONArray("accounts");                     // v0.10.0
+                if (aa != null) {
+                    k.accts = new Acct[aa.length()];
+                    for (int i = 0; i < k.accts.length; i++) {
+                        JSONObject o = aa.optJSONObject(i);
+                        Acct a = new Acct();
+                        if (o != null) {
+                            a.id = o.optString("id", ""); a.current = o.optBoolean("current", false);
+                            a.ts = o.optLong("ts");
+                            JSONObject s1 = o.optJSONObject("session"), w1 = o.optJSONObject("weekly"), e1 = o.optJSONObject("extra");
+                            if (s1 != null) { a.sess = f(s1, "pct"); a.sessStale = s1.optBoolean("stale", false); }
+                            if (w1 != null) a.week = f(w1, "pct");
+                            if (e1 != null) a.extra = f(e1, "pct");
+                        }
+                        k.accts[i] = a;
+                    }
+                }
+                if (wk != null) { k.weekPct = f(wk, "pct"); k.weekReset = wk.optLong("reset"); }
+                m.plan = k;
             }
             JSONObject cl = j.optJSONObject("claude");         // v0.3.0
             if (cl != null) {
@@ -503,7 +688,7 @@ public class MainActivity extends Activity {
                 for (int i = 0; i < k; i++) {
                     JSONObject o = gs.optJSONObject(i);
                     Gpu g = new Gpu();
-                    g.name = o.optString("name", "GPU " + (i + 1));
+                    g.name = o.optString("name", "GPU " + (i + 1)); g.luid = o.optString("luid", "");
                     g.load = f(o, "load"); g.memMb = f(o, "mem_mb"); g.memTotMb = f(o, "mem_tot_mb");
                     g.memPct = f(o, "mem_pct"); g.temp = f(o, "temp"); g.fanRpm = f(o, "fan_rpm");
                     g.powerPct = f(o, "power_pct");
@@ -593,13 +778,12 @@ public class MainActivity extends Activity {
                         && !k.equals("ram") && !k.equals("disk"))) continue;
                 Gpu g = "gpu".equals(h.kind) ? gpuNamed(m, h.name) : null;
                 if (g != null) { owner.put(h.name, g); continue; }
-                // v0.10.0: titoli tradotti (L.t); la chiave interna resta "Dischi"
                 String key = k.equals("ram") ? "RAM" : k.equals("disk") ? "Dischi" : h.name;
                 Box b = byKey.get(key);
                 if (b == null) {
                     b = new Box();
-                    b.title = k.equals("cpu") ? "CPU - " + h.name : k.equals("mb") ? L.t("Scheda madre - ", "Motherboard - ") + h.name
-                            : key.equals("RAM") ? key : key.equals("Dischi") ? L.t("Dischi", "Disks") : h.name;
+                    b.title = k.equals("cpu") ? "CPU - " + h.name : k.equals("mb") ? "Scheda madre - " + h.name
+                            : key.equals("RAM") || key.equals("Dischi") ? key : h.name;
                     byKey.put(key, b);
                 }
                 owner.put(h.name, b);
@@ -620,7 +804,9 @@ public class MainActivity extends Activity {
                 String to = fanTo.get(h.name + "|" + h.fName[q]);
                 Object o = to != null && owner.containsKey(to) ? owner.get(to) : owner.get(h.name);
                 boolean moved = to != null && owner.containsKey(to);
-                String lab = moved && "mb".equals(h.kind) ? h.fName[q] + L.t(" (scheda madre)", " (motherboard)") : h.fName[q];   // v0.10.0: IT/EN
+                // v0.9.8: niente piu' suffisso " (scheda madre)" (richiesta utente: troncava i nomi scelti in /config).
+                // Era: String lab = moved && "mb".equals(h.kind) ? h.fName[q] + " (scheda madre)" : h.fName[q];
+                String lab = h.fName[q];
                 if (o instanceof Gpu) ((Gpu) o).add(true, lab, h.fRpm[q], h.fPct[q]);
                 else if (o instanceof Box) ((Box) o).add(true, lab, h.fRpm[q], h.fPct[q]);
             }
@@ -666,7 +852,7 @@ public class MainActivity extends Activity {
 
         // v0.4.0: GPU (campo "gpus") e componenti con sensori (campo "sensors.hw")
         static final class Gpu extends Rows {               // v0.5.0: + righe dei sensori
-            String name;
+            String name, luid = "";                         // v0.10.1: luid per abbinare procs_top.gpu
             float load, memMb = Float.NaN, memTotMb = Float.NaN, memPct = Float.NaN;
             float temp = Float.NaN, fanRpm = Float.NaN, powerPct = Float.NaN;
         }

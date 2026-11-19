@@ -1,5 +1,5 @@
 # MANUAL — Tab2revamp
-Versione: v0.1.16 — 2026-10-22 05:45 (ora del PC, branch installer-tab2monitor)
+Versione: v0.1.19 — 2026-11-19 09:00 (ora del PC, branch installer-tab2monitor)
 
 Galaxy Tab 2 10.1 (GT-P5100) come display delle risorse di un PC Windows.
 
@@ -125,9 +125,11 @@ Con `-home` l'app diventa anche la schermata Home (kiosk); `-nohome` la toglie.
   (vuoto = generale, 0 = mai). "Prova voce" per sentire l'audio. Serve il motore **Pico**: se è stato
   disattivato, `adb shell pm enable com.svox.pico` (il debloat `tune_v0.1.4` non lo tocca più).
 - **Animazioni** (v0.9.0): "Animazioni fluide" (valori e grafici scorrono invece di scattare) e
-  "Gauge check all'accensione" (indicatori al massimo e ritorno alla lettura reale quando lo schermo
-  si accende) nelle impostazioni, entrambe attive di default. In alto a destra, in piccolo, il carico
+  "Gauge check all'accensione" (indicatori al massimo e ritorno alla lettura reale in ~2,3 s quando lo
+  schermo si accende; non al cambio pagina) nelle impostazioni, entrambe attive di default. In alto a destra, in piccolo, il carico
   di CPU e RAM del tablet.
+- **Tablet al rovescio** (v0.9.2): Impostazioni → "Capovolgi l'interfaccia di 180 gradi" (o
+  `--ez flip180 true`). Non è automatico: il driver dei sensori è disattivato.
 - Uscire: scorrere dal bordo per far comparire le barre → Home/Indietro.
 - Configurazione da PC:
   ```
@@ -206,6 +208,8 @@ Con `-home` l'app diventa anche la schermata Home (kiosk); `-nohome` la toglie.
 | Pagina lenta | ridurre `POLL_MS` a 2000 nella dashboard; valutare app nativa |
 | `adb reverse` errore | Android < 5.0 → usare Wi‑Fi |
 | `adb devices` = unauthorized | accettare "Consentire debug USB?" sul tablet (spuntare "Consenti sempre") |
+| ADB in Wi-Fi sparisce dopo il riavvio | una volta sola: `SERIAL=192.168.1.234:5555 bash android/adb_wifi_persist_v0.1.0_20261023-0930.sh` (imposta `persist.adb.tcp.port`; `--off` per togliere) |
+| `adb connect` resta "offline" | sul tablet spegnere e riaccendere "Debug ADB in rete" (adbd bloccato) o accettare la richiesta di autorizzazione |
 | adb non vede il tablet dopo `adb root` | PowerShell: `Get-Process adb \| Stop-Process -Force`, poi `adb devices` |
 | Git Bash + `adb pull` su `/g/...` con `MSYS_NO_PATHCONV=1` | usare percorsi Windows `G:/...` |
 | Dashboard in verticale | `adb shell settings put system user_rotation 0` (Tab 2 10.1 è nativamente orizzontale) |
@@ -217,10 +221,10 @@ Con `-home` l'app diventa anche la schermata Home (kiosk); `-nohome` la toglie.
 ## Server Windows v0.2.0 (2026-10-22)
 - Avvio manuale: `windows/agent/start_tab2monitor_v0.2.0_20261022-0055.cmd` (tasto destro → Esegui come
   amministratore per CPU/scheda madre/ventole). `adb reverse` lo rifà il server da solo.
-- Avvio automatico all'accesso: doppio clic su `install_tab2monitor_service_v0.2.0_20261022-0055.cmd`
+- Avvio automatico all'accesso: doppio clic su `install_tab2monitor_service_v0.2.1_20261112-1510.cmd` (crea l'attività con priorità normale, 4)
   (UAC). Togliere: stesso .cmd con `-Remove`. Log: `windows/agent/logs/tab2monitor_service.log`.
 - Sensori: dopo un nuovo download di LHM in `windows/lhm/LibreHardwareMonitor_vX/` ricompilare
-  `bash windows/agent/sensors/build_tab2sensors_v0.1.0_20261022-0040.sh`.
+  `bash windows/agent/sensors/build_tab2sensors_v0.2.0_20261028-1200.sh`.
 - Abbinare una ventola a una temperatura: modificare `windows/agent/fan_map_*.json` (nuova versione) e
   riavviare il server.
 - v0.2.1: campo `claude` con i token di Claude Code dai log locali; `--no-claude` per disattivarlo.
@@ -230,17 +234,53 @@ Con `-home` l'app diventa anche la schermata Home (kiosk); `-nohome` la toglie.
 - Nomi di ventole/temperature/componenti e abbinamento ventola→temperatura: dal PC aprire
   `http://localhost:8090/config`, scrivere i nomi (vuoto = originale), scegliere la temperatura per ogni
   ventola ("non mostrare" la toglie dal tablet; per le temperature c'è la casella "nascondi"), **Salva**. Effetto sul tablet entro 2 s.
+- Limiti del piano Claude (`claude_plan`): letti dall'app Claude Desktop; in `/config` impostare giorno e
+  ora del reset settimanale (come su claude.ai → Utilizzo). Stato in `/api/metrics` → `srv.plan`.
+- Controllo ventole (v0.3.1, solo scheda madre): in `/config` riga "Controllo" sotto ogni ventola → *BIOS* (nessun intervento,
+  vale Q-Fan), *fissa* (%), *curva* (temperatura + punti `gradi:%`, es. `40:25, 60:45, 75:80, 85:100`), **Salva**. Minimo 20%;
+  100% se la temperatura non si legge o la CPU supera 90 °C; se il server si ferma le ventole tornano al BIOS. Per non usare il
+  controllo basta lasciare tutto su *BIOS*. Dopo aver ricompilato Tab2Sensors serve il riavvio del servizio.
+- Scheda senza ventola propria (MI50): impostare il suo header a piena velocità nel BIOS. A server fermo, o prima che parta, le ventole seguono il BIOS.
+- adb via Wi‑Fi: il server rifà `adb connect <IP>:5555` da solo (IP in `/config` → "IP dei tablet"). Stato in
+  `/api/metrics` → `srv.adb`. Se compare `rete: unauthorized` accettare la richiesta sul tablet.
+- Priorità del servizio: l'attività "Tab2Monitor" deve avere priorità 4 (normale). Con la 7 predefinita di Task Scheduler ("sotto la norma")
+  il server si blocca quando un altro programma occupa tutta la CPU. Controllo: `(Get-ScheduledTask -TaskName Tab2Monitor).Settings.Priority`.
+  Correzione su un'attività esistente (PowerShell come amministratore):
+  `$s=(Get-ScheduledTask -TaskName Tab2Monitor).Settings; $s.Priority=4; Set-ScheduledTask -TaskName Tab2Monitor -Settings $s`, poi
+  `schtasks /End /TN Tab2Monitor` e `schtasks /Run /TN Tab2Monitor`.
 
-## Pacchetto portabile per altri PC e tablet (branch `installer-tab2monitor`, 2026-10-22)
-Dettagli e problemi noti: `RUNBOOK_INSTALLER_v0.1.0_20261022-0545.md`.
-- Costruzione: `bash android/tab2monitor_app/build_tab2monitor_v0.10.0_20261022-0230.sh`, poi
-  `powershell -ExecutionPolicy Bypass -File windows\installer\build_portable_v0.1.0_20261022-0300.ps1`
-  → `%LOCALAPPDATA%\Tab2Monitor-build\dist\Tab2Monitor_v0.1.0.zip`.
+## Storico modifiche (sezione server Windows)
+- 2026-11-12: installer `install_tab2monitor_service_v0.2.1_20261112-1510` al posto della v0.2.0 (2026-10-22). Prima: attività con la priorità
+  predefinita 7, sotto la norma. Ora: priorità 4. Perché: con Citrix Workspace al 100% su tutti i core il server non riceveva CPU e non rispondeva.
+
+## Pacchetto portabile per altri PC e tablet (branch `installer-tab2monitor`, aggiornato 2026-11-19)
+- Costruzione: `bash android/tab2monitor_app/build_tab2monitor_v0.12.0_20261119-1000.sh`, poi
+  `powershell -ExecutionPolicy Bypass -File windows\installer\build_portable_v0.2.0_20261119-0900.ps1`
+  → `%LOCALAPPDATA%\Tab2Monitor-build\dist\Tab2Monitor_v0.2.0.zip` (server v0.4.4, APK v0.12.0).
 - Sull'altro PC: estrarre, `Tab2Monitor.cmd` (UAC = sensori CPU/scheda madre); `Setup.cmd` per
   installazione in Programmi, avvio automatico (accesso con admin / avvio PC / accesso senza admin /
-  nessuno), firewall solo rete privata, driver PawnIO, tablet, disinstallazione.
-- Tablet (Android 5.0+): browser → `http://<IP-PC>:8090/apk`, oppure `Install-Tablet.cmd` con il cavo.
-  L'app cerca da sola il PC sulla rete (UDP 8090); impostazioni → "Cerca PC" o indirizzo a mano;
-  lingua: sistema / italiano / English; "Usa come schermata Home" per ripartire da sola dopo un riavvio
-  (da Android 10 è l'unico modo).
-- Da adb: `--es lang en|it`, `--ez home true|false`.
+  nessuno; priorità 4), firewall solo rete privata (TCP 8090 + UDP 8091), driver PawnIO, tablet, disinstallazione.
+- Tablet (Android 7.1+): browser → `http://<IP-PC>:8090/apk`, oppure `Install-Tablet.cmd` con il cavo.
+  L'app cerca da sola il PC sulla rete (UDP 8091); impostazioni → "Cerca il PC in rete" o indirizzo a mano.
+- Cartella dati: `data\` (portabile) o `%ProgramData%\Tab2Monitor` (installato): `config.json` (port, bind,
+  gpu, claude, claude_dir, adb auto/off/percorso, sensors, discovery, name), `fan_config.json`, `logs\`.
+- Problemi e comandi di controllo: `RUNBOOK_INSTALLER_v0.2.0_20261119-0900.md` §4 (es. rete "Pubblica" →
+  Setup voce 3; Home non impostabile da Android 11 con l'APK v0.12.0 → aprire l'app a mano dopo un riavvio).
+
+### Storico modifiche (sezione pacchetto portabile)
+- 2026-11-19: prima build APK v0.10.0 del branch installer, pacchetto 0.1.0, Android 5.0+, ricerca UDP 8090,
+  extra adb `--es lang en|it` e `--ez home true|false`, firewall TCP+UDP 8090. Ora APK v0.12.0 del branch
+  principale (Android 7.1+, solo italiano, quegli extra non esistono), UDP 8091, pacchetto 0.2.0. Perché: un
+  solo protocollo di ricerca, quello già verificato sul tablet. Testo di prima:
+  > Dettagli e problemi noti: `RUNBOOK_INSTALLER_v0.1.0_20261022-0545.md`.
+  > - Costruzione: `bash android/tab2monitor_app/build_tab2monitor_v0.10.0_20261022-0230.sh`, poi
+  >   `powershell -ExecutionPolicy Bypass -File windows\installer\build_portable_v0.1.0_20261022-0300.ps1`
+  >   → `%LOCALAPPDATA%\Tab2Monitor-build\dist\Tab2Monitor_v0.1.0.zip`.
+  > - Sull'altro PC: estrarre, `Tab2Monitor.cmd` (UAC = sensori CPU/scheda madre); `Setup.cmd` per
+  >   installazione in Programmi, avvio automatico (accesso con admin / avvio PC / accesso senza admin /
+  >   nessuno), firewall solo rete privata, driver PawnIO, tablet, disinstallazione.
+  > - Tablet (Android 5.0+): browser → `http://<IP-PC>:8090/apk`, oppure `Install-Tablet.cmd` con il cavo.
+  >   L'app cerca da sola il PC sulla rete (UDP 8090); impostazioni → "Cerca PC" o indirizzo a mano;
+  >   lingua: sistema / italiano / English; "Usa come schermata Home" per ripartire da sola dopo un riavvio
+  >   (da Android 10 è l'unico modo).
+  > - Da adb: `--es lang en|it`, `--ez home true|false`.

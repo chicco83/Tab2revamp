@@ -1,16 +1,83 @@
 # =============================================================================
 # Tab2Monitor - server metriche Windows
-# Versione: v0.3.0 - 2026-10-22 02:00 (ora locale)
-# v0.3.0: (branch installer) pacchetto portabile / installabile su altri PC.
-#         - --data <cartella>: config.json, fan_config.json e fan_map_*.json fuori
-#           dalla cartella dei programmi (default = cartella dello script, come prima);
-#         - config.json (facoltativo) con port, bind, gpu, claude, claude_dir, adb,
-#           sensors, discovery, name; le opzioni da riga di comando hanno la precedenza;
-#         - scoperta automatica in LAN: risposta UDP sulla stessa porta (8090/udp) al
-#           messaggio "TAB2MON?" con nome PC, porta e versione (classe Discovery);
-#         - GET /api/info (stesse informazioni) e GET /apk (APK da installare sul tablet);
-#         - cartelle cercate sia nel repository (windows/agent, ../lhm, ../../dashboard)
-#           sia nel pacchetto (server/, ../sensors, ../web, ../apk).
+# Versione: v0.3.9 - 2026-11-06 09:45 (ora locale)
+# v0.3.9: server fermo -> le ventole CONTROLLATE vanno a FAN_FAILSAFE_PCT e ci restano, non
+#         piu' al BIOS (la MI50 passiva si e' surriscaldata con il server fermo). Il server
+#         manda a Tab2Sensors v0.2.1 "FAILSAFE <id> 100" insieme a ogni SET. Log alla prima
+#         lettura di ogni ventola controllata: mostra il registro trovato all'avvio.
+# v0.3.8: abbinamenti ventola->temperatura stabili. Gli id delle GPU cambiano tra un avvio e
+#         l'altro (/gpu-amd/5, /gpu-amd/7, win/<luid>), quindi accanto all'id si salva "ref"
+#         = "nome hardware|nome sensore" (originali) e si cerca prima per ref: se il sensore
+#         cambia id l'abbinamento lo segue. Scheda assente -> sensore perso, mai un'altra
+#         scheda con lo stesso id. fan_ctl[].ref, map_ref{}; fans[].ctl.lost = true quando la
+#         curva non trova la temperatura (ventola al 100%). Curva senza temperatura = bios.
+# v0.3.7: robustezza dopo il guasto del 2026-11-01/02 (server vivo ma senza sensori ne' adb:
+#         log fermo alle 17:10, Tab2Sensors andato in crash alle 21:36 e mai rilanciato).
+#         Ipotesi: il server scriveva il log direttamente su un file di Google Drive (G:) e
+#         una scrittura appesa bloccava il thread che stava loggando. Ora: (1) log() mette le
+#         righe in una coda (max 500) e un thread dedicato le scrive su stdout (log del
+#         supervisore) E su %LOCALAPPDATA%\Tab2Monitor\server.log, fuori da Drive: nessun altro
+#         thread aspetta piu' il disco; (2) controllo del lettore sensori: se il figlio e' vivo
+#         ma non scrive da 60 s viene ucciso e rilanciato (dopo 10 s come per un crash);
+#         (3) srv.sensors = {age_s, restarts} e srv.logq (righe di log in coda).
+# v0.3.6: una ventola con controllo "curva" mostra sul tablet (pairs) la stessa temperatura
+#         su cui e' agganciata la curva (how = "user"), non quella "automatica" (CPU) che
+#         faceva credere che la ventola seguisse la CPU. Vale se non c'e' un abbinamento
+#         scelto a mano per la visualizzazione.
+# v0.3.5: campo "procs_top" (richiesto dalla sessione APK): primi TOP_N processi per RAM
+#         (Working Set), per GPU (una lista per ogni scheda: % del processo = massimo tra
+#         i motori della scheda, VRAM dedicata) e per disco (byte/s letti e scritti).
+#         "procs" (top CPU) resta identico. Dai contatori PDH Process(*) e GPU Engine /
+#         GPU Process Memory, raccolti ogni PROC_INTERVAL s insieme a "procs".
+#         Attenzione: "IO Read/Write Bytes/sec" di Windows conta TUTTO l'I/O del processo
+#         (file, rete, dispositivi): non esiste un contatore per processo del solo disco
+#         ne' del volume, quindi "vol" non c'e'.
+# v0.3.4: cpu.mhz_lo / cpu.mhz_hi = frequenza minima e massima di mhz_now viste dall'avvio
+#         del server (finestra scorrevole di 1 ora). Serve a dare una scala al gauge della
+#         frequenza: mhz_now / mhz_max cade sempre intorno all'85-90% (la CPU a bassa
+#         attivita' resta a 4,4-4,6 GHz) e la lancetta sembra ferma.
+# v0.3.3: claude_plan.accounts[] = TUTTI gli account di Claude Desktop (uno per "org" del
+#         file history) con l'ultima lettura di ciascuno: {id (8 caratteri), ts, current,
+#         session?, weekly?, extra?}; current = ultimo account usato. Il file non contiene
+#         nomi ne' e-mail: l'id e' l'inizio dell'identificativo dell'organizzazione.
+# v0.3.2: (1) ventole fino a 0% (richiesta utente): FAN_MIN_PCT 20 -> 0; restano il 100%
+#         con temperatura non letta e con CPU >= 90 °C. (2) claude_plan dall'ULTIMO account
+#         usato in Claude Desktop: i campioni dell'account aziendale hanno solo "xu"
+#         (utilizzo extra, %) e prima venivano scartati, cosi' si mostrava l'account
+#         personale del 26/10. Nuovo claude_plan.extra = {pct}. Se il campione history
+#         e' recente (< HIST_FRESH_S) vince su oauth (il login della CLI puo' essere un
+#         altro account).
+# v0.3.1: CONTROLLO VENTOLE della scheda madre (chip SuperIO, via Tab2Sensors v0.2.0).
+#         Per ogni ventola: "bios" (default, nessun intervento) | "fixed" (% fissa) |
+#         "curve" (punti temperatura->%, su una temperatura qualsiasi). Si imposta in
+#         /config (fan_ctl in fan_config.json) o con POST /api/fan (APK). Sicurezze:
+#         minimo FAN_MIN_PCT, temperatura della curva non letta -> 100%, CPU >=
+#         FAN_EMERG_C -> 100% su tutte, in discesa al massimo FAN_DOWN_STEP %/s;
+#         se il server si ferma Tab2Sensors rimette le ventole al BIOS (EOF stdin o
+#         watchdog 20 s). Nel JSON: fans[].ctl = {id, mode, target, sw}.
+#         Solo ventole della scheda madre: il controllo GPU di LHM su RDNA4 non e' provato.
+# v0.3.0: adb via Wi-Fi automatico: il server rifa' "adb connect <ip>:5555" per gli IP
+#         fissi di /config (default 192.168.1.234, ogni 60 s se il tablet manca) e, UNA
+#         sola volta, per gli IP che chiamano /api/metrics. Unauthorized / non Android:
+#         lasciati stare. srv.adb: "rete ok" / "rete: unauthorized" / "rete: offline" /
+#         "rete: non raggiungibile". (Versione 0.3.0 e non 0.2.10: il supervisore sceglie
+#         il server per ordine di nome.)
+# v0.2.9: (1) plan-usage-history.json cercato anche in %LOCALAPPDATA%\Claude-Data\*\
+#         (Claude Desktop vi ha spostato i dati il 2026-10-22 alle 17:55); si usa il piu'
+#         recente e srv.plan riporta il percorso (senza nome utente).
+#         (2) adb reverse: saltati i dispositivi collegati via rete (seriale ip:porta:
+#         il tablet raggiunge gia' il PC in Wi-Fi) e, dopo un errore, nuovo tentativo
+#         solo dopo ADB_RETRY_S; log solo ai cambi di stato (prima: una riga ogni 5 s).
+# v0.2.8: ripiego per claude_plan senza credenziali: ultimo campione di
+#         %APPDATA%\Claude\plan-usage-history.json (scritto da Claude Desktop; solo
+#         percentuali, nessun token). Reset settimanale configurabile in /config
+#         (default giovedi' 09:00). src = "oauth" | "history"; session.stale se il
+#         campione ha piu' di 5 h. Il file config.json di Claude Desktop NON si legge.
+# v0.2.7: campo "claude_plan" (limiti del piano dell'account Claude), autorizzato
+#         dall'utente il 2026-10-22: token letto da ~/.claude/.credentials.json
+#         (claudeAiOauth.accessToken) a ogni interrogazione, mai copiato/loggato;
+#         endpoint NON documentato usato da /usage; ogni 5 min; errore -> campo omesso
+#         e nessun nuovo tentativo finche' il file credenziali non cambia.
 # v0.2.6: top processi, numero processi e thread dai contatori PDH Process(*)/System
 #         invece di psutil.process_iter: CPU del server da ~31% di un core a pochi %
 #         (misura 2026-10-22: process_iter con num_threads 1265 ms CPU, PDH 5 ms).
@@ -84,7 +151,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import psutil
 
-VERSION = "v0.3.0"
+VERSION = "v0.3.9"
 
 # --- Configurazione ----------------------------------------------------------
 DEFAULT_PORT = 8090
@@ -93,47 +160,66 @@ SAMPLE_INTERVAL = 1.0                          # secondi tra due campionamenti
 PROC_INTERVAL = 3.0                            # top processi: costoso, ogni 3 s
 LHM_INTERVAL = 2.0                             # LHM / sensori GPU ogni 2 s
 ADB_INTERVAL = 5.0                             # controllo adb reverse ogni 5 s
+ADB_RETRY_S = 300.0                            # v0.2.9: dopo un errore si riprova dopo 5 min
+ADB_CONNECT_S = 60.0                           # v0.3.0: IP fissi assenti: adb connect ogni 60 s
+ADB_TCP_PORT = 5555                            # porta di adbd sul tablet (persist.adb.tcp.port)
 TOP_N = 5
+FAN_MIN_PCT = 0.0                              # v0.3.2: 0% permesso (richiesta utente 2026-10-28)
+# 2026-10-28 v0.3.1 (sostituito): FAN_MIN_PCT = 20.0  (mai sotto il 20%: pompe AIO, ventole CPU)
+FAN_EMERG_C = 90.0                             # v0.3.1: CPU >= 90 °C -> tutte le ventole controllate al 100%
+FAN_FAILSAFE_PCT = 100.0                       # v0.3.9: valore che resta se il server si ferma
+FAN_DOWN_STEP = 2.0                            # v0.3.1: in discesa al massimo 2 punti % al secondo
 HTTP_IDLE_TIMEOUT = 30                         # s: chiude le connessioni keep-alive ferme
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-# v0.3.0: cartella dati (config.json, fan_config.json, fan_map_*.json); --data la cambia.
-DATA_DIR = BASE_DIR
-# v0.3.0: pagine HTML cercate nel repository (../../dashboard) e nel pacchetto (../web)
-WEB_DIRS = [os.path.normpath(os.path.join(BASE_DIR, "..", "..", "dashboard")),
-            os.path.normpath(os.path.join(BASE_DIR, "..", "web")), BASE_DIR]
-# 2026-10-22 v0.2.6: DASHBOARD_DIR = os.path.normpath(os.path.join(BASE_DIR, "..", "..", "dashboard"))
-APK_DIRS = [os.path.normpath(os.path.join(BASE_DIR, "..", "apk")),
-            os.path.normpath(os.path.join(BASE_DIR, "..", "..", "android", "tab2monitor_app", "dist"))]
+DASHBOARD_DIR = os.path.normpath(os.path.join(BASE_DIR, "..", "..", "dashboard"))
 CREATE_NO_WINDOW = 0x08000000                  # adb senza finestra console
 
 
+# 2026-11-02 v0.3.6 (sostituito): def log(*a): print(time.strftime("%H:%M:%S"), *a, flush=True)
+# v0.3.7: log tramite coda + thread scrittore (vedi sopra).
+import queue
+LOG_Q = queue.Queue(maxsize=500)
+LOCAL_LOG_DIR = os.path.join(os.environ.get("LOCALAPPDATA") or os.path.expanduser("~"), "Tab2Monitor")
+LOCAL_LOG = os.path.join(LOCAL_LOG_DIR, "server.log")
+
+
 def log(*a):
-    print(time.strftime("%H:%M:%S"), *a, flush=True)
+    line = time.strftime("%H:%M:%S ") + " ".join(str(x) for x in a)
+    try:
+        LOG_Q.put_nowait(line)
+    except queue.Full:                              # scrittore bloccato: si scarta, mai aspettare
+        pass
+
+
+def _log_writer():
+    try:
+        os.makedirs(LOCAL_LOG_DIR, exist_ok=True)
+        if os.path.isfile(LOCAL_LOG) and os.path.getsize(LOCAL_LOG) > 1048576:
+            os.replace(LOCAL_LOG, LOCAL_LOG + ".1")
+    except OSError:
+        pass
+    while True:
+        line = LOG_Q.get()
+        try:
+            with open(LOCAL_LOG, "a", encoding="utf-8") as fh:
+                fh.write(time.strftime("%Y-%m-%d ") + line + "\n")
+        except OSError:
+            pass
+        try:
+            print(line, flush=True)                  # log del supervisore (puo' stare su Drive)
+        except Exception:
+            pass
+
+
+threading.Thread(target=_log_writer, daemon=True).start()
 
 
 # --- Utility -----------------------------------------------------------------
 def latest_dashboard():
     """Restituisce il file dashboard_*.html con nome (versione/data) piu' alto."""
-    files = []
-    for d in WEB_DIRS:                         # v0.3.0: repository o pacchetto
-        files += glob.glob(os.path.join(d, "dashboard_*.html"))
-    files.sort(key=os.path.basename)
+    files = sorted(glob.glob(os.path.join(DASHBOARD_DIR, "dashboard_*.html")))
     return files[-1] if files else None
-
-
-def latest_apk():
-    """v0.3.0: APK Tab2Monitor con versione piu' alta (pacchetto apk/ o dist/ del repo)."""
-    def ver(f):
-        m = os.path.basename(f)[len("Tab2Monitor_v"):-len(".apk")]
-        try:
-            return tuple(int(x) for x in m.split("."))
-        except ValueError:
-            return (0,)
-    files = []
-    for d in APK_DIRS:
-        files += glob.glob(os.path.join(d, "Tab2Monitor_v*.apk"))
-    return max(files, key=ver) if files else None
 
 
 def parse_num(text):
@@ -451,10 +537,6 @@ def read_lhm_raw():
 def find_tab2sensors():
     """Tab2Sensors.exe (windows/agent/sensors/Tab2Sensors.cs compilato) accanto a
     LibreHardwareMonitorLib.dll nella cartella LHM del progetto (versione piu' alta)."""
-    # v0.3.0: prima il pacchetto (../sensors), poi il repository (../lhm/LibreHardwareMonitor_v*)
-    f = os.path.join(BASE_DIR, "..", "sensors", "Tab2Sensors.exe")
-    if os.path.isfile(f):
-        return os.path.normpath(f)
     dirs = sorted(glob.glob(os.path.join(BASE_DIR, "..", "lhm", "LibreHardwareMonitor_v*")))
     for d in reversed(dirs):
         f = os.path.join(d, "Tab2Sensors.exe")
@@ -473,6 +555,11 @@ class SensorReader(threading.Thread):
         super().__init__(daemon=True)
         self.exe = exe
         self.data, self.t = None, 0
+        self.proc = None                           # v0.3.1: per inviare i comandi ventole
+        self.wlock = threading.Lock()
+        self.restarts = 0                          # v0.3.7
+        self.started = 0                           # istante dell'ultimo avvio del figlio
+        threading.Thread(target=self.watchdog, daemon=True).start()
 
     def run(self):
         while True:
@@ -481,6 +568,8 @@ class SensorReader(threading.Thread):
                                      stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
                                      cwd=os.path.dirname(self.exe), creationflags=CREATE_NO_WINDOW)
                 log("Tab2Sensors avviato (pid %d)" % p.pid)
+                self.proc, self.started = p, time.time()
+                self.restarts += 1
                 for line in p.stdout:              # stdin resta aperto: se il server muore il figlio esce
                     try:
                         self.data, self.t = json.loads(line.decode("utf-8", "replace")), time.time()
@@ -494,6 +583,90 @@ class SensorReader(threading.Thread):
 
     def get(self):
         return self.data if time.time() - self.t < 3 * LHM_INTERVAL + 2 else None
+
+    def watchdog(self):
+        """v0.3.7: figlio vivo ma muto da 60 s (bloccato) -> kill; run() lo rilancia."""
+        while True:
+            time.sleep(10)
+            p = self.proc
+            if p is not None and p.poll() is None and time.time() - max(self.t, self.started) > 60:
+                log("Tab2Sensors muto da 60 s: lo chiudo")
+                try:
+                    p.kill()
+                except Exception:
+                    pass
+
+    def send(self, line):
+        """v0.3.1: comando a Tab2Sensors (SET <id> <pct> / AUTO <id>); errori ignorati
+        (se il figlio e' morto viene rilanciato e il ciclo successivo ripete il comando)."""
+        p = self.proc
+        if p is None or p.poll() is not None:
+            return False
+        try:
+            with self.wlock:
+                p.stdin.write((line + "\n").encode("utf-8"))
+                p.stdin.flush()
+            return True
+        except Exception:
+            return False
+
+
+class FanControl:
+    """v0.3.1: a ogni campione calcola la % di ogni ventola controllata e la manda a
+    Tab2Sensors. Le ventole senza voce in fan_ctl restano al BIOS (si manda AUTO una
+    volta sola quando una voce viene tolta)."""
+
+    def __init__(self, reader):
+        self.reader = reader
+        self.last = {}                             # fan_id -> % inviata
+        self.ctl_of = {}                           # fan_id -> id del controllo
+        self.state = "pronto"
+
+    def step(self, hw_list):
+        cfg = USER_CFG.get("fan_ctl") or {}
+        cpu = next((g for g in hw_list if g["kind"] == "cpu"), None)
+        cpu_t = _main_temp(cpu) if cpu else None
+        emerg = bool(cpu_t and cpu_t["c"] is not None and cpu_t["c"] >= FAN_EMERG_C)
+        active = 0
+        for g in hw_list:
+            for f in g["fans"]:
+                ctl = f.get("ctl")
+                if not ctl:
+                    continue
+                fid = f.get("id")
+                self.ctl_of[fid] = ctl["id"]
+                c = cfg.get(fid)
+                if not c or c["mode"] == "bios":
+                    continue
+                if c["mode"] == "fixed":
+                    want = float(c["pct"])
+                else:
+                    hit = resolve_temp(hw_list, c["temp"], c.get("ref"))
+                    t = hit[2]["c"] if hit else None
+                    want = curve_pct(c["pts"], t) if t is not None else 100.0   # sensore perso: 100%
+                    ctl["temp"] = t
+                    if t is None:
+                        ctl["lost"] = True           # v0.3.8: la pagina e l'APK lo possono dire
+                if emerg:
+                    want = 100.0
+                want = max(FAN_MIN_PCT, min(100.0, want))
+                prev = self.last.get(fid)
+                if prev is not None and want < prev:               # discesa graduale
+                    want = max(want, prev - FAN_DOWN_STEP * SAMPLE_INTERVAL)
+                want = round(want, 1)
+                if fid not in self.last:             # v0.3.9: prima volta da quando il server gira
+                    log("ventola %s all'avvio: registro %s%% (sw=%s)" % (f["name"], f.get("pct"), ctl.get("sw")))
+                self.reader.send("FAILSAFE %s %.0f" % (ctl["id"], FAN_FAILSAFE_PCT))
+                if self.reader.send("SET %s %.1f" % (ctl["id"], want)):
+                    self.last[fid] = want
+                ctl["mode"], ctl["target"] = c["mode"], want
+                active += 1
+        for fid in [k for k in self.last if (cfg.get(k) or {}).get("mode", "bios") == "bios"]:         # voce tolta: torna al BIOS
+            if fid in self.ctl_of and self.reader.send("AUTO " + self.ctl_of[fid]):
+                log("ventola %s: BIOS" % fid)
+            self.last.pop(fid, None)
+        self.state = ("EMERGENZA CPU >= %d °C: 100%%" % FAN_EMERG_C if emerg else
+                      "%d ventole controllate" % active if active else "tutte al BIOS")
 
 
 def parse_lhm(data):
@@ -547,12 +720,17 @@ def parse_lhm(data):
             g["fans"].append({"id": sid or gid + "/" + text, "name": text, "rpm": round(num), "on": num > 0})
         else:
             g["_ctl"][txt_l] = num
+            g.setdefault("_ctlid", {})[txt_l] = (sid, node.get("Mode"))
     hw_list = []
     for g in groups.values():
         for f in g["fans"]:                       # % di controllo con lo stesso nome della ventola
             pct = g["_ctl"].get(f["name"].lower())
             f["pct"] = r1(pct)
+            cid = g.get("_ctlid", {}).get(f["name"].lower())
+            if cid and cid[0] and g["kind"] == "mb":  # v0.3.1: controllabile (solo scheda madre)
+                f["ctl"] = {"id": cid[0], "mode": "bios", "sw": cid[1] == "Software"}
         del g["_ctl"]
+        g.pop("_ctlid", None)
         if g["temps"] or g["fans"]:
             hw_list.append(g)
     return res, {"src": "lhm", "hw": hw_list, "pairs": make_pairs(hw_list)}
@@ -576,9 +754,7 @@ FAN_MAP = {}          # "nome ventola" o "hardware|nome ventola" -> "hardware|no
 def load_fan_map():
     """Legge il fan_map_*.json piu' recente accanto allo script (chiavi che iniziano
     con '_' = commenti). Esempio: {"Fan #3": "AMD Radeon Pro VII|GPU"}."""
-    # v0.3.0: cartella dati, poi cartella dello script
-    files = sorted(glob.glob(os.path.join(DATA_DIR, "fan_map_*.json"))) or \
-        sorted(glob.glob(os.path.join(BASE_DIR, "fan_map_*.json")))
+    files = sorted(glob.glob(os.path.join(BASE_DIR, "fan_map_*.json")))
     if not files:
         return {}
     try:
@@ -605,7 +781,8 @@ def _find_temp(hw_list, target):
 
 # --- v0.2.4: configurazione utente (nomi e abbinamenti) -----------------------
 USER_CFG_FILE = os.path.join(BASE_DIR, "fan_config.json")
-USER_CFG = {"names": {}, "map": {}, "hidden": []}
+USER_CFG = {"names": {}, "map": {}, "hidden": [], "plan_reset": {"dow": 3, "hm": "09:00"},
+            "adb_ips": ["192.168.1.234"], "fan_ctl": {}, "map_ref": {}}
 USER_CFG_LOCK = threading.Lock()
 NAME_MAX = 40
 
@@ -617,11 +794,97 @@ def load_user_cfg():
         USER_CFG["names"] = {k: v for k, v in (c.get("names") or {}).items() if isinstance(v, str) and v.strip()}
         USER_CFG["map"] = {k: v for k, v in (c.get("map") or {}).items() if isinstance(v, str) and v}
         USER_CFG["hidden"] = [k for k in (c.get("hidden") or []) if isinstance(k, str)]
+        USER_CFG["plan_reset"] = _valid_reset(c.get("plan_reset"))
+        if "adb_ips" in c:
+            USER_CFG["adb_ips"] = _valid_ips(c.get("adb_ips"))
+        USER_CFG["fan_ctl"] = _valid_fanctl(c.get("fan_ctl"))
+        USER_CFG["map_ref"] = {k: v for k, v in (c.get("map_ref") or {}).items() if isinstance(v, str)}
         log("config utente: %d nomi, %d abbinamenti" % (len(USER_CFG["names"]), len(USER_CFG["map"])))
     except FileNotFoundError:
         pass
     except Exception as e:
         log("fan_config.json non valido:", e)
+
+
+def _valid_reset(r):
+    """{"dow": 0-6 (lunedi'=0), "hm": "HH:MM"}; default giovedi' 09:00."""
+    try:
+        dow = int(r["dow"])
+        hh, mm = [int(x) for x in str(r["hm"]).split(":")]
+        if 0 <= dow <= 6 and 0 <= hh <= 23 and 0 <= mm <= 59:
+            return {"dow": dow, "hm": "%02d:%02d" % (hh, mm)}
+    except Exception:
+        pass
+    return {"dow": 3, "hm": "09:00"}
+
+
+def _valid_ips(v):
+    """Lista di IPv4 (anche "a, b" come testo); massimo 8."""
+    import ipaddress
+    if isinstance(v, str):
+        v = v.replace(";", ",").split(",")
+    out = []
+    for x in v or []:
+        try:
+            ip = str(ipaddress.IPv4Address(str(x).strip()))
+        except ValueError:
+            continue
+        if ip not in out and not ip.startswith("127."):
+            out.append(ip)
+    return out[:8]
+
+
+def _valid_fanctl(v):
+    """v0.3.1: {fan_id: {"mode": "bios"|"fixed"|"curve", "pct": 0-100, "temp": temp_id,
+    "pts": [[gradi, %], ...]}}. pct/curva restano salvati anche con un altro modo (cosi'
+    l'APK puo' tornare alla curva). Modo non utilizzabile (es. curve senza punti) = bios."""
+    out = {}
+    for k, c in (v or {}).items() if isinstance(v, dict) else []:
+        if not isinstance(k, str) or len(k) > 200 or not isinstance(c, dict):
+            continue
+        e = {"mode": "bios"}
+        try:
+            if c.get("pct") is not None:
+                e["pct"] = max(0, min(100, int(round(float(c["pct"])))))
+            pts = sorted([max(0.0, min(120.0, float(a))), max(0.0, min(100.0, float(b)))]
+                         for a, b in (c.get("pts") or [])[:8])
+            # 2026-10-28 v0.3.1 (sostituito): pts salvati solo insieme alla temperatura
+            if pts:
+                e["pts"] = pts
+            if isinstance(c.get("temp"), str) and c["temp"] and len(c["temp"]) < 200:
+                e["temp"] = c["temp"]
+                if isinstance(c.get("ref"), str) and len(c["ref"]) < 300:
+                    e["ref"] = c["ref"]
+        except (TypeError, ValueError):
+            continue
+        mode = c.get("mode")
+        if (mode == "fixed" and "pct" in e) or (mode == "curve" and "pts" in e and "temp" in e):
+            e["mode"] = mode
+        if e["mode"] != "bios" or len(e) > 1:
+            out[k] = e
+    return out
+
+
+def curve_pct(pts, t):
+    """Interpolazione lineare sui punti [gradi, %]; fuori dai punti = primo/ultimo valore."""
+    if t <= pts[0][0]:
+        return pts[0][1]
+    for (t0, p0), (t1, p1) in zip(pts, pts[1:]):
+        if t <= t1:
+            return p0 + (p1 - p0) * (t - t0) / (t1 - t0) if t1 > t0 else p1
+    return pts[-1][1]
+
+
+def next_weekly_reset(now=None):
+    """Prossimo istante (epoch, ora locale) del giorno/ora di plan_reset."""
+    import datetime as _dt
+    r = USER_CFG.get("plan_reset") or {"dow": 3, "hm": "09:00"}
+    hh, mm = [int(x) for x in r["hm"].split(":")]
+    t = _dt.datetime.fromtimestamp(now or time.time())
+    cand = t.replace(hour=hh, minute=mm, second=0, microsecond=0) + _dt.timedelta(days=(r["dow"] - t.weekday()) % 7)
+    if cand <= t:
+        cand += _dt.timedelta(days=7)
+    return int(cand.timestamp())
 
 
 def save_user_cfg(c):
@@ -635,14 +898,39 @@ def save_user_cfg(c):
         if isinstance(k, str) and isinstance(v, str) and v and len(k) < 200 and len(v) < 200:
             mp[k] = v
     hidden = [k for k in (c.get("hidden") or []) if isinstance(k, str) and len(k) < 200][:500]
+    preset = _valid_reset(c.get("plan_reset"))
+    ips = _valid_ips(c.get("adb_ips")) if "adb_ips" in c else list(USER_CFG["adb_ips"])
+    fctl = _valid_fanctl(c.get("fan_ctl")) if "fan_ctl" in c else dict(USER_CFG["fan_ctl"])
+    # v0.3.8: stessa scelta -> si tiene il ref gia' noto; scelta nuova -> ref dal sensore attuale
+    hw = _current_hw()
+    for k, e in fctl.items():
+        e.pop("ref", None)
+        old = USER_CFG["fan_ctl"].get(k) or {}
+        if e.get("temp"):
+            r = old.get("ref") if old.get("temp") == e["temp"] else None
+            r = r or _ref_of(hw, e["temp"])
+            if r:
+                e["ref"] = r
+    mref = {}
+    for k, v in mp.items():
+        if v != "none":
+            r = USER_CFG["map_ref"].get(k) if USER_CFG["map"].get(k) == v else None
+            r = r or _ref_of(hw, v)
+            if r:
+                mref[k] = r
     data = {"_cosa": "nomi e abbinamenti ventola->temperatura scelti in http://localhost:8090/config",
-            "names": names, "map": mp, "hidden": hidden}
+            "names": names, "map": mp, "hidden": hidden, "plan_reset": preset, "adb_ips": ips,
+            "fan_ctl": fctl, "map_ref": mref}
     tmp = USER_CFG_FILE + ".tmp"
     with USER_CFG_LOCK:
         with open(tmp, "w", encoding="utf-8") as fh:
             json.dump(data, fh, ensure_ascii=False, indent=1)
         os.replace(tmp, USER_CFG_FILE)
         USER_CFG["names"], USER_CFG["map"], USER_CFG["hidden"] = names, mp, hidden
+        USER_CFG["plan_reset"] = preset
+        USER_CFG["adb_ips"] = ips
+        USER_CFG["fan_ctl"] = fctl
+        USER_CFG["map_ref"] = mref
     log("config utente salvata: %d nomi, %d abbinamenti" % (len(names), len(mp)))
 
 
@@ -671,11 +959,90 @@ def _find_temp_id(hw_list, tid):
     return None
 
 
+def _ref_of(hw_list, tid):
+    """v0.3.8: id temperatura -> "nome hardware|nome sensore" (nomi originali)."""
+    hit = _find_temp_id(hw_list, tid)
+    if not hit:
+        return None
+    return "%s|%s" % (hit[1].get("orig") or hit[1]["name"], hit[2].get("orig") or hit[2]["name"])
+
+
+def resolve_temp(hw_list, tid, ref):
+    """v0.3.8: con ref cerca hardware e sensore per nome (l'id delle GPU cambia tra gli avvii);
+    stesso hardware ma sensore diverso (LHM/solo Windows) -> la sua temperatura principale;
+    hardware assente -> None, mai un altro hardware che ha preso lo stesso id. Senza ref: id."""
+    if not ref:
+        return _find_temp_id(hw_list, tid)
+    hn, _, tn = ref.partition("|")
+    for gi, g in enumerate(hw_list):
+        if (g.get("orig") or g["name"]).lower() != hn.lower():
+            continue
+        for t in g["temps"]:
+            if (t.get("orig") or t["name"]).lower() == tn.lower():
+                return gi, g, t
+        t = _main_temp(g)
+        return (gi, g, t) if t else None
+    return None
+
+
+def _current_hw():
+    try:
+        return ((SAMPLER.get().get("sensors") or {}).get("hw") or []) if SAMPLER is not None else []
+    except Exception:
+        return []
+
+
+def fill_refs(hw_list):
+    """v0.3.8, a ogni campione: aggiunge il ref alle voci che non l'hanno, aggiorna l'id se il
+    sensore lo ha cambiato, segna "miss" (solo in memoria) se non si trova. Salva in un thread
+    a parte: il file sta su Google Drive e il campionamento non deve aspettarlo."""
+    changed = False
+    for e in list(USER_CFG["fan_ctl"].values()):
+        tid = e.get("temp")
+        if not tid:
+            continue
+        if not e.get("ref"):
+            r = _ref_of(hw_list, tid)
+            if r:
+                e["ref"] = r
+                changed = True
+            continue
+        hit = resolve_temp(hw_list, tid, e["ref"])
+        if hit is None:
+            e["miss"] = True
+        else:
+            e.pop("miss", None)
+            if hit[2].get("id") != tid:
+                e["temp"] = hit[2].get("id")
+                changed = True
+    mp = USER_CFG["map"]
+    for k, tid in list(mp.items()):
+        if tid == "none":
+            continue
+        ref = USER_CFG["map_ref"].get(k)
+        if not ref:
+            r = _ref_of(hw_list, tid)
+            if r:
+                USER_CFG["map_ref"][k] = r
+                changed = True
+        else:
+            hit = resolve_temp(hw_list, tid, ref)
+            if hit and hit[2].get("id") != tid:
+                mp[k] = hit[2].get("id")
+                changed = True
+    if changed:
+        threading.Thread(target=_save_quiet, daemon=True).start()
+
+
+def _save_quiet():
+    try:
+        save_user_cfg(dict(USER_CFG))
+    except Exception as e:
+        log("salvataggio ref non riuscito:", e)
+
+
 def latest_config_page():
-    files = []
-    for d in [BASE_DIR] + WEB_DIRS:             # v0.3.0: anche ../web del pacchetto
-        files += glob.glob(os.path.join(d, "config_page_v*.html"))
-    files.sort(key=os.path.basename)
+    files = sorted(glob.glob(os.path.join(BASE_DIR, "config_page_v*.html")))
     return files[-1] if files else None
 
 
@@ -698,7 +1065,17 @@ def make_pairs(hw_list):
             if uid == "none":                      # l'utente ha scelto "non mostrare"
                 continue
             if uid:
-                hit = _find_temp_id(hw_list, uid)
+                hit = resolve_temp(hw_list, uid, USER_CFG["map_ref"].get(f.get("id") or ""))
+                if hit:
+                    ugi, ug, ut = hit
+                    pairs.append({"fan": f["name"], "rpm": f["rpm"], "pct": f.get("pct"), "fan_hw": g["name"],
+                                  "temp": ut["name"], "c": ut["c"], "temp_hw": ug["name"], "how": "user", "g": ugi,
+                                  "fan_id": f.get("id"), "temp_id": ut.get("id")})
+                    continue
+            # v0.3.6: curva attiva -> la temperatura mostrata e' quella che pilota la ventola
+            cc = (USER_CFG.get("fan_ctl") or {}).get(f.get("id") or "")
+            if cc and cc.get("mode") == "curve" and cc.get("temp") and f.get("ctl"):
+                hit = resolve_temp(hw_list, cc["temp"], cc.get("ref"))
                 if hit:
                     ugi, ug, ut = hit
                     pairs.append({"fan": f["name"], "rpm": f["rpm"], "pct": f.get("pct"), "fan_hw": g["name"],
@@ -753,13 +1130,23 @@ class AdbReverse(threading.Thread):
     def __init__(self, adb, port):
         super().__init__(daemon=True)
         self.adb, self.port = adb, port
-        self.state = {}                           # seriale -> "ok" / "errore"
+        self.state = {}                           # seriale -> "ok" / "errore" / "rete"
+        self.retry_at = {}                        # v0.2.9: seriale -> istante del prossimo tentativo
+        self.seen_clients = set()                 # v0.3.0: IP che hanno chiamato /api/metrics
+        self.tried_once = set()                   # IP non fissi gia' provati (una volta sola)
+        self.connect_at = {}                      # IP fisso -> prossimo adb connect
+        self.local_ips = set()
+        try:
+            for addrs in psutil.net_if_addrs().values():
+                self.local_ips.update(a.address for a in addrs if a.family == 2)
+        except Exception:
+            pass
 
     def run_adb(self, *args):
         try:
             r = subprocess.run([self.adb] + list(args), capture_output=True, text=True,
                                timeout=10, creationflags=CREATE_NO_WINDOW)
-            return r.returncode, r.stdout
+            return r.returncode, (r.stdout or "") + (r.stderr or "")
         except Exception as e:
             return -1, str(e)
 
@@ -770,19 +1157,80 @@ class AdbReverse(threading.Thread):
             return
         rule = "tcp:%d" % self.port
         seen = {}
+        devs = {}
         for line in out.splitlines()[1:]:
             parts = line.split()
-            if len(parts) < 2 or parts[1] != "device":
+            if len(parts) >= 2:
+                devs[parts[0]] = parts[1]         # device / unauthorized / offline
+        self.connect_wifi(devs, seen)
+        for s, st in devs.items():
+            if st != "device":
                 continue
-            s = parts[0]
+            if ":" in s:                          # adb via rete (ip:porta): reverse inutile
+                continue
+            if time.time() < self.retry_at.get(s, 0):
+                seen[s] = self.state.get(s, "errore")
+                continue
             rc, lst = self.run_adb("-s", s, "reverse", "--list")
             if rc == 0 and rule in lst:
                 seen[s] = "ok"
                 continue
             rc, msg = self.run_adb("-s", s, "reverse", rule, rule)
             seen[s] = "ok" if rc == 0 else "errore"
-            log("adb reverse %s su %s: %s" % (rule, s, seen[s] if rc == 0 else msg.strip()))
+            if rc != 0:
+                self.retry_at[s] = time.time() + ADB_RETRY_S
+            if self.state.get(s) != seen[s] or rc == 0:   # log ai cambi di stato / reverse rifatto
+                log("adb reverse %s su %s: %s" % (rule, s, seen[s] if rc == 0 else (msg.strip() or "errore")))
+        # 2026-10-22 v0.2.0-v0.2.8 (sostituito): reverse tentato su ogni dispositivo ogni 5 s,
+        # anche via rete, con una riga di log a ogni errore (724 righe in 6 h).
         self.state = seen
+
+    def connect_wifi(self, devs, seen):
+        """v0.3.0: adb via Wi-Fi. Per ogni IP fisso (da /config) e per gli IP dei client
+        di /api/metrics: se <ip>:5555 non e' tra i dispositivi -> adb connect.
+        IP fissi: al massimo ogni ADB_CONNECT_S. IP non fissi: una sola volta; se non
+        diventano 'device' non si riprova piu' (Mi Box, telefoni, PC...)."""
+        fixed = list(USER_CFG.get("adb_ips") or [])
+        now = time.time()
+        extra = [ip for ip in sorted(self.seen_clients)
+                 if ip not in fixed and ip not in self.local_ips and ip not in self.tried_once]
+        for ip in fixed + extra:
+            serial = "%s:%d" % (ip, ADB_TCP_PORT)
+            st = devs.get(serial)
+            if st == "device":
+                seen[serial] = "rete ok"
+            elif st == "unauthorized":
+                seen[serial] = "rete: unauthorized"   # serve il consenso sul tablet: non si insiste
+            elif st == "offline" and ip in fixed and now >= self.connect_at.get(ip, 0):
+                self.connect_at[ip] = now + ADB_CONNECT_S
+                self.run_adb("disconnect", serial)        # dopo un riavvio del tablet resta "offline"
+                seen[serial] = self._connect(serial)
+            elif st == "offline":
+                seen[serial] = "rete: offline"
+            elif ip in fixed and now < self.connect_at.get(ip, 0):
+                seen[serial] = self.state.get(serial, "rete: non raggiungibile")
+            else:
+                if ip in fixed:
+                    self.connect_at[ip] = now + ADB_CONNECT_S
+                else:
+                    self.tried_once.add(ip)
+                seen[serial] = self._connect(serial)
+            if self.state.get(serial) != seen[serial]:
+                log("adb %s: %s" % (serial, seen[serial]))
+            elif st is None and seen[serial] == "rete ok":
+                log("adb %s: ricollegato (adb connect)" % serial)
+
+    def _connect(self, serial):
+        rc, msg = self.run_adb("connect", serial)
+        m = msg.lower()
+        if "connected to" in m and "cannot" not in m and "failed" not in m:
+            rc2, out = self.run_adb("devices")
+            for line in out.splitlines()[1:]:
+                parts = line.split()
+                if len(parts) >= 2 and parts[0] == serial:
+                    return {"device": "rete ok", "unauthorized": "rete: unauthorized"}.get(parts[1], "rete: " + parts[1])
+            return "rete ok"
+        return "rete: non raggiungibile"
 
     def run(self):
         while True:
@@ -811,6 +1259,7 @@ class Sampler(threading.Thread):
         self._last_disk = psutil.disk_io_counters()
         self._last_t = time.time()
         self._procs = []
+        self._procs_top = None                    # v0.3.5
         self._procs_t = 0
         self._lhm_raw = None
         self._lhm_src = None
@@ -824,11 +1273,17 @@ class Sampler(threading.Thread):
         # (cosi' la % CPU e' la media sugli ultimi 3 s, come con psutil)
         self.pdh_proc = Pdh({"cpu": r"\Process(*)\% Processor Time",
                              "ws": r"\Process(*)\Working Set",
+                             "pid": r"\Process(*)\ID Process",
+                             "ior": r"\Process(*)\IO Read Bytes/sec",
+                             "iow": r"\Process(*)\IO Write Bytes/sec",
+                             "geng": r"\GPU Engine(*)\Utilization Percentage",
+                             "gmem": r"\GPU Process Memory(*)\Dedicated Usage",
                              "thr": r"\System\Threads",
                              "prc": r"\System\Processes"})
         self.gpus = list_gpus()
         self._gpus_t = time.time()
         self.adb = None                           # AdbReverse, impostato da main()
+        self.fanctl = None                        # v0.3.1: FanControl, impostato da main()
         log("GPU:", ", ".join("%s (%s, %d MB)" % (g["name"], g["luid"], g["vram_mb"]) for g in self.gpus) or "nessuna")
         psutil.cpu_percent(percpu=True)               # prima lettura "a vuoto"
 
@@ -853,8 +1308,66 @@ class Sampler(threading.Thread):
         thr, prc = P.single("thr"), P.single("prc")
         self._sys = {"procs": int(prc) if prc is not None else len(rows),
                      "threads": int(thr) if thr is not None else None}
+        try:
+            self._procs_top = self.top_extra(P, cpu, ws)
+        except Exception as e:                        # mai far fallire "procs" per il campo nuovo
+            self._procs_top = None
+            log("procs_top errore:", e)
         rows.sort(key=lambda r: r[0], reverse=True)
         return [{"n": n, "cpu": round(c, 1), "mb": round(m / 1048576)} for c, m, n in rows[:TOP_N]]
+
+    def top_extra(self, P, cpu, ws):
+        """v0.3.5: primi TOP_N per RAM, per GPU e per disco (stesse istanze PDH di top_procs)."""
+        pid_l, ior, iow = P.array_list("pid"), P.array_list("ior"), P.array_list("iow")
+        if not (len(pid_l) == len(cpu) == len(ior) == len(iow)):
+            return None
+        ram, disk, name_of = [], [], {}
+        for i, (n, _) in enumerate(cpu):
+            if n in ("_Total", "Idle") or not (n == pid_l[i][0] == ior[i][0] == iow[i][0] == ws[i][0]):
+                continue
+            name = n if n in SYS_PROCS else n + ".exe"
+            if pid_l[i][1] is not None:
+                name_of[int(pid_l[i][1])] = name
+            ram.append((ws[i][1] or 0, name))
+            r, w = ior[i][1] or 0, iow[i][1] or 0
+            if r + w >= 1024:                          # sotto 1 KB/s non e' attivita'
+                disk.append((r + w, name, r, w))
+        ram.sort(reverse=True)
+        disk.sort(reverse=True)
+        # GPU: % per (pid, scheda) = massimo tra i motori (ognuno somma delle sue istanze)
+        eng = {}
+        for inst, v in P.array("geng").items():
+            lu = luid_of(inst)
+            try:
+                pid = int(inst.split("_")[1])
+            except (ValueError, IndexError):
+                continue
+            if lu is None or not v:
+                continue
+            k = (pid, lu, inst.split("_eng_")[-1].split("_engtype_")[0] if "_eng_" in inst else "?")
+            eng[k] = eng.get(k, 0.0) + v
+        per = {}                                       # (pid, luid) -> [pct, byte]
+        for (pid, lu, _), v in eng.items():
+            e = per.setdefault((pid, lu), [0.0, 0.0])
+            e[0] = max(e[0], v)
+        for inst, v in P.array("gmem").items():
+            lu = luid_of(inst)
+            try:
+                pid = int(inst.split("_")[1])
+            except (ValueError, IndexError):
+                continue
+            if lu is not None and v and v >= 1048576:
+                per.setdefault((pid, lu), [0.0, 0.0])[1] += v
+        gpu = []
+        for g in self.gpus:
+            lst = [(pct, b, pid) for (pid, lu), (pct, b) in per.items() if lu == g["luid"] and (pct >= 0.1 or b)]
+            lst.sort(reverse=True)
+            gpu.append({"luid": g["luid"], "list": [
+                {"n": name_of.get(pid, "pid %d" % pid), "pct": round(min(pct, 100.0), 1), "mb": round(b / 1048576)}
+                for pct, b, pid in lst[:TOP_N]]})
+        return {"ram": [{"n": n, "mb": round(m / 1048576)} for m, n in ram[:TOP_N]],
+                "gpu": gpu,
+                "disk": [{"n": n, "r": round(r), "w": round(w)} for _, n, r, w in disk[:TOP_N]]}
 
     def top_procs_psutil(self):
         # 2026-10-22 v0.2.5 (sostituito, resta come ripiego se PDH non e' disponibile):
@@ -899,10 +1412,20 @@ class Sampler(threading.Thread):
         tot = perf.get("_Total")
         btot = base.get("_Total") or (base and max(base.values()))
         q = self.pdh.single("queue")
-        return {"mhz_cores": mhz,
-                "mhz_now": round(btot * tot / 100.0) if (tot and btot) else None,
-                "mhz_max": max(mhz) if mhz else None,
-                "queue": None if q is None else int(q)}
+        now_mhz = round(btot * tot / 100.0) if (tot and btot) else None
+        out = {"mhz_cores": mhz, "mhz_now": now_mhz, "mhz_max": max(mhz) if mhz else None,
+               "queue": None if q is None else int(q)}
+        if now_mhz:                                   # v0.3.4: scala del gauge (ultima ora)
+            t = time.time()
+            hist = getattr(self, "_mhz_hist", None)
+            if hist is None:
+                hist = self._mhz_hist = []
+            hist.append((t, now_mhz, out["mhz_max"] or now_mhz))
+            while hist and t - hist[0][0] > 3600:
+                hist.pop(0)
+            out["mhz_lo"] = min(h[1] for h in hist)
+            out["mhz_hi"] = max(h[2] for h in hist)
+        return out
 
     def gpu_list(self, now):
         """Una voce per GPU: carico (PDH, come Gestione attivita': massimo tra i motori,
@@ -1036,6 +1559,13 @@ class Sampler(threading.Thread):
                     lhm["gpu_mem_load"] = pg["mem_pct"]     # LHM a volte da' 0: uso Windows
 
         apply_user_names(sensors["hw"])              # v0.2.4: nomi scelti dall'utente
+        if self._lhm_src == "lib":
+            fill_refs(sensors["hw"])                 # v0.3.8: abbinamenti legati al sensore, non all'id
+        if self.fanctl is not None and self._lhm_src == "lib":
+            try:
+                self.fanctl.step(sensors["hw"])      # v0.3.1: controllo ventole
+            except Exception as e:
+                log("fan control error:", e)
         sensors["pairs"] = make_pairs(sensors["hw"])
 
         snap = {
@@ -1054,6 +1584,7 @@ class Sampler(threading.Thread):
             "net": {"rx": round(net_rx), "tx": round(net_tx)},
             "uptime_s": int(now - psutil.boot_time()),
             "procs": self._procs,
+            "procs_top": self._procs_top,             # v0.3.5
             "lhm": lhm,
             # --- campi aggiunti in v0.2.0 ---
             "sys": self._sys,
@@ -1062,8 +1593,16 @@ class Sampler(threading.Thread):
             "claude": CLAUDE.result if CLAUDE else None,      # v0.2.1
             "srv": {"lhm": self._lhm_src,
                     "adb": dict(self.adb.state) if self.adb else None,
-                    "http": "1.1"},
+                    "http": "1.1",
+                    "fanctl": self.fanctl.state if self.fanctl else None,
+                    "sensors": ({"age_s": round(now - self.sensors.t) if self.sensors.t else None,
+                                 "restarts": self.sensors.restarts} if self.sensors else None),
+                    "logq": LOG_Q.qsize()},
         }
+        if PLAN is not None and PLAN.result:          # v0.2.7: omesso se non disponibile
+            snap["claude_plan"] = PLAN.result
+        if PLAN is not None:
+            snap["srv"]["plan"] = PLAN.state
         with self.lock:
             self.snapshot = snap
 
@@ -1213,45 +1752,211 @@ class ClaudeUsage(threading.Thread):
 CLAUDE = None
 
 
-# --- v0.3.0: scoperta automatica in LAN -----------------------------------------
-DISCOVERY_ASK = b"TAB2MON?"
-SERVER_NAME = None
-HTTP_PORT = DEFAULT_PORT
+# =============================================================================
+# v0.2.7 - Limiti del piano Claude (account collegato al PC)
+# =============================================================================
+CRED_FILE = os.path.join(os.path.expanduser("~"), ".claude", ".credentials.json")
+PLAN_URL = "https://api.anthropic.com/api/oauth/usage"      # non documentato: puo' cambiare
+PLAN_INTERVAL = 300.0                                        # 5 minuti, cache in mezzo
+HIST_FILE = os.path.join(os.environ.get("APPDATA") or os.path.join(os.path.expanduser("~"), "AppData", "Roaming"),
+                         "Claude", "plan-usage-history.json")
+# Claude Desktop e' un'app MSIX: cio' che scrive in Roaming finisce nella cartella
+# virtualizzata del pacchetto. Lo vedono solo i processi figli dell'app (es. Claude Code);
+# il servizio no (FileNotFoundError, verificato 2026-10-22) -> si cerca anche li'.
+HIST_GLOB = os.path.join(os.environ.get("LOCALAPPDATA") or os.path.join(os.path.expanduser("~"), "AppData", "Local"),
+                         "Packages", "Claude_*", "LocalCache", "Roaming", "Claude", "plan-usage-history.json")
 
 
-def server_info(port):
-    """Chi sono: lo inviano /api/info e la risposta UDP. Nessun dato sensibile."""
-    return {"app": "tab2monitor", "name": SERVER_NAME or platform.node() or "PC",
-            "port": port, "ver": VERSION}
+# v0.2.9: dal 2026-10-22 17:55 Claude Desktop tiene i dati in %LOCALAPPDATA%\Claude-Data\<pacchetto>\
+# (nella vecchia cartella resta solo ".user-data-left.<pacchetto>"); cercata per prima.
+HIST_DATA_GLOB = os.path.join(os.environ.get("LOCALAPPDATA") or os.path.join(os.path.expanduser("~"), "AppData", "Local"),
+                              "Claude-Data", "*", "plan-usage-history.json")
 
 
-class Discovery(threading.Thread):
-    """Ascolta su UDP <porta> (stesso numero della porta HTTP, ma UDP: niente conflitto).
-    L'APK manda in broadcast "TAB2MON?" e ogni server risponde al mittente con il JSON
-    di server_info(); l'APK ricava l'IP dall'indirizzo della risposta. Nessun invio
-    spontaneo: il server parla solo se interrogato."""
+def hist_file():
+    """Il plan-usage-history.json aggiornato piu' di recente tra i percorsi possibili."""
+    cands = [f for f in glob.glob(HIST_DATA_GLOB) + [HIST_FILE] + glob.glob(HIST_GLOB) if os.path.isfile(f)]
+    return max(cands, key=os.path.getmtime) if cands else HIST_FILE
 
-    def __init__(self, bind, port):
+
+def short_path(f):
+    """Percorso senza la cartella dell'utente (per srv.plan): la home diventa ~."""
+    home = os.path.expanduser("~")
+    return "~" + f[len(home):] if f.lower().startswith(home.lower()) else f
+HIST_INTERVAL = 60.0                                         # il file locale si rilegge ogni minuto
+HIST_STALE_S = 5 * 3600                                      # campione piu' vecchio della finestra di 5 h
+HIST_FRESH_S = 30 * 60                                       # v0.3.2: campione recente = account in uso
+
+
+def _reset_epoch(v):
+    """'2026-10-22T15:00:00.123+00:00' / '...Z' / epoch -> epoch int (None se non valido)."""
+    if isinstance(v, (int, float)):
+        return int(v)
+    if not isinstance(v, str):
+        return None
+    try:
+        from datetime import datetime, timezone
+        d = datetime.fromisoformat(v.replace("Z", "+00:00"))   # Python 3.11+: frazioni ok
+        if d.tzinfo is None:
+            d = d.replace(tzinfo=timezone.utc)
+        return int(d.timestamp())
+    except Exception:
+        return None
+
+
+class ClaudePlan(threading.Thread):
+    """Ogni PLAN_INTERVAL s: legge il token dal file credenziali (solo in memoria,
+    variabile locale), chiama l'endpoint e tiene il risultato. Il token non viene
+    mai scritto in log, JSON, config o repository. Se manca il token: nessuna
+    chiamata. Se la chiamata fallisce (401, formato cambiato, rete): campo omesso
+    e stop finche' il file credenziali non cambia (data di modifica)."""
+
+    def __init__(self):
         super().__init__(daemon=True)
-        self.bind, self.port = bind, port
+        self.result = None
+        self.blocked_mtime = None                  # mtime del file al momento dell'errore
+        self.state = "init"
+        self.oauth, self.oauth_state, self.oauth_t = None, "init", 0
+
+    def _token(self):
+        with open(CRED_FILE, encoding="utf-8") as fh:
+            c = (json.load(fh) or {}).get("claudeAiOauth") or {}
+        return c.get("accessToken"), c.get("subscriptionType")
+
+    def poll(self):
+        """v0.2.8: oauth ogni PLAN_INTERVAL s; se non da' dati, ripiego sul file history."""
+        if time.time() - self.oauth_t >= PLAN_INTERVAL:
+            self.oauth_t = time.time()
+            self.poll_oauth()
+            self.oauth, self.oauth_state = self.result, self.state
+        h = self.read_history()
+        # v0.3.2: l'account in uso e' quello dell'ultimo campione di Claude Desktop; oauth
+        # (login della CLI) vince solo se il campione history non e' recente.
+        fresh = h is not None and time.time() - h["ts"] < HIST_FRESH_S
+        if self.oauth and not fresh:
+            self.result, self.state = dict(self.oauth, src="oauth"), "ok (oauth)"
+            if h and h.get("accounts"):
+                self.result["accounts"] = h["accounts"]
+            return
+        # 2026-10-22 v0.2.8 (sostituito): oauth sempre prima di history.
+        if h:
+            self.result = h
+            self.state = "ok (history %s, %s)" % (time.strftime("%H:%M", time.localtime(h["ts"])),
+                                                  short_path(getattr(self, "hist_path", "")))
+        else:
+            self.result = None
+            self.state = ("no_token" if self.oauth_state in ("no_token", "no_file") else self.oauth_state) + "+no_history"
+            if getattr(self, "hist_err", None):
+                self.state += " (%s)" % self.hist_err.strip()
+
+    def read_history(self):
+        """Campione piu' recente di plan-usage-history.json (Claude Desktop):
+        {"version":2,"samples":[{"t":ms|s,"org":..,"u":{"fh":%5h,"sd":%7gg}}]}.
+        Si usano solo t e u; l'org serve solo a scegliere l'ultimo account usato."""
+        try:
+            self.hist_path = hist_file()
+            with open(self.hist_path, encoding="utf-8") as fh:
+                d = json.load(fh)
+            best = None
+            per_org = {}                                       # v0.3.3: ultimo campione utile per account
+            for smp in d.get("samples") or []:
+                t = smp.get("t")
+                u = smp.get("u") or {}
+                # v0.3.2: valgono anche i campioni con solo "xu" (account aziendale)
+                # 2026-10-22 v0.2.8: ... or ("fh" not in u and "sd" not in u): continue
+                if not isinstance(t, (int, float)) or not any(k in u for k in ("fh", "sd", "xu")):
+                    continue
+                t = t / 1000.0 if t > 1e12 else float(t)       # millisecondi -> secondi
+                o = str(smp.get("org") or "")[:8]
+                if o not in per_org or t > per_org[o][0]:
+                    per_org[o] = (t, u)
+                if best is None or t > best[0]:
+                    best = (t, u)
+            if best is None:
+                self.hist_err = "nessun campione"
+                return None
+            t, u = best
+            res = {"src": "history", "ts": int(t)}
+            if u.get("fh") is not None:
+                res["session"] = {"pct": round(float(u["fh"]))}
+                if time.time() - t > HIST_STALE_S:
+                    res["session"]["stale"] = True
+            if u.get("sd") is not None:
+                res["weekly"] = {"pct": round(float(u["sd"])), "reset": next_weekly_reset()}
+            if u.get("xu") is not None:                       # v0.3.2: utilizzo extra (%)
+                res["extra"] = {"pct": round(float(u["xu"]), 1)}
+            accs = []
+            for o, (ot, ou) in sorted(per_org.items(), key=lambda kv: -kv[1][0]):
+                a = {"id": o, "ts": int(ot), "current": ot == t}
+                if ou.get("fh") is not None:
+                    a["session"] = {"pct": round(float(ou["fh"]))}
+                    if time.time() - ot > HIST_STALE_S:
+                        a["session"]["stale"] = True
+                if ou.get("sd") is not None:
+                    a["weekly"] = {"pct": round(float(ou["sd"]))}
+                if ou.get("xu") is not None:
+                    a["extra"] = {"pct": round(float(ou["xu"]), 1)}
+                accs.append(a)
+            res["accounts"] = accs
+            self.hist_err = None
+            return res
+        except Exception as e:
+            self.hist_err = "%s %s" % (type(e).__name__, getattr(e, "errno", "") or "")
+            return None
+
+    def poll_oauth(self):
+        try:
+            mtime = os.path.getmtime(CRED_FILE)
+        except OSError:
+            self.result, self.state = None, "no_file"
+            return
+        if self.blocked_mtime is not None and mtime == self.blocked_mtime:
+            self.result = None                       # errore precedente: niente tentativi
+            return
+        self.blocked_mtime = None
+        try:
+            tok, sub = self._token()
+        except Exception:
+            self.result, self.state = None, "file_illeggibile"
+            return
+        if not tok:
+            self.result, self.state = None, "no_token"
+            return
+        req = urllib.request.Request(PLAN_URL, headers={
+            "Authorization": "Bearer " + tok, "anthropic-beta": "oauth-2025-04-20",
+            "Accept": "application/json", "User-Agent": "tab2monitor/" + VERSION})
+        tok = None
+        try:
+            with urllib.request.urlopen(req, timeout=10) as r:
+                d = json.loads(r.read().decode("utf-8"))
+            res = {"ts": int(time.time())}
+            if sub:
+                res["plan"] = str(sub).capitalize()
+            for src, dst in (("five_hour", "session"), ("seven_day", "weekly"),
+                             ("seven_day_opus", "weekly_opus")):
+                w = d.get(src)
+                if isinstance(w, dict) and w.get("utilization") is not None:
+                    res[dst] = {"pct": round(float(w["utilization"])), "reset": _reset_epoch(w.get("resets_at"))}
+            if "session" not in res and "weekly" not in res:
+                raise ValueError("formato inatteso")
+            self.result, self.state = res, "ok"
+        except Exception as e:
+            # niente dettagli della richiesta nel log (contiene l'intestazione col token)
+            code = getattr(e, "code", None)
+            self.result, self.state = None, "errore %s" % (code or type(e).__name__)
+            self.blocked_mtime = mtime
+            log("claude_plan: %s, sospeso finche' le credenziali non cambiano" % self.state)
 
     def run(self):
-        import socket
-        try:
-            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            s.bind((self.bind, self.port))
-        except OSError as e:
-            log("scoperta UDP non disponibile sulla porta %d: %s" % (self.port, e))
-            return
-        log("scoperta UDP attiva sulla porta %d" % self.port)
         while True:
             try:
-                data, addr = s.recvfrom(256)
-                if data.startswith(DISCOVERY_ASK):
-                    s.sendto(json.dumps(server_info(self.port)).encode("utf-8"), addr)
-            except Exception as e:                # es. 10054 su Windows dopo un invio fallito
-                log("scoperta UDP errore:", e)
-                time.sleep(0.2)
+                self.poll()
+            except Exception as e:
+                log("claude_plan errore:", type(e).__name__)
+            time.sleep(HIST_INTERVAL)
+
+
+PLAN = None
 
 
 # --- HTTP --------------------------------------------------------------------
@@ -1275,6 +1980,9 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         path = self.path.split("?")[0]
         if path == "/api/metrics":
+            ip = self.client_address[0]
+            if SAMPLER is not None and SAMPLER.adb is not None and not ip.startswith("127."):
+                SAMPLER.adb.seen_clients.add(ip)          # v0.3.0: candidati per adb connect
             body = json.dumps(SAMPLER.get(), separators=(",", ":")).encode("utf-8")
             self._send(200, body, "application/json; charset=utf-8")
         elif path == "/config":                    # v0.2.4: pagina nomi/abbinamenti
@@ -1287,22 +1995,6 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/api/config":
             body = json.dumps(USER_CFG, ensure_ascii=False).encode("utf-8")
             self._send(200, body, "application/json; charset=utf-8")
-        elif path == "/api/info":                  # v0.3.0
-            self._send(200, json.dumps(server_info(HTTP_PORT)).encode("utf-8"),
-                       "application/json; charset=utf-8")
-        elif path == "/apk":                       # v0.3.0: sideload sul tablet dal browser
-            f = latest_apk()
-            if not f:
-                self._send(404, b"APK non presente / APK not available", "text/plain")
-                return
-            with open(f, "rb") as fh:
-                body = fh.read()
-            self.send_response(200)
-            self.send_header("Content-Type", "application/vnd.android.package-archive")
-            self.send_header("Content-Disposition", 'attachment; filename="%s"' % os.path.basename(f))
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
         elif path in ("/", "/index.html"):
             f = latest_dashboard()
             if not f:
@@ -1314,6 +2006,9 @@ class Handler(BaseHTTPRequestHandler):
             self._send(404, b"not found", "text/plain")
 
     def do_POST(self):
+        if self.path.split("?")[0] == "/api/fan":
+            self.post_fan()
+            return
         # v0.2.4: salva la configurazione; accettata solo da 127.0.0.1 (il PC stesso,
         # o il tablet via adb reverse), non dalla rete Wi-Fi
         if self.path.split("?")[0] != "/api/config":
@@ -1331,64 +2026,56 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as e:
             self._send(400, ('{"ok":false,"err":%s}' % json.dumps(str(e))).encode("utf-8"), "application/json")
 
+    def post_fan(self):
+        """v0.3.1: comando ventola dall'APK: {"id": fan_id, "mode": "bios"|"fixed"|"curve",
+        "pct": N} (per "curve" si riusa la curva gia' salvata, se c'e', oppure "pts"/"temp").
+        Accettato da 127.0.0.1 (PC, tablet via adb reverse) e dagli IP fissi di /config."""
+        ip = self.client_address[0]
+        if ip != "127.0.0.1" and ip not in (USER_CFG.get("adb_ips") or []):
+            self._send(403, b"solo da localhost o dagli IP dei tablet", "text/plain")
+            return
+        try:
+            n = int(self.headers.get("Content-Length") or 0)
+            if n <= 0 or n > 4096:
+                raise ValueError("dimensione")
+            c = json.loads(self.rfile.read(n).decode("utf-8"))
+            fid, mode = c.get("id"), c.get("mode")
+            if not isinstance(fid, str) or mode not in ("bios", "fixed", "curve"):
+                raise ValueError("id o mode non validi")
+            fctl = dict(USER_CFG.get("fan_ctl") or {})
+            e = dict(fctl.get(fid) or {})
+            e.update({k: c[k] for k in ("pct", "pts", "temp") if k in c})
+            e["mode"] = mode
+            if mode == "fixed" and e.get("pct") is None:
+                e["pct"] = 50
+            chk = _valid_fanctl({fid: e}).get(fid) or {"mode": "bios"}
+            if chk["mode"] != mode:
+                raise ValueError("curva non definita: impostala prima in /config" if mode == "curve" else "valori non validi")
+            fctl[fid] = e
+            new = dict(USER_CFG)
+            new["fan_ctl"] = fctl
+            save_user_cfg(new)
+            self._send(200, json.dumps({"ok": True, "fan_ctl": USER_CFG["fan_ctl"].get(fid)}).encode("utf-8"),
+                       "application/json")
+        except Exception as e:
+            self._send(400, ('{"ok":false,"err":%s}' % json.dumps(str(e))).encode("utf-8"), "application/json")
+
     def log_message(self, fmt, *args):            # silenzia il log per richiesta
         pass
 
 
-def load_config(data_dir):
-    """v0.3.0: config.json nella cartella dati (facoltativo). Chiavi riconosciute:
-    port, bind, gpu, claude (bool), claude_dir, adb ("auto" / "off" / percorso),
-    sensors (bool), discovery (bool), name. Senza file: comportamento della v0.2.6."""
-    f = os.path.join(data_dir, "config.json")
-    try:
-        with open(f, encoding="utf-8-sig") as fh:      # -sig: PowerShell scrive il BOM
-            c = json.load(fh)
-        log("config:", f)
-        return c if isinstance(c, dict) else {}
-    except FileNotFoundError:
-        return {}
-    except Exception as e:
-        log("config.json non valido (ignorato):", e)
-        return {}
-
-
 def main():
-    global SAMPLER, CLAUDE, DATA_DIR, USER_CFG_FILE, SERVER_NAME, HTTP_PORT
+    global SAMPLER, CLAUDE, PLAN
     ap = argparse.ArgumentParser(description="Tab2Monitor server " + VERSION)
-    # v0.3.0: default None = "dal config.json, altrimenti il valore di sempre"
-    ap.add_argument("--data", default=None, help="cartella dati (config.json, fan_config.json)")
-    ap.add_argument("--port", type=int, default=None)
-    ap.add_argument("--bind", default=None)
+    ap.add_argument("--port", type=int, default=DEFAULT_PORT)
+    ap.add_argument("--bind", default="0.0.0.0")
     ap.add_argument("--adb", default=None, help="percorso di adb.exe (default: PATH o Android SDK)")
     ap.add_argument("--no-adb", action="store_true", help="non gestire adb reverse")
     ap.add_argument("--no-sensors", action="store_true", help="non avviare Tab2Sensors.exe")
+    ap.add_argument("--no-claude-plan", action="store_true", help="non leggere i limiti del piano Claude")
     ap.add_argument("--no-claude", action="store_true", help="non leggere i log di Claude Code")
-    ap.add_argument("--no-discovery", action="store_true", help="niente risposta UDP alla scoperta")
     ap.add_argument("--gpu", default=None, help="parte del nome della GPU principale (es. 9070)")
     a = ap.parse_args()
-    # 2026-10-22 v0.2.6: --port default=DEFAULT_PORT, --bind default="0.0.0.0", nessun config.json
-    if a.data:
-        DATA_DIR = os.path.abspath(a.data)
-        os.makedirs(DATA_DIR, exist_ok=True)
-    USER_CFG_FILE = os.path.join(DATA_DIR, "fan_config.json")
-    cfg = load_config(DATA_DIR)
-    a.port = a.port or int(cfg.get("port") or DEFAULT_PORT)
-    a.bind = a.bind or cfg.get("bind") or "0.0.0.0"
-    a.gpu = a.gpu or cfg.get("gpu") or None
-    adb_cfg = str(cfg.get("adb") or "auto")
-    if adb_cfg.lower() == "off":
-        a.no_adb = True
-    elif adb_cfg.lower() != "auto" and not a.adb:
-        a.adb = adb_cfg
-    if cfg.get("sensors") is False:
-        a.no_sensors = True
-    if cfg.get("claude") is False:
-        a.no_claude = True
-    if cfg.get("discovery") is False:
-        a.no_discovery = True
-    SERVER_NAME = cfg.get("name") or None
-    HTTP_PORT = a.port
-    log("cartella dati:", DATA_DIR)
     FAN_MAP.update(load_fan_map())
     load_user_cfg()
     SAMPLER = Sampler(a.gpu)
@@ -1396,6 +2083,7 @@ def main():
     if exe:
         SAMPLER.sensors = SensorReader(exe)
         SAMPLER.sensors.start()
+        SAMPLER.fanctl = FanControl(SAMPLER.sensors)   # v0.3.1
     else:
         log("Tab2Sensors.exe non trovato o disattivato: provo l'app LHM su", LHM_URL)
     if not a.no_adb:
@@ -1408,20 +2096,12 @@ def main():
             log("adb non trovato: adb reverse automatico disattivato")
     SAMPLER.start()
     if not a.no_claude:
-        CLAUDE = ClaudeUsage(cfg.get("claude_dir") or CLAUDE_DIR)     # v0.3.0: claude_dir
+        CLAUDE = ClaudeUsage()
         CLAUDE.start()
-    if not a.no_discovery:
-        Discovery(a.bind, a.port).start()
+    if not a.no_claude_plan:
+        PLAN = ClaudePlan()
+        PLAN.start()
     log("Tab2Monitor %s su http://%s:%d  (dashboard: %s)" % (VERSION, a.bind, a.port, latest_dashboard()))
-    # v0.3.0: indirizzi da scrivere sul tablet se la ricerca automatica non funziona
-    try:
-        import socket
-        ips = sorted({i[4][0] for i in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET)
-                      if not i[4][0].startswith("127.")})
-        log("indirizzi per il tablet / addresses for the tablet: " +
-            ", ".join("http://%s:%d" % (ip, a.port) for ip in ips))
-    except Exception:
-        pass
     # v0.2.3: niente SO_REUSEADDR: su Windows permette a un secondo server di mettersi
     # in ascolto sulla stessa porta (successo il 2026-10-22 tra servizio e avvio a mano);
     # cosi' la seconda istanza fallisce e il supervisore riprova ogni 10 s.

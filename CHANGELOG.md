@@ -1,6 +1,420 @@
 # CHANGELOG — Tab2revamp
-Versione documento: v0.1.16 — 2026-10-22 05:45 (ora del PC, branch installer-tab2monitor)
+Versione documento: v0.1.19 — 2026-11-19 09:00 (ora del PC, branch installer-tab2monitor)
 
+## 31. Server Windows con la nostra build di LHM (MI50) — 2026-10-29
+- Il server usa ora la cartella `windows/lhm/LibreHardwareMonitor_v0.9.6-mi50/` (fuori da git): copia di v0.9.6 con `LibreHardwareMonitorLib.dll`, `BlackSharp.Core`, `DiskInfoToolkit`,
+  `RAMSPDToolkit-NDD` dalla build `x64/net472` del branch `amd-mi50-support` (PR LibreHardwareMonitor#2597, commit 17b0e1c + 529a670, base upstream 71040ce).
+  `find_tab2sensors()` sceglie la cartella `LibreHardwareMonitor_v*` piu' alta per nome: `-mi50` viene dopo `v0.9.6`. Il codice del server non e' cambiato.
+- ✅ Verificato dal vivo dopo riavvio dell'attivita' `Tab2Monitor`: `/api/metrics` `srv.lhm` = `lib ok`; MI50 (`/gpu-amd/5`) con temperature core, memoria, VR VDDC e hot spot e ventola; altri sensori presenti.
+- ⏳ Non ancora usati dal server/APK: potenza, tensioni, clock e carichi della MI50 (ora disponibili in LHM). Clock memoria in app: rifiutato dall'utente.
+- **Rollback:** eliminare la cartella `LibreHardwareMonitor_v0.9.6-mi50` e riavviare l'attivita' (`schtasks /end /tn Tab2Monitor` poi `/run`): torna v0.9.6.
+- Quando la PR sara' fusa e uscira' una release: sostituire la cartella con la release ufficiale e togliere `-mi50`.
+
+## 43. Pacchetto portabile 0.2.0: server v0.4.4 + APK v0.12.0, ricerca su UDP 8091 — 2026-11-19 09:00 (sessione «Piano installer Tab2Monitor», branch `installer-tab2monitor`)
+- **Richiesta** della sessione «APK nativa Tab2Monitor per GT-P5100»: confrontare il pacchetto con l'installer
+  del fork (`C:\Users\chicco\Desktop\tab pc monitor\windows\installer\`), includere server v0.4.3 e APK
+  v0.12.0, aprire anche UDP 8091, non toccare l'attività `Tab2Monitor` di questo PC.
+- **Branch principale unito nel branch installer** (merge di `origin/ccr-734baad4-t02ry6` fino a `4ce1807`;
+  il branch principale non cambia). Conflitti: `MANUAL.md` (tenute entrambe le parti), sorgenti Java (presa
+  la versione del branch principale = APK v0.12.0).
+- **Confronto con il fork** (solo letto, mai eseguito perché cancella e ricrea `Tab2Monitor`): il fork avvia
+  `pythonw` senza supervisore e con priorità 7; copia solo il `.py`, cerca Tab2Sensors in `..\lhm` (fuori da
+  git) e non porta Python/psutil; scrive un `config.json` che il server non legge; firewall senza UDP 8091.
+  Il pacchetto copre tutti e tre i punti. Preso dal fork: nel LEGGIMI le tre modalità di collegamento e
+  l'avviso sui router che bloccano il broadcast. Non preso: domanda della porta nel wizard.
+- **Server v0.4.4** (`windows/agent/tab2monitor_server_v0.4.4_20261119-0900.py`) = v0.4.3 + parti portabili:
+  `--data`, `config.json` (port, bind, gpu, claude, claude_dir, adb, sensors, discovery, name), `adb_ips`
+  vuoto su PC nuovo (prima `192.168.1.234`), `/api/info`, `/apk`, cartelle `../web` `../sensors` `../apk`,
+  log in `<dati>\logs\server.log` con `--data` (prima sempre `%LOCALAPPDATA%\Tab2Monitor\server.log`),
+  `--no-discovery`, nome della ricerca da `name`. Senza `--data` né `config.json` = v0.4.3.
+- **Ritirati dal branch installer** (restano nel commit `2d2fc0b`): server `v0.3.0_20261022-0200` (stesso numero
+  del `v0.3.0_20261023-0010` del branch principale; ricerca su UDP 8090 con chiave `ver`), APK v0.10.0
+  (`L.java`, `Discovery.java`, `build_tab2monitor_v0.10.0_20261022-0230.sh`: minSdk 21, IT/EN, Home dall'app).
+  Le loro funzioni sono proposte per la v0.12.x (piano v0.3.0 §7.4).
+- **Installer v0.2.0** (`windows/installer/*_v0.2.0_20261119-0900.*`): Setup con firewall TCP 8090 + **UDP 8091**
+  (prima TCP+UDP 8090) e attività con **priorità 4** (prima 7 predefinita); install_tablet per Android 7.1+
+  (prima 5.0+), Home con `pm enable` e avviso se Android lo vieta (prima `--ez home true`); build pacchetto
+  0.2.0 con sensori solo dalla release ufficiale `LibreHardwareMonitor_v0.9.6` (prima la cartella con nome più
+  alto, oggi la `-mi50` di prova); README con Android 7.1, "Cerca il PC in rete", tre modi di collegamento.
+- **Prove** (✅): pacchetto 0.2.0 estratto, porta 8190, `adb: off`, `discovery: false`: `/api/info`, `/apk`
+  (61 982 byte), `/config`, dashboard, sensori `lib`, `adb_ips` = `[]`, log nella cartella dati e nessuna riga
+  nel log del server vero; "TAB2MON?" al server vero su 127.0.0.1:8091 → risposta v0.4.3; Setup Install
+  `-DryRun` con `Tab2MonitorTest` → regole TCP 8090 e UDP 8091; parser PowerShell 0 errori.
+  ⏳ Setup reale con UAC, pacchetto su un altro PC con tablet in Wi‑Fi, install_tablet con APK v0.12.0.
+- Documenti: `PIANO_INSTALLER_v0.3.0_20261119-0900.md`, `RUNBOOK_INSTALLER_v0.2.0_20261119-0900.md` (nuove
+  versioni complete), CONTEXT e MANUAL.
+- **Rollback**: il branch principale non cambia. Nel worktree del branch installer `git reset --hard 2d2fc0b`
+  (poi `git push --force-with-lease`) torna al pacchetto 0.1.0; i file v0.1.0 degli script restano comunque.
+
+## 42. Ricerca automatica del server: APK v0.12.0 + server v0.4.3 — 2026-11-19
+- **Problema:** l'app non trovava il server dopo un cambio di IP del DHCP (PC passato da `192.168.1.237` a `.239` e di nuovo a `.237`; tablet da `.234` a `.208`), perche' l'URL Wi-Fi era scritto a mano.
+- **Origine:** un'altra IA (fork in `Desktop	ab pc monitor`, documento `CONTEXT_REVISIONE_v0.1.0_20261112-2045.md`) ha proposto la ricerca UDP.
+  Revisione del fork (verificata leggendo i file): il server `v0.5.0` del fork funzionava ma era basato sulla v0.4.1 (senza le correzioni successive), calcolava l'IP una volta sola all'avvio (resta vecchio dopo un cambio DHCP)
+  e usava `SO_REUSEADDR`; il lato tablet **non era implementato** (`SettingsActivity_v0.12.0.java` conteneva solo tre campi dichiarati, nessun metodo di ricerca, nessun pulsante, e con quel nome file la classe non compila).
+  Gli installer PowerShell del fork non sono stati usati ne' controllati: restano un'idea da valutare a parte (il piano installer e' della sessione dedicata).
+- **Server v0.4.3** (`tab2monitor_server_v0.4.3_20261119-1000.py`, su base v0.4.2): thread UDP sulla porta 8091; alla richiesta `TAB2MON?` risponde in unicast `{"app":"tab2monitor","name":<PC>,"port":<porta HTTP>,"version":...}`.
+  Nessun IP nella risposta: lo ricava l'app dal mittente del pacchetto. Niente `SO_REUSEADDR`; se il socket cade riparte dopo 5 s.
+  ✅ Provato in isolamento (senza toccare il servizio attivo): risposta corretta sia al broadcast (`255.255.255.255`) sia in unicast, pacchetti estranei ignorati. Il firewall ha gia' regole `python.exe` per UDP.
+- **App v0.12.0** (`MainActivity.Poller`): se nessuna sorgente risponde per 3 cicli (~9 s) invia `TAB2MON?` a `255.255.255.255` e al broadcast di ogni interfaccia, aspetta fino a 2,5 s, aggiorna `wifi_url` col nuovo indirizzo, salva e riprova subito; poi al massimo una ricerca ogni 10 s. Il thread parte anche con URL Wi-Fi vuoto se la sorgente Wi-Fi e' accesa.
+  Impostazioni: pulsante **«Cerca il PC in rete»** sotto l'URL Wi-Fi, che riempie il campo. Build `build_tab2monitor_v0.12.0_20261119-1000.sh` (VERSION_CODE 30); installata sul tablet `192.168.1.208`.
+- ✅ **Server v0.4.3 in servizio** (messo in servizio dalla sessione «Sorgente dati Windows»: log «ricerca automatica UDP in ascolto sulla porta 8091», `/api/metrics` con `version` v0.4.3).
+- ✅ **Prova completa sul tablet (2026-11-19 08:20):** impostato di proposito un URL sbagliato (`http://192.168.1.99:8090`); l'app mostrava «In attesa del server Tab2Monitor»; dopo ~25 s ha trovato da sola il PC (`192.168.1.237`) e la dashboard e' tornata con i dati. Connessione verificata con `netstat`: `192.168.1.237:8090` <- `192.168.1.208`. L'indirizzo trovato viene salvato in `wifi_url`.
+- **Limiti noti:** non funziona con router con «isolamento client» o reti ospiti; con piu' PC con il server nella stessa rete l'app prende il primo che risponde.
+- **Rollback:** reinstallare `dist/Tab2Monitor_v0.11.4.apk`; sul server tornare a `tab2monitor_server_v0.4.2_20261117-1500.py` (i file vecchi restano nella cartella).
+
+## 41. APK v0.11.4 — 2026-11-12 19:00: colore dei grafici delle temperature proporzionale alla temperatura
+- **Richiesta utente:** il colore del grafico deve cambiare nel tempo in proporzione alla temperatura.
+- **Modifica (`MonitorView.tSpark()`):** ogni punto ha il colore della sua temperatura; linea e area usano una sfumatura **orizzontale** che passa da un punto all'altro (linea piena, area con alfa 0x60).
+  Scala continua `tCol()`: <=35 °C blu, 55 verde, 70 giallo, >=85 rosso, interpolata in RGB (`mix()`).
+  Prima (v0.11.3): linea nel colore fisso del riquadro e area con sfumatura verticale alfa 0x90 -> 0x18.
+- Build `build_tab2monitor_v0.11.4_20261112-1900.sh` (VERSION_CODE 29).
+- ✅ Verificato con screenshot sul GT-P5100 (`192.168.1.208`): GPU Memory 68 °C giallo-verde, le altre (46-51 °C) verde-azzurro.
+- **Rollback:** reinstallare `dist/Tab2Monitor_v0.11.3.apk` oppure `git checkout 9824c7f -- android/tab2monitor_app/src/it/tab2revamp/monitor/MonitorView.java` e ricompilare con lo script v0.11.3.
+
+## 40. APK v0.11.3 — 2026-11-12 18:30: ombra piena sotto i grafici delle temperature
+- **Segnalazione utente:** i grafici delle GPU avevano solo la linea, mentre quelli di CPU/RAM (e dei box della pagina 2) hanno l'ombra colorata sotto.
+- **Causa:** l'ombra c'era, ma in `tSpark()` la scala automatica lo..hi usava tutta l'altezza (18u): con temperature stabili la linea stava in basso e sotto restavano pochi pixel, con sfumatura che partiva da alfa 0x70 e arrivava a 0.
+- **Modifica:** scala abbassata (`lo -= (hi - lo) * 1.5`), cosi' la linea sta nel 40% alto e sotto c'e' l'area; sfumatura da alfa 0x90 a 0x18 (prima 0x70 -> 0x00). Build `build_tab2monitor_v0.11.3_20261112-1830.sh` (VERSION_CODE 28).
+- ✅ Verificato con screenshot sul GT-P5100 (`192.168.1.208`): area colorata visibile sotto le linee delle due GPU.
+- **Rollback:** reinstallare `dist/Tab2Monitor_v0.11.2.apk` oppure `git checkout cbca403 -- android/tab2monitor_app/src/it/tab2revamp/monitor/MonitorView.java` e ricompilare con lo script v0.11.2.
+
+## 39. APK v0.11.2 — 2026-11-12 18:00: grafico che scorre accanto a ogni temperatura
+- **Richiesta utente:** nello spazio tra il nome della temperatura e il suo valore, un grafico che scorre come quello della RAM.
+- **Modifica (`MonitorView.java`):** storico per sensore `tHist` (chiave `G<nome GPU>|<sensore>` o `B<titolo box>|<sensore>`, 60 campioni come CPU/RAM, NaN dove il sensore mancava), riempito in `update()` da `tHistAdd()`.
+  Nuovo `tSpark()`: linea + area sfumata nel colore del riquadro, scorrimento continuo come `spark()`, ma scala **automatica** (min..max dei valori visibili, almeno 10 °C) perche' con 0..100 le temperature sembrerebbero piatte.
+  Disegnato in `sensorRows()` per le righe temperatura (riquadri GPU e box sensori della pagina 2): colonna da meta' riquadro (o dopo il nome se piu' lungo) fino a prima del valore; se lo spazio e' meno di 30u non si disegna. Le ventole non hanno grafico.
+- Build: `build_tab2monitor_v0.11.2_20261112-1800.sh` (VERSION_CODE 27).
+- ✅ Verificato con screenshot sul GT-P5100 (`192.168.1.208`): grafici presenti sulle righe Core / Memory / Hot Spot delle due GPU, che si riempiono da destra. ⏳ Box sensori della pagina 2 non ancora controllati a schermo.
+- **Rollback:** reinstallare `dist/Tab2Monitor_v0.11.1.apk` oppure `git checkout 7b5102a -- android/tab2monitor_app/src/it/tab2revamp/monitor/MonitorView.java` e ricompilare con lo script v0.11.1.
+
+## 38. APK v0.11.1 — 2026-11-12 17:25: tolta la temperatura «GPU VR VDDC» della MI50
+- **Richiesta utente:** sul tablet non si vedeva l'Hot Spot della MI50 (Radeon Pro VII); togliere «GPU VR VDDC».
+- **Causa:** il server manda 4 temperature per la MI50 (Core, Memory, VR VDDC, Hot Spot); il riquadro della GPU ha posto per 3 righe, quindi l'Hot Spot (quarta) restava fuori.
+- **Modifica:** `MainActivity.isTemp()` scarta anche i nomi che contengono `vr vddc` (prima scartava solo limit / resolution / warning / critical). Script di build `build_tab2monitor_v0.11.1_20261112-1000.sh` (VERSION_CODE 26).
+- ✅ Verificato con screenshot sul GT-P5100 (ora `192.168.1.208`): GPU 2 mostra GPU Core, GPU Memory, GPU Hot Spot.
+- **Rollback:** reinstallare `dist/Tab2Monitor_v0.11.0.apk` oppure `git checkout 07a6c10 -- android/tab2monitor_app/src/it/tab2revamp/monitor/MainActivity.java` e ricompilare con lo script v0.11.0.
+
+## 39. v0.4.3 in servizio — 2026-11-19 08:20 (sessione «Sorgente dati Windows», su richiesta della sessione APK)
+- File `windows/agent/tab2monitor_server_v0.4.3_20261119-1000.py` scritto dalla sessione APK (commit b03acdd): la v0.4.2 piu' un thread UDP sulla porta 8091 che risponde a `TAB2MON?`
+  con `{"app":"tab2monitor","name","port","version"}`. Differenza con la v0.4.2 letta prima del riavvio: solo quel thread e la versione.
+- ✅ Verificato: log «ricerca automatica UDP in ascolto sulla porta 8091»; `/api/metrics` con `v0.4.3`; risposta UDP in unicast (127.0.0.1) e in broadcast (`192.168.1.255` → risposta da `192.168.1.237`);
+  MI50 con 4 sensori in LHM; tablet `192.168.1.208` collegato via Wi-Fi alla porta 8090; `srv.adb` = rete ok. IP del PC oggi `192.168.1.237`.
+- ⚠️ **Trovato al riavvio (da verificare a mano dall'utente):** le due ventole in curva sulla MI50, Fan #3 (curva 45:0 → 90:100) e Fan #4 «MI 50» (40:5 → 75:100), sono comandate al 100% ma leggono **0 giri**;
+  la MI50 e' a 88–90 °C di Hot Spot quasi a vuoto (il 2026-11-17 Fan #4 leggeva 1262 giri e la MI50 65 °C). Le altre ventole leggono normalmente.
+- ⚠️ **Registro trovato all'avvio:** Fan #3 17,6% e Fan #4 34,5% in modo `bios`, mentre il BIOS di Fan #4 era stato impostato dall'utente a piena velocita' (verificato al 100% il 2026-11-06).
+  Spiegazione probabile (gia' provata il 2026-11-06 su Fan #6): un Tab2Sensors rilanciato mentre la ventola e' in manuale salva quel valore come «default» del BIOS e lo rimette alla chiusura;
+  con la v0.4.2 i rilanci automatici sono piu' frequenti. Quindi a server fermo la ventola della MI50 puo' restare a un valore basso invece di andare al 100% del BIOS.
+
+## 38. v0.4.2 server Windows — 2026-11-17 15:00 (sessione «Sorgente dati Windows»): MI50 con la sola temperatura «GPU»
+- **Sintomo (utente):** per la MI50 si vedeva di nuovo solo la temperatura della GPU.
+- **Causa (misurata):** il Tab2Sensors del servizio, avviato alle 14:43 mentre l'utente era collegato in Desktop remoto (sessione `rdp-tcp#0`; Windows elencava una
+  seconda «AMD Radeon RX 9070 XT» virtuale e il «Microsoft Remote Display Adapter»), non aveva la MI50 nell'elenco di LHM. LHM elenca le schede solo all'avvio.
+  Il server mostrava quindi la MI50 solo da Windows (`win/0x0805B2F0/temp`, nome «GPU», 60 °C). Lo stesso Tab2Sensors lanciato a mano alle 15:00 vedeva `/gpu-amd/5` con tutti i sensori.
+- La curva di Fan #4 «MI 50» non si e' persa: con il riferimento per nome (`AMD Radeon Pro VII|GPU Hot Spot`, dalla v0.3.8) si e' agganciata alla temperatura principale della stessa scheda letta da Windows.
+- **v0.4.2:** se una GPU vista da Windows (con temperatura) manca a LHM da 120 s, il server chiude Tab2Sensors e lo rilancia, al massimo ogni 10 minuti; esclusi gli adattatori «Microsoft»/«Remote».
+- ✅ Verificato dopo il riavvio del servizio: MI50 con GPU Core, GPU Memory, GPU VR VDDC, GPU Hot Spot; curva di nuovo su `/gpu-amd/5/temperature/7` (id aggiornato da solo), ventola al 58% a 65 °C.
+  ⏳ Il rilancio automatico non e' stato visto scattare dal vivo (il riavvio del servizio ha risolto prima).
+- `adb_ips` era tornato `["192.168.1.234"]` col salvataggio del 2026-11-16 18:53 (probabilmente una pagina `/config` aperta prima della correzione del 12/11): rimesso `["192.168.1.208"]`.
+- Rollback: `git rm windows/agent/tab2monitor_server_v0.4.2_20261117-1500.py` e riavvio del servizio (torna la v0.4.1).
+
+## 37. Tablet senza dati dopo un cambio di indirizzi IP — 2026-11-12 16:20 (sessione «Sorgente dati Windows»)
+- **Sintomo:** dopo il riavvio del servizio il GT-P5100 non riceveva dati, anche dopo un riavvio del tablet.
+- **Causa (misurata):** il router (DHCP) ha cambiato gli indirizzi. Il **GT-P5100** e' passato da `192.168.1.234` a **`192.168.1.208`**
+  (adb: `model:Galaxy_Tab_2_3G device:espresso3g`; su `.234` ora risponde un altro dispositivo, TTL 255, MAC `48-E1-E9-1E-E4-D4`, porta 5555 rifiutata).
+  Il **PC** e' passato da `192.168.1.237` (URL Wi-Fi salvato nell'app) a **`192.168.1.239`**. L'app prova `127.0.0.1:8090` (adb reverse via USB) e poi l'URL Wi-Fi: nessuno dei due funzionava.
+  Sulla rete la porta 5555 era aperta anche su `.206` (Mi Box) e `.212` (SM-T530, l'altro tablet, collegato per identificarlo e poi scollegato).
+- **Correzioni:** `adb_ips` in `/config` da `["192.168.1.234"]` a `["192.168.1.208"]`; URL Wi-Fi dell'app impostato da PC con
+  `adb -s 192.168.1.208:5555 shell am start -n it.tab2revamp.monitor/.MainActivity --es url http://192.168.1.239:8090`.
+- ✅ Verificato: connessioni stabilite da `192.168.1.208` alla porta 8090; `srv.adb` = `{"192.168.1.208:5555": "rete ok"}`.
+- ⚠️ `adb reverse` su questo tablet via Wi-Fi risponde «more than one device/emulator» anche con `-s` (adb del PC con Android 4): la via USB/127.0.0.1 in Wi-Fi non e' disponibile.
+- ⏳ Consigliato (utente, sul router): prenotazione DHCP per PC (`192.168.1.239`) e tablet (`192.168.1.208`), altrimenti al prossimo cambio si ripete.
+
+## 36. v0.4.1 server Windows + installer v0.2.1 — 2026-11-12 15:10 (sessione «Sorgente dati Windows»): servizio bloccato dalla CPU piena
+- **Sintomo (utente):** il servizio non parte anche se l'attività "Tab2Monitor" risulta in esecuzione.
+- **Misure 14:42:** server vivo (porta 8090 in ascolto) ma 0% di CPU in 5 s; HTTP in timeout; `Tab2Sensors` chiuso come "muto da 60 s" ogni 1–2 minuti
+  e ripartito con 9 MB di memoria invece di 59 (non finiva nemmeno di caricare); la scansione dei log di Claude Code ha impiegato 3215 s (di solito 1,5 s);
+  il server, avviato alle 13:08, ha scritto la prima riga di log alle 13:22. Google Drive risponde normalmente (letture in 0,5 s).
+- **Causa (misurata):** Citrix Workspace `wfcrun32.exe` usa 1202% di un core, cioè tutti i 12 thread (177969 s di CPU dall'avvio delle 09:43), a priorità normale (8).
+  Task Scheduler avvia supervisore e server con la priorità 7 predefinita = base 6, «sotto la norma»: non ricevono CPU.
+- **v0.4.1:** il server si mette «sopra la norma» appena arriva a `main()` e lancia `Tab2Sensors` con `ABOVE_NORMAL_PRIORITY_CLASS`. Consuma circa 5% di un core.
+  Da solo **non basta**: a CPU satura Python impiega oltre 10 minuti a partire, prima di arrivare a quella riga (provato: server avviato alle 14:58, ancora a priorità 6 e senza risposta alle 15:08).
+- **Installer v0.2.1:** `-Priority 4` (normale). ⏳ Sull'attività esistente la priorità va cambiata a mano come amministratore (comando nel MANUAL); da utente normale Windows nega la modifica.
+- ✅ Verificato 15:52 dopo il comando dell'utente (amministratore): attività a priorità 4; supervisore base 8, server e Tab2Sensors base 10 («sopra la norma»); HTTP 200 in 17–18 ms;
+  sensori da `lib` con età 0 s e 1 solo avvio di Tab2Sensors; scansione log di Claude Code in 2,0 s; ventola MI50 controllata. Citrix `wfcrun32` non era piu' in esecuzione: la prova sotto CPU satura non e' stata ripetuta.
+- ✅ Stesso giorno, attività `Claude - Import transcript cloud` (archivio sessioni, la finestra cmd vuota della voce 34) cambiata dall'utente come amministratore: ora `conhost.exe --headless powershell.exe …` (prima `powershell.exe -WindowStyle Hidden …`, che mostrava un lampo di finestra ogni ora). Backup della vecchia definizione: `scratchpad/attivita_import_transcript_prima.xml`. ⏳ Da confermare che all'esecuzione delle 16:19:40 non compaia la finestra.
+- Rollback: `git rm windows/agent/tab2monitor_server_v0.4.1_20261112-1500.py` e riavvio del servizio (torna la v0.4.0); attività: `$s.Priority=7`.
+
+## 35. v0.3.8 – v0.4.0 server Windows, /config v0.2.0, Tab2Sensors v0.2.1 — 2026-11-06 (sessione «Sorgente dati Windows»)
+- **Incidente:** la MI50 (passiva, ventola sull'header Fan #4 della scheda madre) si e' surriscaldata con il server fermo: la ventola tornava alla curva Q-Fan, che non conosce la temperatura della scheda.
+  Scheda disattivata in Gestione dispositivi (errore 22); ⏳ riattivazione dell'utente. Il design «server fermo = BIOS» (voce 28) non proteggeva una scheda passiva.
+- ✅ **Soluzione adottata (utente):** header della ventola MI50 a piena velocita' nel BIOS: server fermo o non ancora partito → 100%. Verificato: dopo un ritorno al BIOS il registro di Fan #4 e' 100% (`sw` false).
+- **Segnalazione «tutte su Temperature #1», due cause:** (1) difetto di `/config` da v0.1.4: se la temperatura salvata non e' nell'elenco, o non c'e', il browser seleziona la prima voce e Salva la scrive;
+  (2) gli id delle GPU cambiano tra gli avvii (`/gpu-amd/5`, `/gpu-amd/7`, `win/<luid>`). Nel file c'erano 5 ventole in `bios` con il valore predefinito (nessun effetto sulle ventole): tolte. Backup: `scratchpad/fan_config_prima_v0.3.8.json`.
+- **v0.3.8:** `fan_ctl[].ref` e `map_ref{}` = «hardware|sensore»: si cerca per nome e l'id si aggiorna da solo; scheda assente → sensore perso, mai un'altra scheda con lo stesso id. `fans[].ctl.lost` = curva senza temperatura (ventola al 100%). Curva senza temperatura = `bios`.
+  `/config`: temperatura mancante mostrata come «non disponibile» e conservata; voce iniziale «- scegli -». ✅ Logica provata (id cambiato, scheda assente, solo Windows) e abbinamenti migrati dal vivo.
+- **v0.3.9 (ritirata):** FAILSAFE: a server fermo canale in manuale al 100%. Il valore resta davvero (✅ provato su Fan #6: 50% → 100% a server fermo), ma il Tab2Sensors rilanciato lo salva come «default»:
+  il ritorno a `bios` resta al 100% fino al riavvio del PC. E' il rischio ⏳ della voce 33, ora **provato**: vale anche per un crash di Tab2Sensors con una ventola controllata.
+- **v0.4.0:** FAILSAFE disattivato (`FAN_FAILSAFE_PCT = None`), comando lasciato in Tab2Sensors v0.2.1. Decisione: basta il BIOS a piena velocita'; niente scritture dirette nei registri del chip.
+- ⏳ Fan #6 resta al 100% fino al prossimo riavvio del PC, per la prova qui sopra (poi torna a Q-Fan). ⏳ Curva di Fan #4 oggi su «GPU Hot Spot» della RX 9070 XT: riattivata la MI50, va riscelta in `/config`.
+- Rollback: `git rm` dei file server v0.3.8–v0.4.0 e pagine v0.1.8–v0.2.0, riavvio del servizio; la configurazione precedente e' nel backup sopra.
+
+## 34. Finestra cmd vuota che compare e scompare — 2026-11-03 00:00 (sessione «Sorgente dati Windows»)
+- Segnalazione utente: ogni tanto compare un cmd vuoto che sparisce. Due ascolti: 25 min su tutti i nuovi `cmd/conhost/powershell/...` (con catena dei genitori) e 12 min sulle sole finestre di console **visibili**.
+- Legato al progetto: ogni 60 s il server lancia `adb connect` verso il tablet spento → un `conhost.exe` (catena `adb <= python <= pythonw`). Provato con lo stesso flag `CREATE_NO_WINDOW`: **nessuna finestra visibile**.
+  Tutte le chiamate a programmi del progetto (adb, Tab2Sensors, server dal supervisore) usano `CREATE_NO_WINDOW`.
+- Non nostri: Unsloth Studio lancia ogni 90 s `powershell … Get-CimInstance Win32_VideoController` (+ `Get-Counter` GPU); l'app Claude apre `cmd.exe /d /s /c` per i server MCP, `chrome-native-host` e i comandi delle sessioni.
+- ✅ **Causa trovata il 2026-11-06 (NON e' questo progetto):** l'ascolto ha catturato la finestra alle 09:19:41, stesso secondo dell'attivita' pianificata `\Claude - Import transcript cloud` (ogni ora, archivio sessioni): `powershell.exe -NoProfile -WindowStyle Hidden -File ...Import-CloudTranscripts_v1.1_2026-10-26_1630.ps1`. `-WindowStyle Hidden` nasconde la finestra solo dopo che PowerShell e' partito, quindi per un attimo si vede.
+- Nei primi 12 min di ascolto (2026-11-02) la finestra non era comparsa.
+- Per catturarlo: `python -I windows/agent/diagnostica/watch_finestre_console_v0.1.0_20261103-0000.py 120` (minuti) lasciato in un terminale; al primo lampo il log `watch_visible.log` accanto allo script riporta ora, finestra e processi appena creati.
+- Decisione: nessuna modifica al server (ridurre i tentativi `adb connect` a tablet spento non serve: non mostrano finestre).
+ di Tab2Sensors — 2026-11-02 23:10 (sessione «Sorgente dati Windows»)
+- **Crash registrati da Windows (Application log, minidump in `%LOCALAPPDATA%\CrashDumps`):** 2026-10-26 22:59 (build LHM v0.9.6, exe v0.1.0): `0xc00000fd` stack overflow in `clr.dll`;
+  2026-11-01 21:36 (build `-mi50`, exe v0.2.0, dopo 4 h 27 min di esecuzione): `0xc0000005` lettura all'indirizzo `0x4000000` in `clr.dll+0x185a9`, thread principale.
+- **Evidenze dai dump** (analizzati con `windows/agent/sensors/minidump_lettore_v0.1.0_20261102-2310.py`): in entrambi l'errore e' DENTRO il runtime .NET (frame `clr.dll` e `mscorlib.ni.dll`, nessun frame di LHM
+  sul thread in errore); l'unico modulo nativo di hardware caricato e' `atiadlxx.dll` (AMD ADL, usata da LHM per le GPU); un indirizzo non valido letto dal CLR e uno stack overflow nel CLR sono
+  compatibili con memoria gestita danneggiata, ma **la causa esatta non e' stata trovata**: mancano i simboli di `clr.dll` e un dump completo. Nessun evento di sistema vicino (nessun reset/TDR della GPU).
+  Non e' specifico della build `-mi50` (il primo crash e' della v0.9.6) ne' del codice dei comandi ventola (il primo crash e' della v0.1.0 di Tab2Sensors, senza comandi).
+- ✅ **Provato dal vivo (prima solo nel codice):** kill del figlio → rilancio dopo 10 s con dati di nuovo disponibili (11 s); figlio sospeso (bloccato) → il controllo «muto da 60 s» lo chiude e lo rilancia (76 s in totale, dati dopo 2 s).
+- ⏳ **Rischio ragionato, NON provato:** se Tab2Sensors muore mentre una ventola e' in modo software, la ventola resta all'ultima percentuale (fino al rilancio, ~12 s) e il nuovo processo potrebbe
+  considerare quel valore come «predefinito» per il ritorno al BIOS. Da verificare con un crash vero (ventola di test, a mano).
+- Decisione: nessun riavvio preventivo periodico di Tab2Sensors (non c'e' una scadenza nota: 4 h 27 min e un tempo non rilevato); si lascia il rilancio automatico e si guardano `srv.sensors.restarts` e i nuovi minidump.
+
+## 32. v0.3.7 server Windows — 2026-11-02 23:05 (sessione «Sorgente dati Windows»): robustezza dopo un guasto
+- **Guasto 2026-11-01/02:** server vivo ma «a metà»: `srv.lhm` vuoto (solo sensori da Windows), `srv.adb` vuoto, log fermo alle 17:10.
+  `Tab2Sensors.exe` (cartella `windows/lhm/LibreHardwareMonitor_v0.9.6-mi50`, non creata da questa sessione: il server sceglie la cartella LHM con il nome piu' alto)
+  era andato in crash il 01/11 alle 21:36 (0xc0000005 in `clr.dll`) e non era stato rilanciato. `schtasks /End` non ha chiuso il vecchio server
+  (processo elevato orfano, chiuso dall'utente come amministratore), quindi la copia nuova falliva con 10048.
+- **Causa probabile (NON provata):** il server scriveva il log direttamente su un file su Google Drive; una scrittura appesa blocca il thread che logga
+  (lettore sensori / adb). Alle 22:47 Drive segnalava molti eventi di errore.
+- v0.3.7: `log()` con coda (500) e thread scrittore: scrive su stdout (log del supervisore su Drive) e su `%LOCALAPPDATA%\Tab2Monitor\server.log` (fuori da Drive, ruotato a 1 MB);
+  se il lettore sensori e' vivo ma muto da 60 s viene chiuso e rilanciato; `srv.sensors` = `{age_s, restarts}`, `srv.logq`.
+- ✅ In servizio e verificato: sensori da `lib`, `age_s` 1, ventole (Fan "MI 50" in curva). ⏳ Non provato dal vivo il controllo "muto da 60 s" ne' un nuovo crash di Tab2Sensors.
+- ⏳ Causa del crash di Tab2Sensors (0xc0000005 nella build `-mi50`) non indagata.
+- Se `schtasks /End` lascia un server orfano: Esegui come amministratore `Stop-Process -Id <PID del python.exe vecchio> -Force`; la copia nuova parte da sola entro 10 s.
+- Rollback: `git rm` del file v0.3.7 e riavvio del servizio (torna la v0.3.6).
+
+## 31. v0.3.6 server Windows + /config v0.1.7 — 2026-10-29 (sessione «Sorgente dati Windows»)
+- Segnalazione utente: in `/config` la tendina "automatico" accanto alla ventola non si capiva. E' solo **visualizzazione** (quale temperatura
+  mostrare sul tablet accanto alla ventola); la temperatura che **pilota** la ventola e' "curva su" nella riga "Controllo".
+  Con una curva attiva `automatico` mostrava pero' la CPU (`cpu_default`), facendo credere che la ventola seguisse la CPU.
+- v0.3.6: con controllo "curva" e senza abbinamento scelto a mano, `sensors.pairs` usa la temperatura della curva (`how` = "user").
+  Pagina v0.1.7: intestazione "Mostrata sul tablet (solo visualizzazione)", "automatico (come la curva, se attiva)", "la curva segue".
+- ✅ Verificato dal vivo: Fan #4 ("MI 50") in curva → pair con la temperatura della MI50.
+- Nota: gli id LHM delle schede (`/gpu-amd/N`) possono cambiare tra avvii/driver (la MI50 e' passata da solo-Windows a `/gpu-amd/5`);
+  se un id salvato sparisce la curva mette la ventola al 100% (sicurezza), va riscelto in `/config`.
+- Rollback: `git rm` dei file v0.3.6 / v0.1.7 e riavvio del servizio.
+
+## 30. v0.3.5 server Windows — 2026-10-28 (sessione «Sorgente dati Windows»)
+- Campo **`procs_top`** (richiesto dalla sessione APK, `procs` invariato): `{ram:[{n,mb}], gpu:[{luid, list:[{n,pct,mb}]}], disk:[{n,r,w}]}`, 5 voci ciascuno,
+  aggiornato ogni 3 s. Fonti PDH: Working Set; GPU Engine (% = massimo tra i motori della scheda per processo) e GPU Process Memory (VRAM dedicata);
+  Process IO Read/Write Bytes/sec. ✅ Verificato dal vivo (RAM, entrambe le GPU, disco).
+- Limite: l'I/O per processo di Windows conta anche rete e dispositivi, non solo il disco (es. `svchost` 17 MB/s in lettura); non esiste un
+  contatore per processo del solo disco né per volume, quindi niente `vol`.
+- **Risorse del programma (misura 2026-10-28, servizio con admin, 60 s):** python (server) 3,3% di un core, Tab2Sensors 1,3%, supervisore 0%, adb 0,05% →
+  ≈ 4,6% di un core = 0,4% dei 12 thread; memoria ≈ 130 MB (60 + 59 + 13). Nessun intervento: il margine di riduzione e' ~1-2% di un core.
+
+## 29. v0.3.2 – v0.3.4 server Windows — 2026-10-28 (sessione «Sorgente dati Windows»)
+- **v0.3.2**: ventole fino a **0%** (richiesta utente; `FAN_MIN_PCT` 20 → 0; restano il 100% con temperatura non letta e CPU ≥ 90 °C);
+  `/config` v0.1.5 chiede conferma se una pompa/AIO va sotto il 30%.
+- **v0.3.2**: `claude_plan` dall'**ultimo account usato** in Claude Desktop. Causa del problema: i campioni dell'account aziendale
+  hanno solo `xu` (utilizzo extra %), prima scartati → si vedeva l'account personale (ultimo campione utile del 26/10). Ora vale
+  anche `xu` (→ `claude_plan.extra.pct`) e un campione recente (< 30 min) vince sul login della CLI (che e' ancora l'account personale,
+  token scaduto: 401).
+- **v0.3.3**: `claude_plan.accounts[]` = tutti gli account del file (id di 8 caratteri dell'org, `ts`, `current`, `session?`, `weekly?`, `extra?`).
+  Il file non contiene nomi ne' e-mail. Oggi: `d2102832` (in uso, solo extra 55,9%) e `1b6515cb` (sessione 12% scaduta, settimana 96%).
+- **v0.3.4**: `cpu.mhz_lo` / `cpu.mhz_hi` (min di `mhz_now` e max di `mhz_max` dell'ultima ora) per dare una scala al gauge della frequenza.
+  Causa della lancetta "ferma" sull'APK: la scala era `mhz_now / mhz_max` ≈ 85–89% sempre (CPU a riposo a 4,4–4,6 GHz). Dati del server verificati variabili.
+- `/config` **v0.1.6**: pulsante Salva fisso in basso a destra (prima era in alto e spariva scorrendo: l'utente non lo trovava mentre impostava la curva di Fan #4 sulla MI50).
+- ⏳ APK (sessione dell'APK): usare `mhz_lo..mhz_hi` come scala, togliere la % duplicata nel box CPU, mostrare `claude_plan.accounts[]`.
+- Rollback: `git rm` dei file server v0.3.2–v0.3.4 e riavvio del servizio (torna la v0.3.1).
+
+## 28. v0.3.1 server Windows — 2026-10-28 11:15 (sessione «Sorgente dati Windows»): controllo ventole
+- Richiesta utente: FanControl non vede alcune ventole, il nostro server sì → controllo nel nostro progetto.
+- `Tab2Sensors.cs` **v0.2.0** (build `windows/agent/sensors/build_tab2sensors_v0.2.0_20261028-1200.sh`, che rinomina l'exe in uso
+  in `Tab2Sensors.old-<data>.exe`): comandi su stdin `SET <id controllo> <%>` / `AUTO <id>` / `AUTOALL`; `"Mode"` sui sensori Control.
+  Sicurezze: stdin chiuso (server fermo) → ventole al BIOS e uscita; watchdog: nessun `SET` per 20 s → BIOS.
+- Server **v0.3.1** (`tab2monitor_server_v0.3.1_20261028-1200.py`): `FanControl` a ogni campione (1 s). Modi per ventola: `bios` (default) /
+  `fixed` / `curve` (punti gradi:% su una temperatura qualsiasi, interpolazione lineare). Minimo 20%, temperatura non letta → 100%,
+  CPU ≥ 90 °C → 100% su tutte, discesa max 2 punti %/s. `fan_ctl` in `fan_config.json`; `POST /api/fan` per l'APK
+  (da 127.0.0.1 e dagli IP fissi dei tablet). Pagina `/config` **v0.1.4**: riga "Controllo" sotto ogni ventola.
+- Solo ventole della scheda madre (NCT6799D, 7 canali): il controllo GPU di LHM su RX 9070 XT (RDNA4) non è provato. ⛔ per ora.
+- ✅ Prova dal vivo (servizio, admin): Fan #6 `fixed 30` → registro 64,3% → 29,8% (`sw: true`), poi `bios` → 64,7% (`sw: false`).
+  I giri di Fan #6 sono scesi solo per pochi secondi (921 → 703 → 869): la ventola reagisce poco al PWM (forse 3 pin). ⏳ Non provati dal vivo:
+  watchdog e ritorno al BIOS alla chiusura del server (provati solo nel codice).
+- Q-Fan: con `fixed`/`curve` il canale passa in manuale e la curva Q-Fan di quel canale è ignorata finché il server gira; con `bios`
+  o a server fermo LHM rimette i registri letti all'avvio. Nessuna scrittura nelle impostazioni del BIOS (al riavvio vale Q-Fan).
+- Rollback: rimettere tutte le ventole su BIOS in `/config`, poi `git rm windows/agent/tab2monitor_server_v0.3.1_20261028-1200.py` (il supervisore
+  torna alla v0.3.0) e riavviare il servizio; exe: rinominare `Tab2Sensors.old-*.exe` in `Tab2Sensors.exe`.
+
+## 30. v0.1.20 — 2026-10-30 09:00 (sessione locale, APK v0.11.0)
+- **Pagine riorganizzate:** le **GPU** passano nella pagina 1 (colonna centrale, sotto la RAM) che si chiama "Sistema e GPU"; **Claude (account)** passa nella pagina 2 insieme ai sensori ("Claude e sensori").
+  Le etichette dei pannelli nelle impostazioni mostrano la pagina giusta.
+- **Tolte le due opzioni "Pagina GPU"** (soglia di carico e secondi di permanenza) e la logica relativa: la pagina dura sempre `page_sec`. Rimossi anche gli extra `gpu_busy_pct` / `gpu_busy_sec` dell'intent.
+  Perche': la pagina GPU non esiste piu' separata, la regola "resta piu' a lungo sotto carico" non ha piu' senso.
+- ✅ Installata sul GT-P5100 (192.168.1.234:5555) e verificata con screenshot di entrambe le pagine e delle impostazioni.
+- ⚠️ adb vede ora anche un secondo dispositivo, `192.168.1.212:5555`: non l'ho toccato; con piu' dispositivi servono `adb -s <indirizzo>` nei comandi.
+- Rollback: `git checkout 02e2602 -- android/tab2monitor_app/src`, ricostruire con `build_tab2monitor_v0.10.3_20261029-0900.sh`.
+
+## 29. v0.1.19 — 2026-10-29 09:00 (sessione locale, APK v0.10.3)
+- **CPU: il gauge della frequenza e' ora un anello identico a quello della temperatura** (stessa grafica a gradiente e stesso raggio 54u), affiancato a destra;
+  al centro i GHz (es. 4.3) e "GHz" sotto; scala sempre `mhz_lo`..`mhz_hi`. Tolta la lancetta (era nel gauge piccolo v0.9.9-v0.10.2, la funzione `mhzGauge` resta nel codice, non usata).
+- ⚠️ La richiesta diceva "usa l'agente locale unsloth": `llama-server` di Unsloth Studio e' attivo su 127.0.0.1:50075 ma risponde 401 (serve una chiave API che non ho;
+  non l'ho cercata). La modifica e' stata fatta direttamente.
+- ✅ Installata sul GT-P5100 e verificata con screenshot.
+- Rollback: `git checkout 7fd00e8 -- android/tab2monitor_app/src`, ricostruire con `build_tab2monitor_v0.10.2_20261028-1600.sh`.
+
+## 28. (4) v0.1.19 — 2026-10-28 16:00 (sessione locale, APK v0.10.2)
+- **Dischi: una "torta" (ciambella) per disco.** Arco = spazio occupato (arancio; giallo oltre 75%, rosso oltre 90%); **al centro in/out** del disco
+  (↓ lettura sopra, ↑ scrittura sotto, in verde se attivi); a destra lettera, % usato e GB liberi. Fino a 6 dischi in griglia a due colonne. Sostituisce l'elenco con pallino e righe lettura/scrittura.
+- ✅ Installata sul GT-P5100 e verificata con screenshot (C: 89% con ↓28K ↑76K attivi, D: 97% rosso).
+- Rollback: `git checkout 50c9b51 -- android/tab2monitor_app/src`, ricostruire con `build_tab2monitor_v0.10.1_20261028-1400.sh`.
+
+## 28. (3) v0.1.19 — 2026-10-28 14:00 (sessione locale, APK v0.10.1)
+- **"Top processi" con piu' elenchi** (richiesta dell'utente: dentro lo stesso box, non in una pagina nuova). Il server v0.3.5 manda `procs_top` (RAM, GPU per `luid`, disco);
+  l'APK mostra in due colonne CPU, RAM, una lista per ogni GPU (% e VRAM) e I/O. Le righe per elenco si adattano all'altezza del box (oggi 4 su 5).
+- Il "disco" e' etichettato **I/O**: Windows non ha un contatore per processo del solo disco (r/w includono rete e dispositivi), quindi svchost puo' risultare a MB/s anche senza dischi.
+- Se il server non invia `procs_top` (versione vecchia o campo null) il box torna al solo elenco per CPU come prima.
+- ✅ Installata sul GT-P5100 e verificata con screenshot.
+- Rollback: `git checkout bbdbe3b -- android/tab2monitor_app/src`, ricostruire con `build_tab2monitor_v0.10.0_20261028-0900.sh`.
+
+## 28. (2) v0.1.19 — 2026-10-28 11:30 (sessione locale, APK v0.10.0)
+- **CPU:** il gauge della frequenza usa ora la scala `cpu.mhz_lo`..`mhz_hi` (min/max dell'ultima ora, server v0.3.4): la lancetta si muove davvero
+  (prima `mhz_now/mhz_max`, sempre ~87%); agli estremi i GHz della scala. Se manca la temperatura CPU il centro dell'anello mostra "CPU" invece di ripetere la %.
+- **Claude:** pannello "Claude - account" con **tutti** gli account di `claude_plan.accounts[]` (in uso evidenziato, ora/data dell'aggiornamento, barre Sessione / Settimanale / Utilizzo extra
+  per i limiti presenti). I token sotto (campo `claude`) vengono dai log di Claude Code sul PC e **non distinguono gli account**; le righe che non stanno nel riquadro si omettono.
+- ✅ Installata sul GT-P5100 e verificata con screenshot. Richiesta passata dalla sessione windows-source (riferita come richiesta dell'utente).
+- Rollback: `git checkout 19dc098 -- android/tab2monitor_app/src`, ricostruire con `build_tab2monitor_v0.9.9_20261027-1000.sh`.
+
+## 27. v0.1.19 — 2026-10-27 10:00 (sessione locale, APK v0.9.9)
+- **CPU: gauge della frequenza con lancetta.** La scritta "MHz" sotto il carico usava `cpu.mhz`, valore fisso (3900) e quindi inutile.
+  Tolta; a destra dell'anello del carico c'e' ora un gauge con lancetta che mostra `cpu.mhz_now` (frequenza istantanea) su `cpu.mhz_max`,
+  con i GHz sotto e animazione fluida / "gauge check" come gli altri indicatori.
+- ✅ Installata sul GT-P5100 e verificata con screenshot (4.5 GHz, lancetta a ~87%).
+- Rollback: `git checkout 70c4f55 -- android/tab2monitor_app/src` e ricostruire con `build_tab2monitor_v0.9.8_20261023-1600.sh`.
+- Decisione: usato `mhz_now` e non la media di `mhz_cores` perche' il server lo fornisce gia' ed e' il dato istantaneo.
+
+## 18. (3) v0.1.18 — 2026-10-23 16:00 (sessione locale, APK v0.9.8)
+- APK **v0.9.8**: tolto il suffisso "(scheda madre)" che l'app aggiungeva alle ventole spostate nel box di un
+  altro hardware (troncava i nomi scelti dall'utente in /config, es. "Pompa Impianto AIO"). Installata e
+  verificata. Aggiunto `android/tab2monitor_app/build_tab2monitor_v0.9.8_20261023-1600.sh` (versionCode 19).
+- ADB Wi-Fi a ogni avvio: lato tablet già attivo (`persist.adb.tcp.port=5555`, v0.1.17); mancava il lato PC
+  (nessuno rifà `adb connect` dopo un riavvio): chiesto alla sessione «Sorgente dati Windows» di ricollegare
+  in automatico gli IP dei tablet che interrogano il server.
+- ✅ Prova completa dopo il server v0.3.0: `adb reboot` del GT-P5100 alle 15:56:35 → adb lo ritrova da solo via Wi-Fi
+  in **71 s** (avvio completo incluso), `srv.adb` = "rete ok", Tab2Monitor in primo piano dopo l'avvio.
+## 21. v0.1.18 (3) — 2026-10-23 09:35 (sessione locale)
+- Nuovo `android/adb_wifi_persist_v0.1.0_20261023-0930.sh` (richiesta utente): imposta `persist.adb.tcp.port=5555`
+  (serve `adb root`), così adbd ascolta in Wi-Fi a ogni avvio; niente in esecuzione sul tablet. ✅ Applicato e provato con
+  un riavvio: ADB in Wi-Fi di nuovo disponibile dopo ~17 s, ancora attivo dopo 2,5 min. Rollback: lo stesso script con `--off`.
+- Prova con un altro caricatore (stesso cavo, l'utente non ne ha un altro): −615 mA a schermo acceso, +190 mA spento,
+  uguale al precedente → il caricatore non è la causa; restano cavo, connettore 30 pin o tablet.
+
+## 18. (2) v0.1.18 — 2026-10-23 09:30 (sessione locale, APK v0.9.7)
+- APK **v0.9.7**: tolta la riga "Potenza" da entrambe le schede GPU (richiesta utente). Aggiunto
+  `android/tab2monitor_app/build_tab2monitor_v0.9.7_20261023-0030.sh` (versionCode 18).
+- ✅ Installata sul GT-P5100 (adb Wi-Fi, `adb connect 192.168.1.234:5555`) e verificata: nessuna riga "Potenza" nelle schede GPU.
+## 18. v0.1.18 — 2026-10-23 (sessione locale, verifica)
+- L'utente ha fatto il login della Claude Code CLI: il server usa ora la fonte **oauth** (`srv.plan` = "ok (oauth)"),
+  piano "Pro", sessione e settimanale in tempo reale con orari di reset; l'utente vede sul tablet entrambe le
+  tacche del tempo trascorso. Il registro dell'app desktop resta come ripiego automatico.
+## 20. v0.1.17 (3) — 2026-10-23 09:10 (sessione locale)
+- Analisi della carica dopo una notte sul caricatore da muro 3 A (67% → 13%). Kernel installato = andi34 `3.0/common`:
+  imposta 1,8 A per ogni caricatore; registri SMB347 letti via I2C = configurazione corretta, carica rapida attiva,
+  nessun errore. Nessun bug del driver trovato. Corrente batteria −660…−800 mA a schermo acceso, +150 mA spento:
+  arriva circa 0,5 A. Sospetti: cavo/connettore/caricatore (da provare). Dettagli in CONTEXT, Batteria / carica.
+- Nuovo `android/tools/smbdump_v0.1.0_20261023-0905.c`: lettore I2C di sola lettura (compilato con l'NDK, serve `adb root`).
+- Correzione della voce 19: con questo kernel `plug=usb` non limitava a 500 mA.
+
+## 19. v0.1.17 (2) — 2026-10-22 13:50 (sessione locale)
+- Tablet spento per batteria scarica mentre era sul caricatore da muro: dallo storico batteria risulta 62% → 18% in ~2 h 50 min
+  con il cavo attaccato, poi spento a 3,05 V con il 18% indicato. Il caricatore era riconosciuto come `plug=usb`
+  (~500 mA), non `ac`: a schermo acceso non basta (CONTEXT, Batteria / carica). Dopo il riavvio risultava `ac`. Ricollegato in Wi-Fi su `192.168.1.234:5555` con il caricatore a muro.
+  Nota: `192.168.1.206:5555` è la Mi Box 4, non il tablet. Nessun codice toccato.
+- 23:44: dopo un altro riavvio, anche con `plug=ac` la carica si ferma dopo 40 s e il livello scende (67% → 61% in 20 min,
+  schermo acceso). La percentuale salta tra un riavvio e l'altro (18 → 39 → 67%): non è affidabile.
+  "Debug ADB in rete" si era spento ed è stato riacceso a mano.
+
+## 18. v0.1.17 — 2026-10-22 12:05 (sessione locale)
+- Ricerca online sulla sostituzione del connettore 30 pin con USB-C: nessun kit/guida esistente; raccolti pinout e punti aperti in
+  `RICERCA_USBC_v0.1.0_20261022-1205.md`. Foto del pinout salvata in `docs/pinout_30pin_galaxy_tab_droidangel.jpg`. Nessun codice toccato.
+- Seguito della ricerca: schema di riconoscimento del caricatore (corto D+/D− o partitore ~1,2 V, fonti forum) e piano di prova nella stessa nota.
+- Aggiunti lista componenti, schema e sequenza di prova per un cavo di prova USB-C → 30 pin (progetto, non costruito).
+- Idea «alimentare dai contatti batteria»: dal service manual risultano SMB347S (carica), MAX17042G (fuel gauge), TWL6032 (PMIC), segnali VF/CONTACT/BAT_REMOVAL; pinout del connettore ancora da trovare nello schema (Badcaps / s-manuals).
+- Scaricato lo schema (s-manuals.com, non nel repo): connettore batteria BTC700 = pin 1-2 V_BATT, 3 VF (ADC TWL6032 + MAX17042 AIN), 4-5 GND, 6-9 NC; ritagli in `docs/p5100_schema_pag7_*.png`; piano di prova con alimentatore da banco nella nota.
+- 2026-11-12: l'utente descrive il contatto batteria (5 fili: 2 rossi, 2 neri, 1 blu; sigla GB/T 18287). Corrisponde a BTC700 (rossi V_BATT, blu VF, neri GND); GB/T 18287 è una norma, non un modello. VF da misurare.
+- 2026-11-12 (2): misurato dall'utente: batteria SP3676B1A, 3,7 V, blu–nero 9,83 kΩ che scende col calore = NTC 10 kΩ. Per la prova senza batteria: resistenza 10 kΩ 1% tra VF e massa. Prova a banco ancora da fare.
+- 2026-11-12 (3): aggiunti alla nota lista componenti, schema e sequenza per la prova a banco senza batteria (3,9 V, limite 0,5 A→2 A, 10 kΩ sul blu); non eseguita.
+- 2026-11-12 (4): dallo schema, il tablet vede dal connettore batteria solo V_BATT e VF (NTC 10 kΩ); BAT_REMOVAL non passa dal connettore. Inganno = alimentazione sui rossi + 10 kΩ sul blu; da provare.
+- 2026-11-12 (5): valutata l'idea «due condensatori al posto delle celle con BMS e connettore originali»: scartata (i condensatori non sono una sorgente, il caricatore del tablet li farebbe ciclare, rischio sul taglio delle celle); si resta sulla prova a banco.
+- 2026-11-12 (6): richiesta dell'utente di evitare il banco: proposta prova col caricabatterie USB sul 30 pin e fili rossi del pacco interrotti (NTC visto, cella isolata). Esito dipende dallo SMB347S senza cella: da provare.
+- 2026-11-12 (7): chiarito l'obiettivo (il tablet deve sentire una batteria e alimentarsi dal connettore); aggiunta la seconda strada della cella piccola con PCM e 10 kΩ, da usare solo se la prova coi rossi interrotti fallisce.
+- 2026-11-12 (8): prova coi fili rossi interrotti eseguita dall'utente: ⛔ il tablet non si accende col solo caricabatterie sul 30 pin. Prossimi passi: misura V_BATT, modulo buck 3,9 V sui rossi, o cella piccola.
+- 2026-11-12 (9): misurati 4,7 V oscillanti sui rossi lato tablet col caricatore e senza cella: abbandonata la strada del caricatore interno; scelta: modulo buck 5→3,9 V sui rossi (NTC del pacco già visto).
+- 2026-11-12 (10): lettura via adb sotto carica: caricatore riconosciuto come AC (limite 1,8 A nel kernel), ma corrente cella −850 mA a schermo acceso e +140…210 mA a schermo spento: arriva poca energia dalla sorgente; da misurare la corrente d'ingresso con misuratore USB.
+- 2026-11-12 (11): misuratore USB in linea: 5,07 V e 0,529 A (2,7 W): il tablet assorbe ~500 mA, non 1,8 A; la tensione regge. Ipotesi: il caricatore non marca D+/D− e lo SMB347S limita a 500 mA; test con caricatore Samsung originale e con D+/D− in corto.
+- 2026-11-12 (12): verifica bug ricarica Lineage/recovery: nessuna segnalazione online; registri SMB347 riletti (ingresso 1,8 A, 4,2 V, carica rapida) = nessun bug di configurazione; ingresso reale 0,53 A, indipendente dal caricatore. Recovery da provare con misuratore USB.
+- 2026-11-12 (13): provato in TWRP con il misuratore USB: ingresso ~0,5 A anche lì → non è un bug di Lineage/recovery; restano D+/D− non marcati, cavo/connettore o limite hardware. Prossimo test: D+/D− in corto.
+- 2026-11-12 (14): con un altro cavo 30 pin l'ingresso in recovery sale da 0,5 a 0,7 A: il cavo conta. Prossimo: cavo corto/spesso (20 AWG), pulizia contatti, poi D+/D− in corto.
+- 2026-11-12 (16): pulizia contatti con isopropilico: ancora 0,7 A. Registri SMB347 decodificati col driver upstream (carica rapida, 2,2 A / 1,8 A); ipotesi: resistenza serie del percorso (~1,2–1,5 Ω) fa ridurre l'assorbimento; cavo 20 AWG corto da provare.
+- 2026-11-12 (17): lettura adb col nuovo cavo a schermo spento: +445 mA in cella (prima +142…+212 mA): più che raddoppiata cambiando solo il cavo. Fuel gauge a 1 % dopo il riavvio con 3,74 V: incoerente.
+- 2026-11-12 (18): col nuovo cavo a schermo acceso la cella perde ~640 mA (prima 850–900): meglio di ~230 mA ma ancora in scarica; a schermo spento resta +445 mA.
+- 2026-11-12 (19): luminosità 110/255 con nuovo cavo: corrente cella +20…+32 mA (pareggio; prima −640 mA a 226); la retroilluminazione pesa ~0,65 A.
+- 2026-11-12 (15): foto misuratore col nuovo cavo: 5,097 V e 0,680 A (in recovery); vecchio cavo 5,072 V e 0,529 A. Tensione lato caricatore stabile: sospetto contatto cattivo sul 30 pin (pin 7/8).
+- 2026-11-12 (9): misurati ~4,7 V instabili sui rossi (lato tablet) col caricatore collegato e senza cella: ipotesi hiccup del caricatore; da provare un condensatore 470-1000 µF (poi un carico fittizio) prima del buck.
+
+## 17. (6) v0.1.16 — 2026-10-22 23:58 (sessione locale, verifica APK v0.9.6)
+- APK **v0.9.6 installata** sul GT-P5100 (via ADB Wi-Fi 192.168.1.234:5555) e **verificata con i dati reali**
+  del server v0.2.9: "aggiornato alle 19:23", Limite di sessione 19%, Settimanale 16% "si azzera gio 09:00".
+- Il ripiego si era fermato alle 17:55: l'app Claude Desktop ha spostato i dati in
+  `%LOCALAPPDATA%\Claude-Data\<pacchetto>\` (resta solo `.user-data-left` nella vecchia cartella);
+  corretto lato server (v0.2.9, cerca prima in Claude-Data e usa il file più recente).
+
+## 17. (5) v0.1.16 — 2026-10-22 11:35 (sessione locale, APK v0.9.6)
+- Ricerca del token dell'app Claude Desktop (richiesta utente): `%APPDATA%\Claude\config.json`, chiavi
+  `oauth:tokenCache`/`oauth:tokenCacheV2`, **cifrate con DPAPI** (prefisso v10, Electron safeStorage):
+  non usate (valori non letti). Trovato invece `%APPDATA%\Claude\plan-usage-history.json` con le
+  percentuali del piano senza credenziali (`fh` = 5 h, `sd` = 7 giorni; ultimo campione 10:49 = 4% / 1%),
+  campionate in modo irregolare e senza orari di reset. **Decisione utente**: usarlo come ripiego quando
+  manca il token della CLI (richiesto alla sessione «Sorgente dati Windows»).
+- APK **v0.9.6**: `claude_plan.src` ("oauth"/"history"), `ts` e `session.stale` → "aggiornato alle HH:MM" e
+  "Limite di sessione (dato vecchio)". Aggiunto `build_tab2monitor_v0.9.6_20261022-1130.sh` (versionCode 17).
+  ⏳ da provare con i dati reali del server.
+
+## 17. (4) v0.1.16 — 2026-10-22 11:10 (sessione locale, APK v0.9.5)
+- APK **v0.9.5** (richiesta utente con screenshot di claude.ai): pannello Claude con i **limiti del piano**
+  — barre "Limite di sessione" (5 h, "si ripristina tra X h Y min") e "Settimanale - tutti i modelli"
+  ("si azzera gio 09:00"), percentuale, tacca bianca = tempo trascorso nella finestra; sotto i token di
+  Claude Code. Legge il campo opzionale `claude_plan` (schema in CONTEXT.md); senza, il pannello è come prima.
+- Provato con un mock (porta 8091) con i valori dello screenshot: resa come nello screenshot.
+- ⏳ **Dati reali**: richiedono che il server legga il token OAuth in `~/.claude/.credentials.json` e
+  chiami un endpoint non documentato: in attesa della decisione esplicita dell'utente.
+- Batteria del tablet al 25% alle 11:07 (61% alle 01:30) sulla USB del PC.
+- Aggiunto `android/tab2monitor_app/build_tab2monitor_v0.9.5_20261022-0900.sh` (versionCode 16).
+
+## 17. (3) v0.1.16 — 2026-10-22 08:50 (sessione locale, APK v0.9.4)
+- APK **v0.9.4**: gauge check più lungo (salita 1,0 s + discesa 1,3 s; era 0,7 + 0,9) e log `Tab2Gauge`.
+- Verificato sul tablet: 2 cambi pagina → nessun gauge check (log vuoto, valori reali a schermo);
+  spegnimento + riaccensione → un gauge check. Lo avviano solo SCREEN_ON, la fine dell'oscuramento e il
+  primo avvio dell'app.
+- Aggiunto `android/tab2monitor_app/build_tab2monitor_v0.9.4_20261022-0845.sh` (versionCode 15).
+
+## 17. (2) v0.1.16 — 2026-10-22 08:30 (sessione locale, APK v0.9.3)
+- APK **v0.9.3**: rotazione manuale **provata** (`flip180` → `mCurrentRotation=2`, spenta → 0).
+- Tentata la rotazione automatica leggendo l'accelerometro BMA254 da
+  `/sys/class/sensors/accelerometer_sensor/raw_data` (`x, y, z`, ~1024 = 1 g; da adb funziona:
+  `-16, -20, 1016` col tablet in piano) con interruttore `auto_rot` e pulsante di calibrazione: **SELinux
+  la blocca** per le app (`avc: denied { read } ... untrusted_app ... sysfs`). Il codice resta (mostra
+  "Accelerometro non leggibile dall'app: usa l'opzione manuale"); per la decisione dell'utente
+  ("se non abbiamo il sensore, opzione manuale") vale l'opzione manuale.
+- Aggiunto `android/tab2monitor_app/build_tab2monitor_v0.9.3_20261022-0425.sh` (versionCode 14).
+
+## 17. v0.1.16 — 2026-10-22 04:10 (sessione locale, APK v0.9.2)
+- APK **v0.9.2**: opzione "Capovolgi l'interfaccia di 180 gradi" (`flip180`, impostazioni o
+  `am start --ez flip180 true`), orientamento REVERSE_LANDSCAPE. Rotazione automatica non possibile
+  finché il driver dei sensori resta disattivato (scelta v0.1.6 per SensorService al 50%); in verifica
+  se l'accelerometro BMA254 è leggibile direttamente dal kernel.
+- Aggiunto `android/tab2monitor_app/build_tab2monitor_v0.9.2_20261022-0410.sh` (versionCode 13).
+- ⏳ Compilata, **non ancora installata né provata**: tablet non raggiungibile via adb.
 ## 17. v0.1.16 — 2026-10-22 05:45 ora del PC (sessione «Piano installer Tab2Monitor», branch `installer-tab2monitor`)
 - Su richiesta dell'utente il lavoro prosegue in un **branch separato** (`installer-tab2monitor`, worktree
   `../tab2revamp-installer`), senza toccare il branch principale. Risposte dell'utente alle 11 domande
@@ -22,6 +436,10 @@ Versione documento: v0.1.16 — 2026-10-22 05:45 (ora del PC, branch installer-t
   verifica), Android cmdline-tools, piattaforma e immagini emulatore API 21/34.
 - Rollback: il branch principale non cambia; per scartare tutto `git worktree remove ../tab2revamp-installer`
   e `git branch -D installer-tab2monitor`.
+
+
+
+
 
 ## 16. v0.1.15 — 2026-10-22 01:45 ora del PC (sessione «Ricerca hub USB comandabile», solo documenti)
 - Aggiunto `RICERCA_HUB_USB_v0.1.0_20261022-0142.md`: confronto di 7 opzioni per limitare la carica del tablet
@@ -179,6 +597,67 @@ Versione documento: v0.1.16 — 2026-10-22 05:45 (ora del PC, branch installer-t
   build con `build_tab2monitor_v0.1.0_*`, poi `adb uninstall it.tab2revamp.monitor` e reinstallare
   (il versionCode scende, `install -r` non basta).
 - Aperta una sessione parallela per la sorgente dati lato Windows.
+
+## 9. v0.3.0 — 2026-10-23 16:00 (sessione locale, adb via Wi‑Fi automatico)
+- Richiesta dell'utente (via sessione APK): adb via Wi‑Fi deve ripartire da solo (sul tablet
+  `persist.adb.tcp.port=5555` è già a posto; mancava chi rifà `adb connect` dal PC).
+- Nuovo `windows/agent/tab2monitor_server_v0.3.0_20261023-0010.py` (0.3.0 e non 0.2.10: il supervisore sceglie
+  per ordine di nome): per gli IP fissi di `/config` (default `192.168.1.234`) `adb connect <ip>:5555` al
+  massimo ogni 60 s quando il tablet manca (se è `offline`: `disconnect` + `connect`); per gli IP che chiamano
+  `/api/metrics` (non fissi, non del PC) un solo tentativo, poi lasciati stare (Mi Box .206 & co.);
+  `unauthorized` mai insistito. `srv.adb`: `rete ok` / `rete: unauthorized` / `rete: offline` /
+  `rete: non raggiungibile`. Log solo ai cambi di stato e ai ricollegamenti.
+- Nuova pagina `windows/agent/config_page_v0.1.3_20261023-0010.html`: campo "IP dei tablet".
+- Provato in servizio: `adb disconnect 192.168.1.234:5555` → ricollegato dal server in 7 s; con adb finto:
+  IP non fisso provato una sola volta, IP fisso di nuovo dopo 60 s.
+- `claude_plan` via **oauth verificato dal vivo** per la prima volta (`srv.plan` = `ok (oauth)`: ora nel file
+  credenziali c'è il token): piano Pro, sessione 92%, settimanale 54%, reset presenti.
+
+## 8. (10) v0.2.9 — 2026-10-23 00:00 (sessione locale, percorso Claude Desktop e adb reverse)
+- Problema (segnalato dalla sessione APK): dalle 17:55 del 2026-10-22 Claude Desktop tiene i dati in
+  `%LOCALAPPDATA%\Claude-Data\claude_pzs8sxrjxfjjc\` (nella cartella MSIX resta solo
+  `.user-data-left.claude_pzs8sxrjxfjjc`) → `srv.plan` = `no_token+no_history (FileNotFoundError 2)`.
+- Nuovo `windows/agent/tab2monitor_server_v0.2.9_20261023-0000.py`: `plan-usage-history.json` cercato in
+  `Claude-Data\*\`, poi `%APPDATA%\Claude\` e la cartella MSIX; si usa il più recente; `srv.plan` riporta
+  il percorso con `~` al posto della cartella utente.
+- `adb reverse`: saltati i dispositivi via rete (`ip:porta`, stato `rete`: il tablet in Wi‑Fi raggiunge già il
+  PC); dopo un errore nuovo tentativo solo dopo 5 min; log solo ai cambi di stato. Prima: tentativo ogni 5 s
+  su `192.168.1.234:5555` con una riga di log a ogni errore (724 righe in 6 h). Visto anche un secondo tablet
+  in USB (Galaxy Tab 4 SM‑T530, `matissewifi`): reverse applicato anche a lui (innocuo, non filtrato per modello).
+- Provato in servizio: `claude_plan` = sessione 19%, settimanale 16%, campione 19:23, `adb` =
+  `{USB: ok, 192.168.1.234:5555: rete}`, nessuna riga di errore adb nel log.
+- Nota versioni: la prossima è **v0.3.0**, non v0.2.10 (il supervisore sceglie per ordine di nome e
+  "v0.2.10" verrebbe prima di "v0.2.2").
+
+## 8. (9) v0.2.8 — 2026-10-22 12:10 (sessione locale, ripiego claude_plan senza credenziali)
+- Nuovo `windows/agent/tab2monitor_server_v0.2.8_20261022-1150.py`: se l'oauth non dà dati, `claude_plan`
+  viene dall'ultimo campione di `plan-usage-history.json` di Claude Desktop (solo percentuali `fh`/`sd`,
+  nessun token; `config.json` cifrato escluso): `src` = `history`, `ts` = ora del campione,
+  `session{pct, stale?}` (`stale` se il campione ha più di 5 h), `weekly{pct, reset}` col reset calcolato
+  dal giorno/ora scelti in `/config` (default giovedì 09:00). `srv.plan` = `ok (oauth)` /
+  `ok (history HH:MM)` / `no_token+no_history (errore)`. Chiesto dall'utente via sessione APK, confermato
+  qui dall'utente prima della messa in servizio.
+- Nuova pagina `windows/agent/config_page_v0.1.2_20261022-1150.html`: giorno e ora del reset settimanale.
+- **Problema trovato**: Claude Desktop è un'app MSIX: il file sta davvero in
+  `%LOCALAPPDATA%\Packages\Claude_pzs8sxrjxfjjc\LocalCache\Roaming\Claude\`; il percorso
+  `%APPDATA%\Claude\` lo vedono solo i processi figli dell'app (Claude Code), non il servizio
+  (`FileNotFoundError`). Il server cerca in entrambi e usa il più recente.
+- Provato: file finti (stale, t in ms/s, reset su altro giorno, file assente) e, in servizio sulla 8090,
+  `claude_plan` = sessione 4%, settimanale 1%, campione 10:49, reset gio 29/10 09:00 (uguale a claude.ai).
+
+## 8. (8) v0.2.7 — 2026-10-22 11:30 (sessione locale, limiti del piano Claude)
+- Nuovo `windows/agent/tab2monitor_server_v0.2.7_20261022-1130.py`: campo `claude_plan`
+  `{plan, session{pct,reset}, weekly{pct,reset}, weekly_opus?, ts}`, autorizzato dall'utente (sessione APK,
+  2026-10-22 ~11:10). Token `claudeAiOauth.accessToken` letto da `~/.claude/.credentials.json` a ogni
+  interrogazione (ogni 5 min), mai copiato né scritto in log/JSON/config/repository; endpoint **non
+  documentato** `api.anthropic.com/api/oauth/usage`. Errore (401, formato, rete) → campo omesso e nessun nuovo
+  tentativo finché il file credenziali non cambia. `srv.plan` = stato (ok / no_token / errore …).
+  `--no-claude-plan` per disattivarlo.
+- Provato con endpoint e token finti in locale: lettura ok (Pro, 4%, 1%, reset in epoch), 401 → sospeso,
+  stesso file → nessuna chiamata, file cambiato → riprende. Nel log non compare il token.
+- ⛔ Oggi il campo **manca**: `.credentials.json` contiene solo i token dei connettori MCP, nessun
+  `claudeAiOauth` (l'accesso a Claude è dell'app desktop, salvato altrove; altri archivi di credenziali non
+  esplorati). In servizio sulla 8090: `srv.plan` = `no_token`, nessuna chiamata di rete.
 
 ## 8. (7) v0.2.6 — 2026-10-22 01:20 (sessione locale, consumo CPU del server)
 - Servizio verificato dopo la chiusura del server orfano (fatta dall'utente da amministratore): v0.2.5

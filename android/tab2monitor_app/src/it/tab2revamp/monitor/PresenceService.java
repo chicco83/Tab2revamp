@@ -1,9 +1,6 @@
 // =============================================================================
 // Tab2Monitor - PresenceService (presenza con la fotocamera frontale)
-// Versione: v0.10.0 - 2026-10-22 02:30 (branch installer)
-//   v0.10.0: risoluzione della fotocamera = la piu' piccola supportata con larghezza >= 160
-//            (altri tablet possono non avere 160x120); testi e voce IT/EN (L)
-// Versione precedente: v0.8.0 - 2026-10-22 02:45
+// Versione: v0.8.0 - 2026-10-22 02:45
 //   v0.8.0: (1) il servizio legge da solo /api/metrics ogni 2 s (anche a schermo spento):
 //           CARICO oltre soglia (CPU, GPU, RAM, VRAM) = "presenza" -> riaccende e tiene acceso
 //           finche' il carico resta; (2) ALLARME VOCALE (TextToSpeech, voce italiana Pico) quando
@@ -68,14 +65,13 @@ import java.util.Locale;
 @SuppressWarnings("deprecation")       // android.hardware.Camera: l'HAL TI e' "Camera1" (API 1)
 public class PresenceService extends Service {
     static final String TAG = "Tab2Presence";
-    static final int W = 160, H = 120, STEP = 4;
-    private int cw = W, ch = H;                           // v0.10.0: risoluzione scelta davvero          // risoluzione e passo di campionamento
+    static final int W = 160, H = 120, STEP = 4;          // risoluzione e passo di campionamento
     static final int PIX_DIFF = 25;                       // differenza di luminanza "cambiata"
     static final long GRACE_MS = 5000;                    // dopo lo spegnimento: niente movimento
     static final int HITS = 2;                            // fotogrammi consecutivi con movimento
 
     // Stato letto dalla schermata impostazioni (diagnostica)
-    static volatile String status = L.t("spento", "off");
+    static volatile String status = "spento";
     static volatile long lastPresenceAt;
 
     private HandlerThread thread;
@@ -120,8 +116,8 @@ public class PresenceService extends Service {
         PendingIntent pi = PendingIntent.getActivity(this, 0, new Intent(this, MainActivity.class), 0);
         Notification n = new Notification.Builder(this)
                 .setSmallIcon(R.drawable.ic)
-                .setContentTitle(L.t("Tab2Monitor - rilevamento presenza", "Tab2Monitor - presence detection"))
-                .setContentText(L.t("Fotocamera frontale attiva per accendere/spegnere lo schermo", "Front camera active to turn the screen on/off"))
+                .setContentTitle("Tab2Monitor - rilevamento presenza")
+                .setContentText("Fotocamera frontale attiva per accendere/spegnere lo schermo")
                 .setContentIntent(pi).setOngoing(true).build();
         startForeground(1, n);
         thread = new HandlerThread("Tab2Camera");
@@ -155,15 +151,13 @@ public class PresenceService extends Service {
                 : usb ? new String[]{MainActivity.USB_URL} : wf ? new String[]{wifi} : new String[0];
         h.post(new Runnable() { public void run() {
             if (presenceOn && cam == null) openCamera();
-            if (!presenceOn && cam != null) { closeCamera(); status = L.t("fotocamera spenta (presenza disattivata)", "camera off (presence disabled)"); }
+            if (!presenceOn && cam != null) { closeCamera(); status = "fotocamera spenta (presenza disattivata)"; }
         } });
         if (alarmOn && tts == null) {
             tts = new TextToSpeech(this, new TextToSpeech.OnInitListener() {
                 public void onInit(int st) {
                     if (st == TextToSpeech.SUCCESS) {
-                        // v0.10.0: voce nella lingua dell'app (era sempre Locale.ITALIAN); se il motore
-                        // non ha quella lingua resta la sua lingua predefinita
-                        tts.setLanguage(L.locale());
+                        tts.setLanguage(Locale.ITALIAN);
                         ttsReady = true;
                     } else Log.w(TAG, "TextToSpeech non disponibile: " + st);
                 }
@@ -171,7 +165,7 @@ public class PresenceService extends Service {
         }
         if (p.getBoolean("alarm_test", false)) {            // pulsante "Prova voce" delle impostazioni
             p.edit().remove("alarm_test").apply();
-            net.postDelayed(new Runnable() { public void run() { say(L.t("Prova allarme Tab2Monitor. Voce attiva.", "Tab2Monitor alarm test. Voice active.")); } }, 1500);
+            net.postDelayed(new Runnable() { public void run() { say("Prova allarme Tab2Monitor. Voce attiva."); } }, 1500);
         }
         return START_STICKY;
     }
@@ -186,7 +180,7 @@ public class PresenceService extends Service {
         thread.quitSafely();
         if (screenOffByUs) wake();                       // non lasciare lo schermo spento
         if (cpuLock.isHeld()) cpuLock.release();
-        status = L.t("spento", "off");
+        status = "spento";
         super.onDestroy();
     }
 
@@ -199,17 +193,10 @@ public class PresenceService extends Service {
                 Camera.getCameraInfo(i, ci);
                 if (ci.facing == Camera.CameraInfo.CAMERA_FACING_FRONT) { front = i; break; }
             }
-            if (front < 0) { status = L.t("nessuna fotocamera frontale", "no front camera"); return; }
+            if (front < 0) { status = "nessuna fotocamera frontale"; return; }
             cam = Camera.open(front);
             Camera.Parameters p = cam.getParameters();
-            // v0.10.0: la risoluzione piu' piccola tra quelle supportate con larghezza >= 160
-            // (160x120 sul GT-P5100; altri tablet possono non averla). Era: p.setPreviewSize(W, H);
-            Camera.Size best = null;
-            for (Camera.Size z : p.getSupportedPreviewSizes())
-                if (z.width >= W && (best == null || z.width * z.height < best.width * best.height)) best = z;
-            cw = best != null ? best.width : W; ch = best != null ? best.height : H;
-            prev = null;
-            p.setPreviewSize(cw, ch);
+            p.setPreviewSize(W, H);
             p.setPreviewFormat(ImageFormat.NV21);
             List<int[]> fps = p.getSupportedPreviewFpsRange();
             if (fps != null && !fps.isEmpty()) {             // il range piu' lento (5 fps)
@@ -220,7 +207,7 @@ public class PresenceService extends Service {
             cam.setParameters(p);
             tex = new SurfaceTexture(10);
             cam.setPreviewTexture(tex);
-            buf = new byte[cw * ch * 3 / 2];
+            buf = new byte[W * H * 3 / 2];
             cam.addCallbackBuffer(buf);
             cam.setPreviewCallbackWithBuffer(new Camera.PreviewCallback() {
                 public void onPreviewFrame(byte[] data, Camera c) { frame(data); c.addCallbackBuffer(data); }
@@ -234,10 +221,10 @@ public class PresenceService extends Service {
             if (p.getMaxNumDetectedFaces() > 0) {
                 try { cam.startFaceDetection(); } catch (RuntimeException e) { Log.w(TAG, "face detection", e); }
             }
-            status = L.t("attivo", "active");
-            Log.i(TAG, "fotocamera frontale " + front + " aperta, " + cw + "x" + ch);
+            status = "attivo";
+            Log.i(TAG, "fotocamera frontale " + front + " aperta, " + W + "x" + H);
         } catch (Exception e) {
-            status = L.t("errore fotocamera: ", "camera error: ") + e.getMessage();
+            status = "errore fotocamera: " + e.getMessage();
             Log.e(TAG, "openCamera", e);
             closeCamera();
             h.postDelayed(new Runnable() { public void run() { openCamera(); } }, 30000);   // riprova
@@ -257,12 +244,10 @@ public class PresenceService extends Service {
     // Movimento: % di punti (griglia 40x30 sulla luminanza Y) cambiati di oltre PIX_DIFF
     private void frame(byte[] d) {
         int n = 0, changed = 0;
-        // v0.10.0: griglia sulla risoluzione scelta (cw x ch), passo proporzionale: ~40x30 punti
-        int st = Math.max(STEP, cw / 40);
-        if (prev == null) prev = new byte[(cw / st + 1) * (ch / st + 1)];
-        for (int y = 0, k = 0; y < ch; y += st)
-            for (int x = 0; x < cw; x += st, k++) {
-                int v = d[y * cw + x] & 0xff;
+        if (prev == null) prev = new byte[(W / STEP) * (H / STEP)];
+        for (int y = 0, k = 0; y < H; y += STEP)
+            for (int x = 0; x < W; x += STEP, k++) {
+                int v = d[y * W + x] & 0xff;
                 if (Math.abs(v - (prev[k] & 0xff)) > PIX_DIFF) changed++;
                 prev[k] = (byte) v;
                 n++;
@@ -289,7 +274,7 @@ public class PresenceService extends Service {
                 Log.i(TAG, "nessuno da " + idle + " s: spengo");
                 main.post(new Runnable() { public void run() { sleep(); } });
             }
-            if (cam != null) status = screenOffByUs ? L.t("schermo spento, in attesa", "screen off, waiting") : L.t("attivo, nessuno da ", "active, nobody for ") + idle + " s";
+            if (cam != null) status = screenOffByUs ? "schermo spento, in attesa" : "attivo, nessuno da " + idle + " s";
             h.postDelayed(this, 1000);
         }
     };
@@ -330,10 +315,10 @@ public class PresenceService extends Service {
         if (m.cpu >= thCpu) why = "CPU " + Math.round(m.cpu) + "%";
         else if (m.ram >= thRam) why = "RAM " + Math.round(m.ram) + "%";
         else for (MainActivity.Metrics.Gpu g : m.gpus) {
-            if (g.load >= thGpu) { why = g.name + L.t(" carico ", " load ") + Math.round(g.load) + "%"; break; }
+            if (g.load >= thGpu) { why = g.name + " carico " + Math.round(g.load) + "%"; break; }
             if (g.memPct >= thVram) { why = g.name + " VRAM " + Math.round(g.memPct) + "%"; break; }
         }
-        loadStatus = why == null ? L.t("nessun carico oltre soglia", "no load above threshold") : L.t("sotto carico: ", "under load: ") + why;
+        loadStatus = why == null ? "nessun carico oltre soglia" : "sotto carico: " + why;
         if (loadWake && why != null) presence("carico: " + why);
         // 2) allarmi temperatura
         if (!alarmOn) return;
@@ -349,7 +334,7 @@ public class PresenceService extends Service {
                 if (at == null || now - at > 60000) {
                     alarmAt.put(key, now);
                     presence("allarme " + hw.tName[q]);
-                    say(L.t("Attenzione. ", "Warning. ") + hw.tName[q] + ", " + hw.name + ", " + Math.round(c) + L.t(" gradi.", " degrees."));
+                    say("Attenzione. " + hw.tName[q] + ", " + hw.name + ", " + Math.round(c) + " gradi.");
                 }
             } else if (at != null && c < thr - 3) alarmAt.remove(key);   // isteresi 3 gradi
         }

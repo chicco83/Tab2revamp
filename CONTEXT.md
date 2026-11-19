@@ -1,5 +1,5 @@
 # CONTEXT — Tab2revamp
-Versione: v0.1.16 — 2026-10-22 05:45 (ora del PC, branch installer-tab2monitor)
+Versione: v0.1.19 — 2026-11-19 09:00 (ora del PC, branch installer-tab2monitor)
 
 ## Obiettivo
 Riusare un Galaxy Tab 2 10.1 (GT-P5100, lentissimo: ogni tocco richiede secondi)
@@ -54,7 +54,7 @@ psutil ── tab2monitor_server (:8090) ───┼── USB: adb reverse tcp
 | APK Tab2Monitor v0.3.0 — pannello Claude | ✅ installata, provata con dati finti | pannello "Claude - utilizzo" (id 9, chiave `p_claude`, colonna 2 tra GPU e temperature), disattivabile come gli altri; senza campo `claude` dal server mostra "dati non disponibili". Provata 2026-10-22 00:16 con un mock locale (porta 8091 + `adb reverse tcp:8090 tcp:8091`): 6 righe corrette, nessun crash. **Dati reali ⏳**: dipendono dal server (sessione «Sorgente dati Windows»). Anche la schermata "Nessuna sorgente dati attiva" (v0.2.0) è stata verificata. adb sparisce per minuti dopo `adb root` |
 | APK Tab2Monitor v0.4.0 — pagine, GPU, icone | ✅ installata e provata (2026-10-22 00:30–00:55, dati veri + mock per ventole/dischi/Claude) | 2 pagine a rotazione ("Sistema", "GPU e sensori"), tocco = pagina successiva, **ingranaggio** in alto a destra → impostazioni; una scheda per **ogni GPU** con 2 indicatori a lancetta (carico + saturazione VRAM); temperature per componente con **termometro**; **ventole animate** con velocità proporzionale agli RPM; **I/O per disco** con pallino verde sul disco attivo (serve il server: vedi sotto); pagina GPU più lunga se una scheda supera la soglia di carico. CPU app: 2% senza animazione, **17–21% con ventole animate** (pagina 2) → interruttore per spegnerle |
 | Avvio al boot | ✅ verificato | dopo `adb reboot` (2026-10-22 00:00): `mResumedActivity = it.tab2revamp.monitor/.MainActivity`, screenshot con dati via **Wi‑Fi** (adb reverse perso). PSS 13,9 MB. Il boot completo + ricomparsa di adb ha richiesto ~3–4 min: adb resta assente per minuti anche se Windows vede già il dispositivo USB |
-| Wi‑Fi tablet | ✅ acceso | era spento dopo il setup LineageOS; `svc wifi enable` → si collega da solo (2 reti salvate), IP **192.168.1.234** (DHCP; sullo stock era .226) |
+| Wi‑Fi tablet | ✅ acceso | era spento dopo il setup LineageOS; `svc wifi enable` → si collega da solo (2 reti salvate), IP **192.168.1.234** (DHCP; sullo stock era .226); ADB in rete su `192.168.1.234:5555` ✅ (2026-10-22). ⚠️ Anche **192.168.1.206:5555 risponde: è la Mi Box 4, non il tablet** |
 
 Misure (am start -W, TotalTime ms, avvio a freddo):
 | | prima del tuning | dopo |
@@ -150,17 +150,25 @@ da Windows (`lhm.src` = `lib` Tab2Sensors / `lhm` app LHM / `win` solo Windows).
 | `sensors.hw[]` | `id, name, kind (cpu/gpu/mb/disk/ram/other), temps[{name,c}], fans[{name,rpm,pct}]` |
 | `sensors.pairs[]` | `fan, rpm, pct, fan_hw, temp, c, temp_hw, how (map/same_hw/cpu/cpu_default/mb), g`; dalla v0.2.3 `fans[].on` (rpm > 0) e niente ventole ferme della scheda madre — stesso `g` = stesso colore sull'APK |
 | `srv` | `lhm` (fonte sensori), `adb` {seriale: ok/errore}, `http` |
+| `claude_plan` (v0.2.7) | `plan`, `session{pct,reset}`, `weekly{pct,reset}`, `weekly_opus?`, `ts`; omesso senza token `claudeAiOauth` (oggi assente) o dopo un errore; stato in `srv.plan` |
+| `claude_plan.src` (v0.2.8) | `oauth` o `history` (Claude Desktop, `plan-usage-history.json`: dal 2026-10-22 17:55 in `%LOCALAPPDATA%\Claude-Data\<pacchetto>\`, prima nella cartella MSIX; il server cerca in tutti e usa il più recente); con `history`: `session.stale` se > 5 h, `weekly.reset` da `/config` (default gio 09:00), niente `session.reset` |
+| `srv.adb` (v0.3.0) | per seriale: `ok`/`errore` (USB, reverse) e per `ip:5555`: `rete ok` / `rete: unauthorized` / `rete: offline` / `rete: non raggiungibile`; IP fissi in `/config` (`adb_ips`, default 192.168.1.234) |
+| `sensors.hw[].fans[].ctl` (v0.3.1) | solo ventole della scheda madre: `id` (controllo LHM), `mode` (`bios`/`fixed`/`curve`), `sw` (canale in manuale), `target` (% inviata, se controllata), `temp` (°C usati dalla curva); `srv.fanctl` = stato ("tutte al BIOS" / "N ventole controllate" / emergenza). Comando: `POST /api/fan` `{id: fans[].id, mode, pct?}` da 127.0.0.1 o IP fissi dei tablet |
+| `claude_plan.accounts[]` (v0.3.3), `claude_plan.extra` (v0.3.2) | tutti gli account di Claude Desktop: `id` (8 car. dell'org), `ts`, `current`, `session{pct,stale?}`, `weekly{pct}`, `extra{pct}` (utilizzo extra, account aziendale) |
+| `cpu.mhz_lo`, `cpu.mhz_hi` (v0.3.4) | min di `mhz_now` e max di `mhz_max` nell'ultima ora: scala per il gauge della frequenza |
+| `procs_top` (v0.3.5) | `ram[{n,mb}]`, `gpu[{luid, list[{n,pct,mb}]}]` (luid = `gpus[].luid`), `disk[{n,r,w}]` byte/s (I/O del processo: include rete e dispositivi); 5 voci, ogni 3 s |
+| `fans[].ctl.lost` (v0.3.8) | `true` se la curva non trova la sua temperatura (ventola al 100%). In `fan_config.json`: `fan_ctl[].ref`, `map_ref{}` = "hardware\|sensore", perche' gli id delle GPU cambiano tra gli avvii |
 | `hidden` (v0.2.5) | `true` su `fans[]`/`temps[]` nascosti dall'utente in `/config`; se manca la voce si mostra |
 | `id`, `orig` (v0.2.4) | su `sensors.hw[]`, `temps[]`, `fans[]`: id stabile; se l'utente ha dato un nome, `name` è quello e `orig` l'originale. Nomi/abbinamenti da `http://localhost:8090/config` → `fan_config.json` (decisione: lato server, non APK) |
 | `disks[].r`, `disks[].w`, `disks[].busy` (v0.2.2) | byte/s lettura/scrittura e % tempo attivo per volume (PDH LogicalDisk); omessi se il volume non ha contatori (G:) |
 | `claude` (v0.2.1) | `today_tok` (input+output+cache_creation, senza cache_read), `today_out`, `today_cache_r`, `today_msgs`, `block_tok`, `block_start`/`block_end` (epoch, solo se il blocco di 5 h è aperto), `week_tok`, `models[{m,tok}]` (oggi, max 3), `scan_ts`; null senza `~/.claude/projects` o con `--no-claude` |
 
 Stato server: ✅ attività `Tab2Monitor` installata (all'accesso, elevata) · ✅ sensori CPU/scheda madre/
-ventole verificati con admin (vedi CHANGELOG v0.2.3) · ✅ v0.2.6 in servizio sulla 8090 (orfano chiuso
+ventole verificati con admin (vedi CHANGELOG v0.2.3) · ✅ indirizzi dal 2026-11-12: PC `192.168.1.239`, GT-P5100 `192.168.1.208` (prima `.237` e `.234`; `adb_ips` e URL dell'app aggiornati; ⏳ prenotazione DHCP sul router consigliata) · ✅ v0.4.2 in servizio (2026-11-17: rilancia Tab2Sensors se LHM non vede una GPU che Windows vede, es. dopo una sessione Desktop remoto) · ✅ v0.4.1 in servizio sulla 8090 (2026-11-12 15:52): attività "Tab2Monitor" a priorità 4, server e Tab2Sensors «sopra la norma»; prima la priorità 7 predefinita faceva bloccare il server quando Citrix `wfcrun32` occupava i 12 core. Abbinamenti ventola-temperatura stabili per nome dalla v0.3.8 · ✅ header ventola MI50 a piena velocita' nel BIOS (sicurezza a server fermo) · ✅ MI50 riattivata dall'utente (2026-11-12) e curva della ventola Fan #4 "MI 50" di nuovo sul suo "GPU Hot Spot" (`AMD Radeon Pro VII|GPU Hot Spot`, curva 40:5 → 85:100); verificato: a 70 °C ventola verso il 68% (controllo ventole CHANGELOG 28; account Claude e scala frequenza CHANGELOG 29) (versioni: dopo v0.3.9 passare a v0.4.0, il supervisore sceglie per ordine di nome) (orfano chiuso
 dall'utente) · ⏳ l'utente dà nomi e abbinamenti alle ventole dalla pagina `/config` · ⏳ APK: disegnare `sensors.pairs`
 (file della sessione impostazioni APK) · ✅ CPU del server ~3% di un core con admin (v0.2.6: processi da PDH;
 la causa era `psutil.process_iter`, non `GPU Engine`) · ⛔ avvio prima dell'accesso: il progetto sta su G: (Google
-Drive), montato solo dopo l'accesso. ⛔ `claude`: limiti di piano dell'account non disponibili: `.credentials.json` non contiene il login Claude (solo connettori MCP). ⛔ FanControl: vedi CHANGELOG v0.2.0.
+Drive), montato solo dopo l'accesso. ✅ `claude_plan` via oauth verificato dal vivo il 2026-10-23 (token ora presente); ripiego history di Claude Desktop. ⛔ FanControl: vedi CHANGELOG v0.2.0.
 
 ## Punti aperti
 - SensorService: ✅ risolto disattivando l'HAL (vedi tabella Stato). Scartate: patch binaria dell'HAL (rischiosa, da rifare a ogni flash) e conviverci (un core su due sprecato). Attenzione: un reflash della ROM ripristina l'HAL → rifare il rename.
@@ -232,6 +240,46 @@ Drive), montato solo dopo l'accesso. ⛔ `claude`: limiti di piano dell'account 
   dell'utente sulle opzioni (caricatore 2 A + presa smart comandata dall'app, oppure USB del PC + presenza).
   Ricerca hub/prese comandabili fatta: `RICERCA_HUB_USB_v0.1.0_20261022-0142.md` → raccomandata presa Shelly Plug S Gen3
   (~24 €, API HTTP locale) + caricatore Samsung; hub (YKUSH3 ecc.) sconsigliati. ⏳ Da provare sull'hardware, nessun acquisto fatto.
+  ✅ **Spegnimento verificato il 2026-10-22 ~13:45** (`dumpsys batterystats --history`): attaccato al **caricatore da muro**
+  (correzione dell'utente), ma il sistema lo vedeva come `plug=usb` (corrente da porta USB, ~500 mA) e non come `ac`;
+  stacchi/riattacchi brevi registrati (contatto del connettore 30 pin?). Dal 62% al 18% in ~2 h 50 min (circa −15%/h, temperatura fino a 36,8 °C), poi spento a **3,05 V con il 18% indicato**.
+  La batteria vecchia arriva al minimo di tensione prima che il fuel gauge segni 0%. Dopo lo spegnimento il PC lo vede
+  come "dispositivo non riconosciuto" finché non si ricarica. Riavviato col caricatore a muro (AC) e raggiunto in Wi-Fi.
+  ✅ Verificato alle 23:44 dopo un nuovo riavvio: anche con `plug=ac` la carica si ferma (`-charging`) 40 s dopo l'avvio
+  e il livello scende 67% → 61% in 20 min (schermo acceso luminoso, app con fotocamera attiva). La percentuale
+  **non è affidabile**: 18% allo spegnimento, 39% e 67% ai riavvii successivi con tensioni simili (3,64–3,78 V).
+  ✅ "Debug ADB in rete" si spegneva a ogni riavvio: risolto il 2026-10-23 con `persist.adb.tcp.port=5555`
+  (`android/adb_wifi_persist_v0.1.0_20261023-0930.sh`, provato con un riavvio). Rollback: script con `--off`.
+  ✅ **Analisi driver 2026-10-23 09:00** (caricatore da muro 3 A, notte intera attaccato: 67% → 13%, `plug=ac` tutta la notte):
+  - Kernel installato `3.0.101-g7f7a916c873` = ramo andi34 `3.0/common` (messaggio dmesg "1.8A for all power supplies,
+    html6405"): **imposta 1,8 A d'ingresso per qualsiasi caricatore**, anche se riconosciuto USB. Correzione: lo `plug=usb`
+    del 22/10 *non* limitava a 500 mA con questo kernel (il limite a 0,5 A c'è solo nel ramo `android-6.0`).
+  - Riconoscimento: ADC sulle linee dati del 30 pin, soglia 1150 → letto 2781 all'avvio e 1388 dopo il riattacco: AC.
+  - Registri SMB347 letti via I2C (bus 5, addr 0x06, sola lettura, `android/tools/smbdump_v0.1.0_20261023-0905.c`):
+    configurazione = quella del driver (00=DD carica 2,2 A, 01=66 ingresso 1,8 A, 31=03 modo HC), STAT_C=05 carica rapida
+    attiva, nessun errore, USBIN presente (39=10: solo DCIN assente, normale). Gestore batteria: timeout 10 h, blocco a 50 °C,
+    niente che fermi la carica a 3,3–3,6 V. **Nessun bug software trovato: il driver chiede la corrente giusta.**
+  - Corrente misurata (fuel gauge, `current_avg`): **−660…−800 mA a schermo acceso, +150 mA a schermo spento**: gli
+    stessi valori misurati sulla USB del PC il 22/10. In pratica dal caricatore arrivano ~0,5 A invece di 1,8 A.
+  - Causa più probabile (⚠️ non provata): perdita sul percorso di alimentazione (cavo generico / connettore 30 pin usurato,
+    tensione che crolla sotto carico) o caricatore che senza segnale Samsung eroga poco. Consumo alto dell'app
+    (luminosità massima, fotocamera presenza, schermo riacceso ogni pochi minuti).
+  - `fg_capacity` = 0x1bc9 … (prima voce ~3,5 Ah contro 7 Ah di progetto se è FullCap: batteria forse a metà, ⚠️ da confermare).
+  ✅ Altro caricatore provato il 2026-10-23 09:28 (stesso cavo): −615 mA acceso, +190 mA spento, uguale → **non è il caricatore**.
+  ⏳ Prove hardware: altro cavo (l'utente non ne ha), meglio Samsung originale; misuratore USB (tensione/corrente) tra caricatore e cavo;
+  pulizia dei contatti del connettore 30 pin.
+  ⏳ Lato app: luminosità più bassa e meno risvegli dello schermo quando la batteria è sotto una soglia.
+  Nota: `adb root` va rifatto dopo ogni riavvio; `/data/local/tmp/smbdump` lasciato sul tablet (solo lettura).
+- **Rotazione 180°** (APK v0.9.3): opzione manuale `flip180` ✅ provata (decisione utente 2026-10-22: "se non
+  abbiamo il sensore, opzione manuale"). Automatica ⛔ per ora: l'accelerometro si legge da
+  `/sys/class/sensors/accelerometer_sensor/raw_data` ma SELinux lo vieta alle app. Strade possibili, non fatte:
+  (a) il server legge il file via `adb shell` e lo passa nel JSON (solo con USB); (b) script di avvio in /system
+  che ne cambia l'etichetta SELinux (modifica di sistema, serve conferma).
+- **Limiti del piano Claude** (APK v0.9.6 ✅ dati in tempo reale via oauth dopo il login CLI dell'utente, 2026-10-23; ripiego: registro dell'app desktop): schema atteso dal server
+  `"claude_plan": {"plan": "Pro", "session": {"pct": 4, "reset": <epoch>}, "weekly": {"pct": 1, "reset": <epoch>}, "ts": <epoch>}`.
+  Lato server (v0.2.7): token OAuth di `~/.claude/.credentials.json` (autorizzato dall'utente, ma oggi assente: serve
+  `claude` + `/login` dalla CLI) e, come ripiego deciso dall'utente, `%APPDATA%\Claude\plan-usage-history.json`
+  dell'app desktop (percentuali senza reset, campioni irregolari). Il token dell'app desktop è cifrato DPAPI: ⛔ non usato.
 - **Installer** per altri PC/tablet: pianificato nella sessione dedicata «Piano installer Tab2Monitor»
   (2026-10-22): vedere il suo `PIANO_INSTALLER_*.md` quando pronto.
 - Nomi e abbinamenti delle ventole: decisi dall'utente nella pagina `http://localhost:8090/config`
@@ -250,23 +298,49 @@ Drive), montato solo dopo l'accesso. ⛔ `claude`: limiti di piano dell'account 
 - Sessione parallela «Sorgente dati Windows per Tab2Monitor» (server `windows/agent/`) aperta il
   2026-10-22: vincolo concordato = lo schema di `/api/metrics` si può solo estendere.
 
-## Installer per altri PC e altri tablet (2026-10-22, branch `installer-tab2monitor`)
-Sessione «Piano installer Tab2Monitor». Piano e stato: `PIANO_INSTALLER_v0.2.0_20261022-0545.md`
-(storico: v0.1.0), manuale operativo: `RUNBOOK_INSTALLER_v0.1.0_20261022-0545.md`. Lavoro nel worktree
-`../tab2revamp-installer`, **branch `installer-tab2monitor`**: il branch principale non è toccato
-(richiesta utente 2026-10-22).
-| Voce | Stato |
+## Installer per altri PC e altri tablet (branch `installer-tab2monitor`, aggiornato 2026-11-19)
+Sessione «Piano installer Tab2Monitor». Piano e stato: `PIANO_INSTALLER_v0.3.0_20261119-0900.md`; manuale
+operativo: `RUNBOOK_INSTALLER_v0.2.0_20261119-0900.md`. Lavoro nel worktree `../tab2revamp-installer`,
+**branch `installer-tab2monitor`**: il branch principale non è toccato (richiesta utente 2026-10-22); il
+2026-11-19 il branch principale (fino a `4ce1807`) è stato unito nel branch installer.
+| Voce | Stato (2026-11-19) |
 |---|---|
-| Decisioni utente (altre persone, portabile, avvio a scelta, PawnIO proposto, Wi‑Fi + scoperta, solo firewall, Claude spento, anche inglese) | ✅ applicate |
-| Server v0.3.0 (config.json, cartella dati, scoperta UDP 8090, `/api/info`, `/apk`) + supervisore v0.3.0 | ✅ provati da pacchetto estratto (porta 8190) |
-| APK v0.10.0 (minSdk 21, scoperta, IT/EN, Home dall'app) | ✅ emulatori Android 5.0 e 14 · ⏳ scoperta su tablet reale |
-| Pacchetto portabile (Python embeddable + psutil, sensori LHM, APK), Setup, installazione tablet | ✅ costruito e provato senza admin · ⏳ parti con UAC solo `-DryRun` |
+| Decisioni utente (altre persone, portabile, avvio a scelta, PawnIO proposto, Wi‑Fi + ricerca, solo firewall, Claude spento, anche inglese) | ✅ applicate; inglese solo negli script/README (APK v0.12.0 solo italiano ⏳) |
+| Pacchetto **0.2.0**: server v0.4.4 (= v0.4.3 + `--data`, `config.json`, `/apk`, `/api/info`, log nella cartella dati, `adb_ips` vuoto su PC nuovo) + supervisore v0.3.0 + APK v0.12.0 + Python embeddable 3.13.15/psutil 7.2.2 + LHM 0.9.6 ufficiale | ✅ costruito (`%LOCALAPPDATA%\Tab2Monitor-build\dist\Tab2Monitor_v0.2.0.zip`, 12,9 MB) e provato estratto (porta 8190) |
+| Ricerca automatica: protocollo del branch principale, UDP 8091, firewall TCP 8090 + UDP 8091 | ✅ server; ⏳ su un altro PC con tablet in Wi‑Fi |
+| Setup v0.2.0 (priorità 4, firewall) | ✅ `-DryRun` · ⏳ esecuzione con UAC |
+| Confronto con l'installer del fork (2026-11-19) | ✅ il pacchetto copre supervisore, dipendenze, `config.json` letto davvero, UDP 8091; preso dal fork solo il testo del LEGGIMI sulle tre modalità di collegamento |
+| APK v0.10.0 del branch installer (minSdk 21, IT/EN, Home dall'app) | ⛔ ritirata (protocollo diverso); funzioni proposte per la v0.12.x alla sessione APK ⏳ |
 | Chiave di firma di release | ⏳ decisione utente (proposta: chiave di debug attuale con password nuova, nessuna reinstallazione) |
-| Unione nel branch principale | ⏳ da concordare con le sessioni «Sorgente dati Windows» (server) e APK (stessi file) |
+| Unione nel branch principale | ⏳ da concordare con «Sorgente dati Windows»: il supervisore v0.2.0 dell'attività `Tab2Monitor` sceglierebbe il server v0.4.4 (senza `--data` si comporta come la v0.4.3) |
 Decisioni di *non* fare: Inno Setup/MSI (⏸️/⛔: il pacchetto portabile copre la richiesta), token di
 abbinamento (⛔ scelta utente: basta il firewall), PawnIO nel pacchetto (⛔ licenza dell'installer non
 dichiarata: lo scarica il Setup con verifica SHA256 + firma), QR code (⏸️), targetSdk recente (⏸️),
-pacchetto costruito dentro Google Drive (⛔ Drive blocca `python.exe`).
+pacchetto costruito dentro Google Drive (⛔ Drive blocca `python.exe`), eseguire l'installer del fork (⛔
+cancella e ricrea l'attività `Tab2Monitor` di questo PC), sensori `-mi50` nel pacchetto (⛔ build di prova di
+una PR, solo per questo PC), domanda della porta nel wizard (⛔ si cambia in `data\config.json`).
+
+### Storia di questa sezione
+- 2026-10-22 (v0.1.16): pacchetto 0.1.0 con server v0.3.0 (ricerca UDP sulla porta HTTP 8090, chiave `ver`)
+  e APK v0.10.0 del branch installer (minSdk 21, IT/EN, Home dall'app); provati su emulatori API 21 e 34;
+  firewall TCP+UDP 8090. Testo della sezione di allora:
+  > ## Installer per altri PC e altri tablet (2026-10-22, branch `installer-tab2monitor`)
+  > Sessione «Piano installer Tab2Monitor». Piano e stato: `PIANO_INSTALLER_v0.2.0_20261022-0545.md`
+  > (storico: v0.1.0), manuale operativo: `RUNBOOK_INSTALLER_v0.1.0_20261022-0545.md`. Lavoro nel worktree
+  > `../tab2revamp-installer`, **branch `installer-tab2monitor`**: il branch principale non è toccato
+  > (richiesta utente 2026-10-22).
+  > | Voce | Stato |
+  > |---|---|
+  > | Decisioni utente (altre persone, portabile, avvio a scelta, PawnIO proposto, Wi‑Fi + scoperta, solo firewall, Claude spento, anche inglese) | ✅ applicate |
+  > | Server v0.3.0 (config.json, cartella dati, scoperta UDP 8090, `/api/info`, `/apk`) + supervisore v0.3.0 | ✅ provati da pacchetto estratto (porta 8190) |
+  > | APK v0.10.0 (minSdk 21, scoperta, IT/EN, Home dall'app) | ✅ emulatori Android 5.0 e 14 · ⏳ scoperta su tablet reale |
+  > | Pacchetto portabile (Python embeddable + psutil, sensori LHM, APK), Setup, installazione tablet | ✅ costruito e provato senza admin · ⏳ parti con UAC solo `-DryRun` |
+  > | Chiave di firma di release | ⏳ decisione utente (proposta: chiave di debug attuale con password nuova, nessuna reinstallazione) |
+  > | Unione nel branch principale | ⏳ da concordare con le sessioni «Sorgente dati Windows» (server) e APK (stessi file) |
+  > Decisioni di *non* fare: Inno Setup/MSI (⏸️/⛔: il pacchetto portabile copre la richiesta), token di
+  > abbinamento (⛔ scelta utente: basta il firewall), PawnIO nel pacchetto (⛔ licenza dell'installer non
+  > dichiarata: lo scarica il Setup con verifica SHA256 + firma), QR code (⏸️), targetSdk recente (⏸️),
+  > pacchetto costruito dentro Google Drive (⛔ Drive blocca `python.exe`).
 
 ## Handoff sessione locale (v0.1.1 — 2026-10-21 19:05 UTC)
 La sessione cloud non può raggiungere il PC/USB: la sessione locale va avviata dall'utente.

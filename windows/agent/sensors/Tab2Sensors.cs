@@ -1,6 +1,22 @@
 // =============================================================================
 // Tab2Sensors - lettore sensori per il server Tab2Monitor
-// Versione: v0.1.0 - 2026-10-22 00:40 (ora locale)
+// Versione: v0.2.1 - 2026-11-06 09:45 (ora locale)
+// v0.2.1: FAILSAFE <id> <pct>: valore da lasciare sul canale se il server si ferma. Dopo il
+//         surriscaldamento della MI50 (scheda passiva, ventola su header della scheda madre,
+//         server fermo -> curva Q-Fan che non conosce la sua temperatura) a stdin chiuso e col
+//         watchdog i canali con FAILSAFE restano in manuale a quel valore, e si esce SENZA
+//         pc.Close() (che rimetterebbe il BIOS): il registro del chip tiene il valore fino al
+//         riavvio del PC o al ritorno del server. Canali senza FAILSAFE: BIOS, come prima.
+// v0.2.0: CONTROLLO VENTOLE. Comandi su stdin, una riga ciascuno:
+//           SET <SensorId del controllo> <percentuale 0-100>
+//           AUTO <SensorId del controllo>      (torna alla curva del BIOS)
+//           AUTOALL                            (tutte le ventole al BIOS)
+//         I controlli in modo software sono nel JSON con "Mode":"Software".
+//         Sicurezze: (1) watchdog: se per WATCHDOG_S secondi non arriva nessun SET
+//         (server bloccato) tutte le ventole tornano al BIOS; (2) alla chiusura dello
+//         stdin (server terminato) e all'uscita del processo: SetDefault + Close.
+//         I comandi si eseguono nel ciclo principale (stesso thread di Update).
+// v0.1.0 - 2026-10-22 00:40: solo lettura.
 // Progetto: Tab2revamp
 // =============================================================================
 // Cosa fa: usa direttamente LibreHardwareMonitorLib.dll (nessuna finestra LHM,
@@ -12,12 +28,13 @@
 // senza admin legge comunque cio' che non serve il driver (es. GPU AMD via ADL).
 //
 // Build (nessun download: compilatore C# del .NET Framework di Windows):
-//   bash windows/agent/sensors/build_tab2sensors_v0.1.0_20261022-0040.sh
+//   bash windows/agent/sensors/build_tab2sensors_v0.2.0_20261028-1200.sh
 // Uso: Tab2Sensors.exe [intervallo_ms]     (default 2000)
 // Nota: versione solo in testa al file (come i sorgenti Java dell'APK); il nome
 // dell'exe resta fisso perche' lo cerca il server.
 // =============================================================================
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
@@ -27,12 +44,20 @@ using LibreHardwareMonitor.Hardware;
 class Tab2Sensors
 {
     static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
+    const int WATCHDOG_S = 20;                         // v0.2.0: senza SET per 20 s -> BIOS
+    static readonly ConcurrentQueue<string> Cmds = new ConcurrentQueue<string>();
+    static readonly Dictionary<string, IControl> Controls = new Dictionary<string, IControl>();
+    static readonly HashSet<string> Owned = new HashSet<string>();   // controlli messi in Software da noi
+    static readonly Dictionary<string, float> Failsafe = new Dictionary<string, float>();   // v0.2.1
+    static DateTime lastSet = DateTime.UtcNow;
+    static volatile bool stdinClosed;
+    static Computer pc;
 
     static void Main(string[] args)
     {
         int ms = 2000;
         if (args.Length > 0) int.TryParse(args[0], out ms);
-        var pc = new Computer
+        pc = new Computer
         {
             IsCpuEnabled = true, IsGpuEnabled = true, IsMotherboardEnabled = true,
             IsControllerEnabled = true, IsStorageEnabled = true, IsMemoryEnabled = true,
@@ -41,12 +66,33 @@ class Tab2Sensors
         Console.OutputEncoding = new UTF8Encoding(false);
         pc.Open();
         Console.Out.Flush();
-        // Esce quando il server Python chiude lo stdin (processo padre terminato)
-        var watcher = new Thread(() => { try { Console.In.ReadToEnd(); } catch { } Environment.Exit(0); });
+        // 2026-10-22 v0.1.0 (sostituito): lo stdin si leggeva solo per sapere quando uscire
+        //   var watcher = new Thread(() => { try { Console.In.ReadToEnd(); } catch { } Environment.Exit(0); });
+        // v0.2.0: lo stdin porta i comandi delle ventole; a EOF (server terminato) si
+        // rimettono le ventole al BIOS e si esce dal ciclo principale.
+        var watcher = new Thread(() =>
+        {
+            try { string l; while ((l = Console.In.ReadLine()) != null) Cmds.Enqueue(l.Trim()); } catch { }
+            stdinClosed = true;
+        });
         watcher.IsBackground = true;
         watcher.Start();
+        AppDomain.CurrentDomain.ProcessExit += (o, e) => SafeStop();
+        DateTime nextOut = DateTime.UtcNow;
         while (true)
         {
+            // --- comandi e sicurezze (ogni 100 ms) ---
+            // 2026-10-28 v0.2.0 (sostituito): if (stdinClosed) { RestoreAll(); try { pc.Close(); } catch { } return; }
+            if (stdinClosed) { if (!SafeStop()) { try { pc.Close(); } catch { } } return; }
+            string cmd;
+            while (Cmds.TryDequeue(out cmd)) Exec(cmd);
+            if (Owned.Count > 0 && (DateTime.UtcNow - lastSet).TotalSeconds > WATCHDOG_S)
+            {
+                Console.Error.WriteLine("watchdog: nessun comando da " + WATCHDOG_S + " s");
+                SafeStop();
+            }
+            if (DateTime.UtcNow < nextOut) { Thread.Sleep(100); continue; }
+            nextOut = DateTime.UtcNow.AddMilliseconds(ms);
             var sb = new StringBuilder(16384);
             sb.Append("{\"Text\":\"Sensor\",\"Children\":[{\"Text\":");
             Str(sb, Environment.MachineName);
@@ -60,8 +106,79 @@ class Tab2Sensors
             }
             sb.Append("]}]}");
             try { Console.Out.WriteLine(sb.ToString()); Console.Out.Flush(); }
-            catch { return; }                       // pipe chiusa: il server e' terminato
-            Thread.Sleep(ms);
+            catch { SafeStop(); return; }           // pipe chiusa: il server e' terminato
+            // 2026-10-22 v0.1.0 (sostituito): Thread.Sleep(ms);
+        }
+    }
+
+    // v0.2.0: esegue un comando ventole. Valori fuori dai limiti del controllo vengono
+    // riportati dentro (MinSoftwareValue..MaxSoftwareValue).
+    static void Exec(string line)
+    {
+        lock (Owned) try
+        {
+            var p = line.Split(' ');
+            if (p[0] == "AUTOALL") { RestoreAll(); return; }
+            IControl c;
+            if (p.Length < 2 || !Controls.TryGetValue(p[1], out c)) return;
+            if (p[0] == "FAILSAFE" && p.Length >= 3)
+            {
+                float f;
+                if (float.TryParse(p[2], NumberStyles.Float, Inv, out f)) Failsafe[p[1]] = f;
+            }
+            else if (p[0] == "SET" && p.Length >= 3)
+            {
+                float v;
+                if (!float.TryParse(p[2], NumberStyles.Float, Inv, out v)) return;
+                v = Math.Max(c.MinSoftwareValue, Math.Min(c.MaxSoftwareValue, v));
+                c.SetSoftware(v);
+                Owned.Add(p[1]);
+                lastSet = DateTime.UtcNow;
+            }
+            else if (p[0] == "AUTO")
+            {
+                c.SetDefault();
+                Owned.Remove(p[1]);
+                Failsafe.Remove(p[1]);
+            }
+        }
+        catch (Exception e) { Console.Error.WriteLine("comando '" + line + "': " + e.Message); }
+    }
+
+    // v0.2.1: server fermo: canali con FAILSAFE al loro valore, gli altri al BIOS.
+    // true = almeno un canale tenuto in manuale (allora niente pc.Close()).
+    static bool SafeStop()
+    {
+        bool held = false;
+        lock (Owned)
+        {
+            foreach (var id in new List<string>(Owned))
+            {
+                IControl c;
+                float f;
+                if (!Controls.TryGetValue(id, out c)) continue;
+                try
+                {
+                    if (Failsafe.TryGetValue(id, out f)) { c.SetSoftware(f); held = true; }
+                    else c.SetDefault();
+                }
+                catch { }
+            }
+            Owned.Clear();
+        }
+        return held;
+    }
+
+    static void RestoreAll()
+    {
+        lock (Owned)
+        {
+            foreach (var id in new List<string>(Owned))
+            {
+                IControl c;
+                if (Controls.TryGetValue(id, out c)) { try { c.SetDefault(); } catch { } }
+            }
+            Owned.Clear();
         }
     }
 
@@ -107,6 +224,12 @@ class Tab2Sensors
                 Str(sb, s.SensorType.ToString());
                 sb.Append(",\"SensorId\":");
                 Str(sb, s.Identifier.ToString());
+                if (s.Control != null)                   // v0.2.0: controllo ventola
+                {
+                    Controls[s.Identifier.ToString()] = s.Control;
+                    sb.Append(",\"Mode\":");
+                    Str(sb, s.Control.ControlMode.ToString());
+                }
                 sb.Append(",\"Value\":");
                 Str(sb, s.Value.HasValue ? s.Value.Value.ToString("0.0", Inv) + " " + Unit(s.SensorType) : "");
                 sb.Append(",\"Children\":[]}");
