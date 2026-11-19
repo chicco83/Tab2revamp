@@ -105,6 +105,19 @@ Versione documento: v0.1.19 — 2026-11-19 09:00 (ora del PC, branch installer-t
 - ✅ Verificato con screenshot sul GT-P5100 (ora `192.168.1.208`): GPU 2 mostra GPU Core, GPU Memory, GPU Hot Spot.
 - **Rollback:** reinstallare `dist/Tab2Monitor_v0.11.0.apk` oppure `git checkout 07a6c10 -- android/tab2monitor_app/src/it/tab2revamp/monitor/MainActivity.java` e ricompilare con lo script v0.11.0.
 
+## 40. v0.4.5 server Windows — 2026-11-19 09:10 (sessione «Sorgente dati Windows»)
+- **Chiarimento dell'utente sulla voce 39:** Fan #4 «MI 50» oggi non e' usata; la ventola della MI50 e' su **Fan #3**, collegata **senza filo del contagiri**: i 0 giri sono normali.
+  Le temperature alte erano dovute al carico: alle 09:07 la MI50 era al 100% di carico con Hot Spot 84 °C e Fan #3 al 94% secondo la sua curva (45:0, 60:45, 75:75, 80:90, 90:100 su «GPU Hot Spot» della MI50).
+- **Controllo a freddo della v0.4.4** (sessione APK, pacchetto portabile): diff letta; avviata a parte su porta 8095 senza sensori/adb/UDP: senza `--data` usa la stessa cartella e lo stesso `fan_config.json`
+  (`adb_ips` `["192.168.1.208"]`, 7 voci ventole), `/api/info` e `/api/metrics` rispondono, nessun errore all'avvio.
+- **v0.4.5 = v0.4.4 + correzione:** prima del rilancio programmato di Tab2Sensors (GPU non vista da LHM, aggiunto nella v0.4.2) il server manda `AUTOALL`, aspetta 1 s e poi chiude il lettore;
+  il nuovo lettore legge cosi' il registro del BIOS e non l'ultimo valore manuale, che altrimenti diventerebbe il «default» rimesso a server fermo. Non copre crash o blocco del lettore.
+- ✅ In servizio e verificata: `v0.4.5`, sensori `lib`, MI50 con 4 sensori, 2 ventole controllate, tablet `192.168.1.208` rete ok, UDP 8091 risponde. ⏳ Il percorso AUTOALL→rilancio non e' stato visto scattare dal vivo.
+- ⚠️ Registri all'avvio uguali in due avvii (08:19 e 09:10): Fan #3 17,6%, Fan #4 34,5%. Valori fissi: probabilmente valori manuali rimasti dalla catena di rilanci, non la curva del BIOS.
+  ⏳ Consigliato all'utente: riavvio del PC (il BIOS riscrive i registri) e **header Fan #3 a piena velocita' nel BIOS**, come fatto il 2026-11-06 per Fan #4, perche' ora la MI50 dipende da Fan #3.
+- Correzione alla voce 39: «Fan #4 era stata impostata a piena velocita' nel BIOS» resta vero, ma la ventola della MI50 oggi e' su Fan #3.
+- Rollback: `git rm windows/agent/tab2monitor_server_v0.4.5_20261119-1100.py` e riavvio del servizio (parte la v0.4.4).
+
 ## 39. v0.4.3 in servizio — 2026-11-19 08:20 (sessione «Sorgente dati Windows», su richiesta della sessione APK)
 - File `windows/agent/tab2monitor_server_v0.4.3_20261119-1000.py` scritto dalla sessione APK (commit b03acdd): la v0.4.2 piu' un thread UDP sulla porta 8091 che risponde a `TAB2MON?`
   con `{"app":"tab2monitor","name","port","version"}`. Differenza con la v0.4.2 letta prima del riavvio: solo quel thread e la versione.
