@@ -50,6 +50,13 @@ Versione documento: v0.1.19 — 2026-11-19 09:00 (ora del PC, branch installer-t
 - **Rollback**: il branch principale non cambia. Nel worktree del branch installer `git reset --hard 2d2fc0b`
   (poi `git push --force-with-lease`) torna al pacchetto 0.1.0; i file v0.1.0 degli script restano comunque.
 
+## 43. Release pubblica v0.12.0 — 2026-11-19
+- **Pubblicata** su GitHub (repository pubblico `chicco83/Tab2revamp`): https://github.com/chicco83/Tab2revamp/releases/tag/v0.12.0, tag `v0.12.0` sul commit `77d0053`.
+- **Contenuto:** `Tab2Monitor_v0.12.0.apk` (SHA-256 `023a5aa1...786e5`), `Tab2Monitor_portable_Windows_v0.2.0.zip` (pacchetto portabile 0.2.0: Python incluso, server v0.4.4, sensori LHM 0.9.6, APK; SHA-256 `ba6133a9...074ee`), `SHA256SUMS.txt`. Il pacchetto e' stato ricostruito dal repository unito prima della pubblicazione (`build_portable_v0.2.0_20261119-0900.ps1`).
+- **Controllo privacy prima di pubblicare:** nessun nome utente, chiave o password nel pacchetto ne' nell'APK; solo indirizzi di rete locale `192.168.1.x` in commenti, esempi e come suggerimento nel campo URL (gia' presenti nel repository pubblico).
+- **Non provato (scritto nelle note della release):** Setup con amministratore e pacchetto su un altro PC con tablet in Wi-Fi.
+- **Rollback:** `gh release delete v0.12.0 --cleanup-tag` (toglie release e tag).
+
 ## 42. Ricerca automatica del server: APK v0.12.0 + server v0.4.3 — 2026-11-19
 - **Problema:** l'app non trovava il server dopo un cambio di IP del DHCP (PC passato da `192.168.1.237` a `.239` e di nuovo a `.237`; tablet da `.234` a `.208`), perche' l'URL Wi-Fi era scritto a mano.
 - **Origine:** un'altra IA (fork in `Desktop	ab pc monitor`, documento `CONTEXT_REVISIONE_v0.1.0_20261112-2045.md`) ha proposto la ricerca UDP.
