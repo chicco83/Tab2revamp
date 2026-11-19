@@ -61,6 +61,17 @@ Versione documento: v0.1.14 — 2026-10-22 01:35 (ora del PC)
 - ✅ Verificato con screenshot sul GT-P5100 (ora `192.168.1.208`): GPU 2 mostra GPU Core, GPU Memory, GPU Hot Spot.
 - **Rollback:** reinstallare `dist/Tab2Monitor_v0.11.0.apk` oppure `git checkout 07a6c10 -- android/tab2monitor_app/src/it/tab2revamp/monitor/MainActivity.java` e ricompilare con lo script v0.11.0.
 
+## 39. v0.4.3 in servizio — 2026-11-19 08:20 (sessione «Sorgente dati Windows», su richiesta della sessione APK)
+- File `windows/agent/tab2monitor_server_v0.4.3_20261119-1000.py` scritto dalla sessione APK (commit b03acdd): la v0.4.2 piu' un thread UDP sulla porta 8091 che risponde a `TAB2MON?`
+  con `{"app":"tab2monitor","name","port","version"}`. Differenza con la v0.4.2 letta prima del riavvio: solo quel thread e la versione.
+- ✅ Verificato: log «ricerca automatica UDP in ascolto sulla porta 8091»; `/api/metrics` con `v0.4.3`; risposta UDP in unicast (127.0.0.1) e in broadcast (`192.168.1.255` → risposta da `192.168.1.237`);
+  MI50 con 4 sensori in LHM; tablet `192.168.1.208` collegato via Wi-Fi alla porta 8090; `srv.adb` = rete ok. IP del PC oggi `192.168.1.237`.
+- ⚠️ **Trovato al riavvio (da verificare a mano dall'utente):** le due ventole in curva sulla MI50, Fan #3 (curva 45:0 → 90:100) e Fan #4 «MI 50» (40:5 → 75:100), sono comandate al 100% ma leggono **0 giri**;
+  la MI50 e' a 88–90 °C di Hot Spot quasi a vuoto (il 2026-11-17 Fan #4 leggeva 1262 giri e la MI50 65 °C). Le altre ventole leggono normalmente.
+- ⚠️ **Registro trovato all'avvio:** Fan #3 17,6% e Fan #4 34,5% in modo `bios`, mentre il BIOS di Fan #4 era stato impostato dall'utente a piena velocita' (verificato al 100% il 2026-11-06).
+  Spiegazione probabile (gia' provata il 2026-11-06 su Fan #6): un Tab2Sensors rilanciato mentre la ventola e' in manuale salva quel valore come «default» del BIOS e lo rimette alla chiusura;
+  con la v0.4.2 i rilanci automatici sono piu' frequenti. Quindi a server fermo la ventola della MI50 puo' restare a un valore basso invece di andare al 100% del BIOS.
+
 ## 38. v0.4.2 server Windows — 2026-11-17 15:00 (sessione «Sorgente dati Windows»): MI50 con la sola temperatura «GPU»
 - **Sintomo (utente):** per la MI50 si vedeva di nuovo solo la temperatura della GPU.
 - **Causa (misurata):** il Tab2Sensors del servizio, avviato alle 14:43 mentre l'utente era collegato in Desktop remoto (sessione `rdp-tcp#0`; Windows elencava una
