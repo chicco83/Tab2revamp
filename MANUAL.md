@@ -249,6 +249,13 @@ Con `-home` l'app diventa anche la schermata Home (kiosk); `-nohome` la toglie.
   `$s=(Get-ScheduledTask -TaskName Tab2Monitor).Settings; $s.Priority=4; Set-ScheduledTask -TaskName Tab2Monitor -Settings $s`, poi
   `schtasks /End /TN Tab2Monitor` e `schtasks /Run /TN Tab2Monitor`.
 
+## Pagine e modalita' «Modifica layout» (APK v0.13.0, 2026-11-19)
+- Ogni blocco (CPU, Core, Storico 60 s, RAM, GPU, Rete, Dischi, Top processi, Claude, Sensori) sta su una pagina (max 5) e in una colonna (max 3).
+- **Dalle impostazioni:** sezione «Pagine: dove sta ogni blocco», un menu per blocco; «Ripristina il layout predefinito».
+- **Sul tablet:** Impostazioni -> «Modifica layout sul tablet». Trascinare una tessera su una scheda pagina (cambia pagina), in una colonna (riordina) o sulla striscia verde a destra (nuova colonna); un tocco nasconde/mostra il blocco. Fine salva, Annulla/Indietro scarta, Predefinito ripristina.
+- **adb:** `am start -n it.tab2revamp.monitor/.MainActivity --ez edit_layout true`; `--es layout default` ripristina (il vecchio `am` non accetta valori vuoti).
+- Storico: prima della v0.13.0 l'organizzazione (pagina 1 sistema+GPU, pagina 2 Claude+sensori) era fissa nel codice; ora e' quella predefinita.
+
 ## Storico modifiche (sezione server Windows)
 - 2026-11-12: installer `install_tab2monitor_service_v0.2.1_20261112-1510` al posto della v0.2.0 (2026-10-22). Prima: attività con la priorità
   predefinita 7, sotto la norma. Ora: priorità 4. Perché: con Citrix Workspace al 100% su tutti i core il server non riceveva CPU e non rispondeva.

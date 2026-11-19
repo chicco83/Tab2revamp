@@ -170,6 +170,11 @@ dall'utente) · ⏳ l'utente dà nomi e abbinamenti alle ventole dalla pagina `/
 la causa era `psutil.process_iter`, non `GPU Engine`) · ⛔ avvio prima dell'accesso: il progetto sta su G: (Google
 Drive), montato solo dopo l'accesso. ✅ `claude_plan` via oauth verificato dal vivo il 2026-10-23 (token ora presente); ripiego history di Claude Desktop. ⛔ FanControl: vedi CHANGELOG v0.2.0.
 
+## Layout configurabile (APK v0.13.0, 2026-11-19)
+- ✅ `Layout.java` (pagine -> colonne -> blocchi, JSON in pref `layout`, auto-riparazione), editor trascinabile in `MonitorView` (`edit`, `drawEditor`, `editTouch`, `dropAt`), menu per blocco in `SettingsActivity`, extra adb `edit_layout` / `layout`. Provato sul tablet .208; layout predefinito ripristinato. Prima: `PAGES` fisso nel codice (ora `PAGES_OLD`, solo storia).
+- Ids blocchi: 0 CPU, 1 Core, 2 Storico, 3 RAM, 4 GPU, 6 Rete, 7 Dischi, 8 Top processi, 9 Claude, 11 Sensori (5 e 10 = interruttori righe dentro Sensori). Colonna con Sensori = larghezza doppia.
+- Rollback: reinstallare APK v0.12.0 o `git checkout db609ca -- android/tab2monitor_app/src/it/tab2revamp/monitor/` + cancellare `Layout.java`.
+
 ## Punti aperti
 - SensorService: ✅ risolto disattivando l'HAL (vedi tabella Stato). Scartate: patch binaria dell'HAL (rischiosa, da rifare a ogni flash) e conviverci (un core su due sprecato). Attenzione: un reflash della ROM ripristina l'HAL → rifare il rename.
 - `adb reverse` va rifatto a ogni riavvio del tablet: con l'APK non è più bloccante (ripiego Wi‑Fi).

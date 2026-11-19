@@ -1,5 +1,7 @@
 // =============================================================================
 // Tab2Monitor - SettingsActivity (pannello impostazioni)
+// Versione: v0.13.0 - 2026-11-19 12:00
+//   v0.13.0: sezione 'Pagine': pagina di ogni blocco (menu) e pulsante 'Modifica layout sul tablet'
 // Versione: v0.12.0 - 2026-11-19 10:00
 //   v0.12.0: pulsante 'Cerca il PC in rete' sotto l'URL Wi-Fi (UDP broadcast, vedi MainActivity.Poller.discover)
 //   v0.11.0: tolte le due opzioni 'Pagina GPU' (soglia di carico e secondi)
@@ -38,11 +40,14 @@ import android.os.Bundle;
 import android.text.InputType;
 import android.util.TypedValue;
 import android.view.View;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
+import android.widget.Spinner;
 import android.widget.Switch;
 import android.widget.TextView;
 
@@ -100,6 +105,50 @@ public class SettingsActivity extends Activity {
         header("Pannelli della dashboard");
         for (int i = 0; i < MonitorView.PANEL_KEYS.length; i++)
             toggle(MonitorView.PANEL_KEYS[i], MonitorView.PANEL_LABELS[i]);
+
+        // v0.13.0: pagina di ogni blocco. Spostare un blocco lo mette in una colonna della pagina scelta;
+        // per decidere anche colonna e posizione: "Modifica layout sul tablet".
+        header("Pagine: dove sta ogni blocco");
+        final Layout cur = Layout.parse(prefs.getString("layout", ""));
+        final String[] pageOpts = new String[Layout.MAX_PAGES];
+        for (int q = 0; q < pageOpts.length; q++) pageOpts[q] = "Pagina " + (q + 1);
+        for (final int id : Layout.allBlocks()) {
+            label(Layout.BLOCK_NAMES[id] + (id == Layout.BOXES ? "  (temperature e ventole)" : ""));
+            Spinner sp = new Spinner(this);
+            sp.setAdapter(new ArrayAdapter<String>(this, android.R.layout.simple_spinner_dropdown_item, pageOpts));
+            sp.setSelection(Math.max(0, cur.pageOf(id)));
+            sp.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+                public void onItemSelected(AdapterView<?> a, View v, int pos, long rid) {
+                    Layout l = Layout.parse(prefs.getString("layout", ""));
+                    int target = Math.min(pos, l.pages.length);      // una pagina oltre l'ultima = pagina nuova
+                    if (l.pageOf(id) == target) return;               // anche la selezione iniziale del menu
+                    l.names = null;
+                    l.moveToPage(id, target);
+                    l.trim();
+                    prefs.edit().putString("layout", l.toJson()).apply();
+                }
+                public void onNothingSelected(AdapterView<?> a) { }
+            });
+            ll.addView(sp);
+        }
+        Button editLay = new Button(this);
+        editLay.setText("Modifica layout sul tablet (trascina i blocchi)");
+        editLay.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                prefs.edit().putBoolean("edit_layout", true).apply();
+                finish();                                            // MainActivity.onResume apre l'editor
+            }
+        });
+        ll.addView(editLay);
+        Button resetLay = new Button(this);
+        resetLay.setText("Ripristina il layout predefinito");
+        resetLay.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                prefs.edit().remove("layout").apply();
+                finish();
+            }
+        });
+        ll.addView(resetLay);
 
         header("Generale");
         toggle("autostart", "Avvio automatico all'accensione del tablet");

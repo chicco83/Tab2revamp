@@ -1,5 +1,8 @@
 // =============================================================================
 // Tab2Monitor - MainActivity + thread di polling
+// Versione: v0.13.0 - 2026-11-19 12:00
+//   v0.13.0: layout delle pagine salvato in "layout" (vedi Layout.java); preferenza "edit_layout" (impostata
+//            da SettingsActivity) apre la modalita' "Modifica layout"; Indietro la annulla
 // Versione: v0.12.0 - 2026-11-19 10:00
 //   v0.12.0: ricerca automatica del PC in rete (UDP broadcast, porta 8091): se il server non risponde per ~9 s
 //            il Poller lo cerca da solo, aggiorna wifi_url e riprende (IP cambiato dal DHCP)
@@ -169,6 +172,9 @@ public class MainActivity extends Activity {
         if (i == null) return;
         SharedPreferences.Editor e = prefs.edit();
         if (i.hasExtra("url")) e.putString("wifi_url", trimUrl(i.getStringExtra("url")));
+        if (i.hasExtra("edit_layout")) e.putBoolean("edit_layout", i.getBooleanExtra("edit_layout", false));   // v0.13.0: "am start --ez edit_layout true"
+        // "--es layout default" ripristina il layout di fabbrica (il vecchio `am` non accetta valori vuoti); altro = JSON del layout
+        if (i.hasExtra("layout")) { String lj = i.getStringExtra("layout"); if (lj == null || lj.length() == 0 || lj.equals("default")) e.remove("layout"); else e.putString("layout", lj); }
         if (i.hasExtra("poll_ms")) e.putInt("poll_ms", Math.max(500, i.getIntExtra("poll_ms", 1000)));
         if (i.hasExtra("page_sec")) e.putInt("page_sec", Math.max(0, i.getIntExtra("page_sec", DEF_PAGE_SEC)));
         if (i.hasExtra("presence_off_sec")) e.putInt("presence_off_sec", Math.max(10, i.getIntExtra("presence_off_sec", 120)));   // v0.6.0
@@ -199,6 +205,10 @@ public class MainActivity extends Activity {
         rotH.removeCallbacks(rotTick); rotH.postDelayed(rotTick, 700);   // v0.9.3
         hideBars();
         restartPoller();
+        if (prefs.getBoolean("edit_layout", false)) {                   // v0.13.0: richiesto dalle impostazioni
+            prefs.edit().putBoolean("edit_layout", false).apply();
+            view.setEdit(true);
+        }
         // v0.6.0: servizio di presenza acceso/spento secondo l'opzione (serve il permesso CAMERA)
         // v0.8.0: il servizio serve per la presenza (con permesso CAMERA) oppure per gli allarmi.
         // Versione v0.6.0: solo presence && CAMERA
@@ -311,6 +321,12 @@ public class MainActivity extends Activity {
                 | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN);
     }
 
+    @Override
+    public void onBackPressed() {                                       // v0.13.0: Indietro annulla la modifica del layout
+        if (view.isEditing()) { view.setEdit(false); return; }
+        super.onBackPressed();
+    }
+
     private void restartPoller() {
         stopPoller();
         // 2026-10-22 v0.2.0: ogni sorgente si puo' spegnere dal pannello impostazioni.
@@ -327,6 +343,7 @@ public class MainActivity extends Activity {
         // 2026-10-22 v0.4.0 (era: view.setConfig(urls, on);)
         view.setAnim(prefs.getBoolean("anim_smooth", true), prefs.getInt("poll_ms", 1000));   // v0.9.0
         view.setGaugeCheck(prefs.getBoolean("gauge_check", true));
+        view.setLayout(prefs.getString("layout", ""));                              // v0.13.0
         view.setConfig(urls, on, prefs.getInt("page_sec", DEF_PAGE_SEC), prefs.getBoolean("anim_fans", true));
         // v0.12.0: con la sorgente Wi-Fi accesa il thread parte anche senza URL: lo trova la ricerca in rete
         // (era: if (urls.length == 0) return;  poller = new Poller(view, urls, prefs.getInt("poll_ms", 1000));)

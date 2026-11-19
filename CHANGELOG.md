@@ -1,6 +1,18 @@
 # CHANGELOG — Tab2revamp
 Versione documento: v0.1.19 — 2026-11-19 09:00 (ora del PC, branch installer-tab2monitor)
 
+## 44. Pagine configurabili e modalita' «Modifica layout»: APK v0.13.0 — 2026-11-19 12:00
+- **Richiesta:** ogni blocco (CPU, Core, Storico, RAM, GPU, Rete, Dischi, Top processi, Claude, Sensori) deve poter stare su una pagina a scelta, e una modalita' sul tablet per spostarli trascinandoli.
+- **Prima:** l'organizzazione era fissa nel codice (`MonitorView.PAGES`): pagina 1 = {CPU, Core, Storico} {RAM, GPU} {Rete, Dischi, Processi}; pagina 2 = {Claude} {Sensori}.
+  **Ora:** e' un dato (`Layout.java`, JSON nella preferenza `layout`): pagine (max 5) -> colonne (max 3) -> blocchi. Un layout non valido o incompleto si ripara da solo (mancanti in fondo, doppi e sconosciuti tolti). Predefinito identico al vecchio (nomi «Sistema e GPU», «Claude e sensori»; dopo una modifica i nomi diventano «Pagina N»).
+  Il blocco «Sensori» (temperature + ventole) occupa una colonna doppia; gli interruttori Temperature/Ventole restano righe dentro di esso.
+- **Modifica layout (sul tablet):** Impostazioni -> «Modifica layout sul tablet». Si vedono i blocchi come tessere: trascinare su una scheda pagina per cambiare pagina, in una colonna per riordinare, sulla striscia verde a destra per creare una colonna; un tocco mostra/nasconde il blocco. Pulsanti Fine (salva), Annulla, Predefinito; il tasto Indietro annulla. Le pagine vuote spariscono al salvataggio.
+- **Impostazioni:** sezione «Pagine: dove sta ogni blocco» con un menu Pagina 1..5 per blocco (salva subito); pulsante «Ripristina il layout predefinito».
+- **Extra adb:** `--ez edit_layout true` apre l'editor; `--es layout '<json>'` imposta il layout (`default` lo ripristina).
+- ✅ **Verificato sul tablet 192.168.1.208:** trascinamento di Rete su pagina 2 e sotto Claude, Fine salva, la pagina 2 normale mostra Claude + Rete, il menu in Impostazioni riporta Rete su Pagina 1; poi layout predefinito ripristinato (schermata verificata). Build `build_tab2monitor_v0.13.0_20261119-1200.sh` (VERSION_CODE 31).
+- Anche in questa versione: «GPU VR VDDC» escluso dalle temperature, grafici scorrevoli colorati in base alla temperatura (v0.11.1-v0.11.4).
+- **Rollback:** reinstallare `dist/Tab2Monitor_v0.12.0.apk`; nel codice `git checkout db609ca -- android/tab2monitor_app/src/it/tab2revamp/monitor/` e cancellare `Layout.java`.
+
 ## 31. Server Windows con la nostra build di LHM (MI50) — 2026-10-29
 - Il server usa ora la cartella `windows/lhm/LibreHardwareMonitor_v0.9.6-mi50/` (fuori da git): copia di v0.9.6 con `LibreHardwareMonitorLib.dll`, `BlackSharp.Core`, `DiskInfoToolkit`,
   `RAMSPDToolkit-NDD` dalla build `x64/net472` del branch `amd-mi50-support` (PR LibreHardwareMonitor#2597, commit 17b0e1c + 529a670, base upstream 71040ce).

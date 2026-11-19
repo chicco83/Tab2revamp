@@ -1,6 +1,8 @@
 // =============================================================================
 // Tab2Monitor - MonitorView (disegno su Canvas)
-// Versione: v0.11.4 - 2026-11-12 19:00
+// Versione: v0.13.0 - 2026-11-19 12:00
+//   v0.13.0: layout a pagine modificabile: ogni blocco puo' stare su una pagina a scelta (Layout.java, preferenza
+//            "layout") e c'e' la modalita' "Modifica layout" sul tablet (trascinamento dei blocchi)
 //   v0.11.4: grafici delle temperature colorati punto per punto in base alla temperatura (blu-verde-giallo-rosso)
 //   v0.11.3: grafici delle temperature con l'ombra piena (linea nella parte alta, area piu' marcata)
 //   v0.11.2: grafico che scorre (come quello della RAM) tra il nome e il valore di ogni temperatura (GPU e box sensori)
@@ -158,13 +160,13 @@ public class MonitorView extends View {
     //           "Claude - utilizzo account (token da Claude Code sul PC)"};
     static final String[] PANEL_KEYS = {"p_cpu", "p_cores", "p_hist", "p_ram", "p_gpu",
             "p_temps", "p_net", "p_disk", "p_procs", "p_claude", "p_fans"};
-    static final String[] PANEL_LABELS = {"CPU (totale e frequenza)  [pag. 1]",
-            "Core (un istogramma per core)  [pag. 1]", "Storico 60 s (CPU / RAM)  [pag. 1]",
-            "RAM e swap  [pag. 1]", "GPU - tutte le schede  [pag. 1]",
-            "Temperature (box per hardware)  [pag. 2]", "Rete (download / upload)  [pag. 1]",
-            "Disco I/O e spazio dischi  [pag. 1]", "Top processi per CPU  [pag. 1]",
-            "Claude - utilizzo account (token da Claude Code sul PC)  [pag. 2]",
-            "Ventole (box per hardware)  [pag. 2]"};
+    static final String[] PANEL_LABELS = {"CPU (totale e frequenza)",
+            "Core (un istogramma per core)", "Storico 60 s (CPU / RAM)",
+            "RAM e swap", "GPU - tutte le schede",
+            "Temperature (box per hardware)", "Rete (download / upload)",
+            "Disco I/O e spazio dischi", "Top processi per CPU",
+            "Claude - utilizzo account (token da Claude Code sul PC)",
+            "Ventole (box per hardware)"};
     // Colonne come nella dashboard web
     // 2026-10-22 v0.3.0: Claude (9) tra GPU e temperature. Versione v0.2.0 sostituita:
     //   static final int[][] COLS = {{0, 1, 2}, {3, 4, 5}, {6, 7, 8}};
@@ -178,10 +180,15 @@ public class MonitorView extends View {
     //   private boolean[] panelOn = {true, true, true, true, true, true, true, true, true, true, true};
     static final int BOXES = 11;
     // v0.11.0: GPU (4) in pagina 1, Claude (9) in pagina 2. Prima: {{0,1,2},{3,9},{6,7,8}} e {{4},{BOXES}}
-    static final int[][][] PAGES = {
+    // v0.13.0: PAGES e PAGE_NAMES (fissi) sono diventati un dato: vedi Layout.defaults() e il campo `lay`.
+    // Valori fino alla v0.12.x:
+    //   static final int[][][] PAGES = {{{0, 1, 2}, {3, 4}, {6, 7, 8}}, {{9}, {BOXES}}};
+    //   static final String[] PAGE_NAMES = {"Sistema e GPU", "Claude e sensori"};
+    private Layout lay = Layout.defaults();
+    static final int[][][] PAGES_OLD = {
             {{0, 1, 2}, {3, 4}, {6, 7, 8}},          // 1 Sistema e GPU
             {{9}, {BOXES}}};                         // 2 Claude e sensori
-    static final String[] PAGE_NAMES = {"Sistema e GPU", "Claude e sensori"};
+    static final String[] PAGE_NAMES_OLD = {"Sistema e GPU", "Claude e sensori"};
     private boolean[] panelOn = {true, true, true, true, true, true, true, true, true, true, true, true};
     private int page;                        // pagina mostrata
     private long pageAt;                     // uptimeMillis dell'ultimo cambio pagina
@@ -244,8 +251,284 @@ public class MonitorView extends View {
 
     @Override
     public boolean onTouchEvent(MotionEvent e) {
+        if (edit) return editTouch(e);                       // v0.13.0 (senza pressione lunga: niente impostazioni per sbaglio)
         gestures.onTouchEvent(e);
         return super.onTouchEvent(e) || true;     // super: pressione lunga
+    }
+
+    // ------------------------------------------------- modalita' "Modifica layout" (v0.13.0)
+    // Mostra la pagina scelta come schema: ogni blocco e' un rettangolo con il suo nome, alla dimensione e nella
+    // colonna reali. Si trascina un blocco (anche sulle schede 1..5 in alto per cambiare pagina, o sulla
+    // striscia verde a destra per fare una nuova colonna); un tocco breve lo mostra o lo nasconde.
+    // "Fine" salva (preferenza "layout"), "Annulla" scarta, "Predefinito" ripristina l'organizzazione di fabbrica.
+    private boolean edit;
+    private Layout elay;                                     // copia di lavoro
+    private int epage, dragId = -1, downId = -1, downBtn = -1, downTab = -2;
+    private boolean dragging;
+    private float downX, downY, dragX, dragY;
+    private final java.util.ArrayList<float[]> tiles = new java.util.ArrayList<float[]>();   // x, y, w, h, id, colonna
+    private final java.util.ArrayList<float[]> tabR = new java.util.ArrayList<float[]>();    // x, y, w, h, pagina (-1 = "+")
+    private final float[] btnR = new float[12];
+    private final float[] colX = new float[Layout.MAX_COLS], colW = new float[Layout.MAX_COLS];
+    private float bodyY0, bodyX1;
+
+    void setLayout(String json) {
+        lay = Layout.parse(json);
+        if (page >= lay.pages.length) page = 0;
+        pageAt = SystemClock.uptimeMillis(); baseDirty = true; invalidate();
+    }
+
+    boolean isEditing() { return edit; }
+
+    void setEdit(boolean on) {
+        if (on == edit) return;
+        edit = on; dragging = false; dragId = downId = -1;
+        if (on) { elay = lay.copy(); epage = Math.min(page, elay.pages.length - 1); }
+        baseDirty = true; invalidate();
+    }
+
+    private static int editColor(int id) {
+        switch (id) {
+            case 0: case 1: case 2: return CYAN;
+            case 3: return VIOLET;
+            case 4: return AMD_RED;
+            case 6: return GREEN;
+            case 7: return ORANGE;
+            case 9: return CLAUDE_C;
+            case Layout.BOXES: return TEAL;
+            default: return BLUE;
+        }
+    }
+
+    private float editH(int id) {                            // come fixedH() ma senza bisogno dei dati
+        switch (id) {
+            case 0: case 1: case 3: return 170 * u;
+            case 6: return 104 * u;
+            case 7: return (66 + 54 * Math.min(m != null ? m.diskM.length : 4, 6)) * u;
+            default: return -1;
+        }
+    }
+
+    private void drawBtn(Canvas cv, float x, float y, float w, float h, String t, int col, boolean solid) {
+        rf.set(x, y, x + w, y + h);
+        fill.setColor(solid ? col : (col & 0x00ffffff) | 0x30000000);
+        cv.drawRoundRect(rf, 8 * u, 8 * u, fill);
+        stroke.setColor(col); cv.drawRoundRect(rf, 8 * u, 8 * u, stroke);
+        text.setTextSize(16 * u); text.setColor(solid ? BG : FG); text.setTextAlign(Paint.Align.CENTER);
+        cv.drawText(t, x + w / 2, y + h / 2 + 6 * u, text);
+    }
+
+    private void drawTile(Canvas cv, float x, float y, float w, float h, int id, boolean ghost, boolean faded) {
+        int col = editColor(id);
+        boolean on = panelOn[id];
+        rf.set(x, y, x + w, y + h);
+        fill.setColor((col & 0x00ffffff) | (ghost ? 0xa0000000 : faded ? 0x10000000 : on ? 0x30000000 : 0x14000000));
+        cv.drawRoundRect(rf, 10 * u, 10 * u, fill);
+        stroke.setColor((col & 0x00ffffff) | (on && !faded ? 0xff000000 : 0x60000000));
+        cv.drawRoundRect(rf, 10 * u, 10 * u, stroke);
+        big.setTextSize(Math.min(24 * u, h / 2.5f)); big.setColor(on ? FG : DIM); big.setTextAlign(Paint.Align.CENTER);
+        cv.drawText(Layout.BLOCK_NAMES[id], x + w / 2, y + h / 2 + 2 * u, big);
+        String sub = !on ? "(nascosto)" : id == Layout.BOXES ? "temperature e ventole" : "";
+        if (sub.length() > 0 && h > 50 * u) {
+            text.setTextSize(13 * u); text.setColor(DIM); text.setTextAlign(Paint.Align.CENTER);
+            cv.drawText(sub, x + w / 2, y + h / 2 + 22 * u, text);
+        }
+    }
+
+    private void drawEditor(Canvas cv) {
+        float W = getWidth(), H = getHeight(), pad = 12 * u, gap = 10 * u;
+        cv.drawColor(BG);
+        tiles.clear(); tabR.clear();
+        float hy = pad + 22 * u;
+        big.setTextSize(20 * u); big.setColor(FG); big.setTextAlign(Paint.Align.LEFT);
+        cv.drawText("Modifica layout", pad, hy, big);
+        String[] bl = {"Fine", "Annulla", "Predefinito"};
+        int[] bc = {GREEN, DIM, ORANGE};
+        float bx = W - pad, bh = 36 * u;
+        for (int i = 0; i < 3; i++) {
+            float w = (i == 2 ? 150 : 110) * u;
+            bx -= w;
+            btnR[i * 4] = bx; btnR[i * 4 + 1] = pad; btnR[i * 4 + 2] = w; btnR[i * 4 + 3] = bh;
+            drawBtn(cv, bx, pad, w, bh, bl[i], bc[i], i == 0);
+            bx -= gap;
+        }
+        // schede delle pagine
+        float ty = pad + 48 * u, th = 34 * u, tx = pad, tw = 56 * u;
+        for (int p = 0; p < elay.pages.length; p++) {
+            tabR.add(new float[]{tx, ty, tw, th, p});
+            drawBtn(cv, tx, ty, tw, th, String.valueOf(p + 1), BLUE, p == epage);
+            tx += tw + gap / 2;
+        }
+        if (elay.pages.length < Layout.MAX_PAGES) {
+            tabR.add(new float[]{tx, ty, tw, th, -1});
+            drawBtn(cv, tx, ty, tw, th, "+", DIM, false);
+            tx += tw + gap / 2;
+        }
+        text.setTextSize(13 * u); text.setColor(DIM); text.setTextAlign(Paint.Align.LEFT);
+        cv.drawText(fit("Trascina un blocco per spostarlo, anche su una scheda in alto per cambiare pagina. Tocca per mostrarlo o nasconderlo.",
+                W - tx - pad - 10 * u), tx + 10 * u, ty + 22 * u, text);
+
+        bodyY0 = ty + th + gap; bodyX1 = W - pad;
+        float bottom = H - pad;
+        int[][] cols = elay.pages[epage];
+        if (cols.length == 0) {
+            text.setTextSize(20 * u); text.setColor(DIM); text.setTextAlign(Paint.Align.CENTER);
+            cv.drawText("Pagina vuota: trascina qui un blocco", W / 2, (bodyY0 + bottom) / 2, text);
+        } else {
+            int weight = 0;
+            for (int[] c : cols) weight += Layout.colWeight(c);
+            float unit = (W - 2 * pad - (weight - 1) * gap) / weight, x = pad;
+            for (int c = 0; c < cols.length; c++) {
+                int wgt = Layout.colWeight(cols[c]);
+                float cw = unit * wgt + (wgt - 1) * gap;
+                colX[c] = x; colW[c] = cw;
+                int flex = 0; float fixed = 0;
+                for (int id : cols[c]) { float f = editH(id); if (f < 0) flex++; else fixed += f; }
+                float flexH = flex > 0 ? Math.max(60 * u, (bottom - bodyY0 - fixed - (cols[c].length - 1) * gap) / flex) : 0;
+                float y = bodyY0;
+                for (int id : cols[c]) {
+                    float f = editH(id), ph = f < 0 ? flexH : f;
+                    tiles.add(new float[]{x, y, cw, ph, id, c});
+                    drawTile(cv, x, y, cw, ph, id, false, dragging && id == dragId);
+                    y += ph + gap;
+                }
+                x += cw + gap;
+            }
+        }
+        if (dragging) {
+            int[] d = dropAt(dragX, dragY);
+            if (d != null && d[0] == 2 && cols.length > 0) {
+                if (d[2] >= cols.length) {                         // nuova colonna: striscia verde a destra
+                    fill.setColor(0x603fb950);
+                    cv.drawRect(bodyX1 - 36 * u, bodyY0, bodyX1, bottom, fill);
+                } else {                                           // riga di inserimento nella colonna
+                    float ly = bodyY0;
+                    int k = 0;
+                    for (float[] t : tiles) if ((int) t[5] == d[2] && (int) t[4] != dragId) {
+                        if (k == d[3]) { ly = t[1] - gap / 2; break; }
+                        ly = t[1] + t[3] + gap / 2; k++;
+                    }
+                    fill.setColor(GREEN);
+                    cv.drawRect(colX[d[2]], ly - 2 * u, colX[d[2]] + colW[d[2]], ly + 2 * u, fill);
+                }
+            } else if (d != null && d[0] == 1) {                   // su una scheda: la evidenzia
+                for (float[] t : tabR) if ((int) t[4] == (d[1] >= elay.pages.length ? -1 : d[1])) {
+                    stroke.setColor(GREEN);
+                    rf.set(t[0] - 3 * u, t[1] - 3 * u, t[0] + t[2] + 3 * u, t[1] + t[3] + 3 * u);
+                    cv.drawRoundRect(rf, 8 * u, 8 * u, stroke);
+                }
+            }
+            drawTile(cv, dragX - 90 * u, dragY - 40 * u, 180 * u, 80 * u, dragId, true, false);
+        }
+    }
+
+    /** Dove cadrebbe il blocco rilasciato in (x, y): {1, pagina, 0, 0} su una scheda; {2, pagina, colonna, posizione}. */
+    private int[] dropAt(float x, float y) {
+        for (float[] t : tabR)
+            if (x >= t[0] && x <= t[0] + t[2] && y >= t[1] - 8 * u && y <= t[1] + t[3] + 8 * u)
+                return new int[]{1, t[4] < 0 ? elay.pages.length : (int) t[4], 0, 0};
+        if (y < bodyY0 - 4 * u) return null;
+        int[][] cols = elay.pages[epage];
+        int nc = cols.length, wsum = 0;
+        if (nc == 0) return new int[]{2, epage, 0, 0};
+        for (int[] c : cols) wsum += Layout.colWeight(c);
+        if (x > bodyX1 - 36 * u && nc < Layout.MAX_COLS && wsum < 4) return new int[]{2, epage, nc, 0};
+        int c = nc - 1;
+        for (int i = 0; i < nc; i++) if (x < colX[i] + colW[i] + 5 * u) { c = i; break; }
+        int pos = 0;
+        for (float[] t : tiles) if ((int) t[5] == c && (int) t[4] != dragId && t[1] + t[3] / 2 < y) pos++;
+        return new int[]{2, epage, c, pos};
+    }
+
+    private int hitBtn(float x, float y) {
+        for (int i = 0; i < 3; i++)
+            if (x >= btnR[i * 4] && x <= btnR[i * 4] + btnR[i * 4 + 2] && y >= btnR[i * 4 + 1] && y <= btnR[i * 4 + 1] + btnR[i * 4 + 3]) return i;
+        return -1;
+    }
+
+    private int hitTab(float x, float y) {                   // pagina, -1 = "+", -2 = nessuna
+        for (float[] t : tabR) if (x >= t[0] && x <= t[0] + t[2] && y >= t[1] && y <= t[1] + t[3]) return (int) t[4];
+        return -2;
+    }
+
+    private int hitTile(float x, float y) {
+        for (float[] t : tiles) if (x >= t[0] && x <= t[0] + t[2] && y >= t[1] && y <= t[1] + t[3]) return (int) t[4];
+        return -1;
+    }
+
+    private boolean editTouch(MotionEvent e) {
+        float x = e.getX(), y = e.getY();
+        switch (e.getActionMasked()) {
+            case MotionEvent.ACTION_DOWN:
+                downX = x; downY = y; dragging = false; dragId = -1;
+                downBtn = hitBtn(x, y); downTab = hitTab(x, y);
+                downId = downBtn < 0 && downTab == -2 ? hitTile(x, y) : -1;
+                break;
+            case MotionEvent.ACTION_MOVE:
+                if (downId >= 0 && !dragging && Math.abs(x - downX) + Math.abs(y - downY) > 14 * u) { dragging = true; dragId = downId; }
+                if (dragging) { dragX = x; dragY = y; invalidate(); }
+                break;
+            case MotionEvent.ACTION_UP:
+                if (dragging) {
+                    int[] d = dropAt(x, y);
+                    if (d != null) {
+                        elay.names = null;                       // dopo una modifica le pagine si chiamano "Pagina N"
+                        if (d[0] == 1) elay.moveToPage(dragId, d[1]);
+                        else elay.insert(dragId, d[1], d[2], d[3]);
+                    }
+                } else if (downBtn >= 0 && hitBtn(x, y) == downBtn) {
+                    editButton(downBtn);
+                } else if (downTab != -2 && hitTab(x, y) == downTab) {
+                    if (downTab >= 0) epage = downTab;
+                    else if (elay.pages.length < Layout.MAX_PAGES) {      // "+": nuova pagina vuota
+                        int[][][] np = new int[elay.pages.length + 1][][];
+                        System.arraycopy(elay.pages, 0, np, 0, elay.pages.length);
+                        np[elay.pages.length] = new int[0][];
+                        elay.pages = np; elay.names = null; epage = np.length - 1;
+                    }
+                } else if (downId >= 0 && hitTile(x, y) == downId) {
+                    togglePanel(downId);
+                }
+                dragging = false; dragId = downId = downBtn = -1; downTab = -2;
+                invalidate();
+                break;
+            case MotionEvent.ACTION_CANCEL:
+                dragging = false; dragId = downId = downBtn = -1; downTab = -2;
+                invalidate();
+                break;
+            default: break;
+        }
+        invalidate();
+        return true;
+    }
+
+    private void editButton(int b) {
+        if (b == 0) {                                            // Fine: salva
+            elay.trim();
+            lay = elay;
+            getContext().getSharedPreferences(MainActivity.PREFS, 0).edit().putString("layout", lay.toJson()).apply();
+            page = Math.min(epage, lay.pages.length - 1);
+            edit = false;
+            pageAt = SystemClock.uptimeMillis(); baseDirty = true;
+        } else if (b == 1) {                                     // Annulla
+            edit = false; baseDirty = true;
+        } else {                                                 // Predefinito
+            elay = Layout.defaults(); epage = 0;
+        }
+    }
+
+    private void togglePanel(int id) {                           // mostra/nasconde un blocco (come gli interruttori delle impostazioni)
+        boolean now = !panelOn[id];
+        android.content.SharedPreferences.Editor ed = getContext().getSharedPreferences(MainActivity.PREFS, 0).edit();
+        if (id == Layout.BOXES) {
+            ed.putBoolean(PANEL_KEYS[5], now).putBoolean(PANEL_KEYS[10], now);
+            panelOn[5] = now; panelOn[10] = now;
+        } else {
+            ed.putBoolean(PANEL_KEYS[id], now);
+            panelOn[id] = now;
+        }
+        panelOn[Layout.BOXES] = panelOn[5] || panelOn[10];
+        ed.apply();
     }
 
     private void openSettings() {
@@ -254,7 +537,7 @@ public class MonitorView extends View {
     }
 
     private void nextPage() {
-        int n = PAGES.length;
+        int n = lay.pages.length;
         for (int k = 1; k <= n; k++) {
             int p = (page + k) % n;
             if (pageOn(p)) { page = p; break; }
@@ -265,7 +548,7 @@ public class MonitorView extends View {
     }
 
     private boolean pageOn(int p) {
-        for (int[] col : PAGES[p]) for (int id : col) if (panelOn[id]) return true;
+        for (int[] col : lay.pages[p]) for (int id : col) if (panelOn[id]) return true;
         return false;
     }
 
@@ -415,6 +698,7 @@ public class MonitorView extends View {
     // ---------------------------------------------------------------- disegno
     @Override
     protected void onDraw(Canvas cv) {
+        if (edit) { drawEditor(cv); return; }                // v0.13.0: modalita' "Modifica layout"
         long now = SystemClock.uptimeMillis();               // v0.4.0: animazione ventole
         frameDt = lastFrame == 0 ? 0 : Math.min(0.5f, (now - lastFrame) / 1000f);
         lastFrame = now;
@@ -503,14 +787,14 @@ public class MonitorView extends View {
         //   ... for (int c = 0; c < COLS.length; c++) { if (!colOn(c)) continue;
         //           layoutColumn(cv, COLS[c], x, top, cw, bottom - top, gap); x += cw + gap; }
         int npages = 0;
-        for (int p = 0; p < PAGES.length; p++) if (pageOn(p)) npages++;
+        for (int p = 0; p < lay.pages.length; p++) if (pageOn(p)) npages++;
         if (npages == 0) { if (st()) drawCentered(cv, W, H, "Tutti i pannelli sono spenti",
                 "tocca l'ingranaggio o tieni premuto per aprire le impostazioni"); return; }
         if (!pageOn(page)) nextPage();
         // v0.11.0: durata sempre pageSec (v0.4.0-v0.10.3: piu' lunga per la pagina GPU sotto carico)
         if (st() && pageSec > 0 && npages > 1 && SystemClock.uptimeMillis() - pageAt >= pageSec * 1000L) nextPage();
         if (st()) drawPageIndicator(cv, W, hy);
-        int[][] cols = PAGES[page];
+        int[][] cols = lay.pages[page];
         // v0.5.0: colonne con peso (il box per hardware vale 2). Era: larghezza uguale per tutte.
         int ncol = 0, weight = 0;
         for (int[] col : cols) if (colOn(col)) { ncol++; weight += colWeight(col); }
@@ -615,7 +899,7 @@ public class MonitorView extends View {
 
     // Pallini delle pagine + nome della pagina, al centro dell'intestazione (v0.4.0)
     private void drawPageIndicator(Canvas cv, float W, float hy) {
-        int n = PAGES.length;
+        int n = lay.pages.length;
         float r = 5 * u, step = 18 * u, x0 = W / 2 - (n - 1) * step / 2 - 80 * u;
         for (int p = 0; p < n; p++) {
             if (!pageOn(p)) continue;
@@ -623,7 +907,7 @@ public class MonitorView extends View {
             cv.drawCircle(x0 + p * step, hy - 6 * u, r, fill);
         }
         text.setTextSize(17 * u); text.setColor(FG); text.setTextAlign(Paint.Align.LEFT);
-        cv.drawText(PAGE_NAMES[page], x0 + (n - 1) * step + 16 * u, hy, text);
+        cv.drawText(lay.pageName(page), x0 + (n - 1) * step + 16 * u, hy, text);
     }
 
     // Ingranaggio disegnato: 8 denti + anello (nessuna risorsa grafica)
