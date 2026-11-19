@@ -57,6 +57,20 @@ usare l'IP a mano" → riportate nel `LEGGIMI-README_v0.2.0` (rete ospiti, isola
 "porta HTTP" del wizard del fork **no**: la porta si cambia in `data\config.json` e una porta diversa da 8090
 non serve a nessuno dei casi visti. Il resto del fork non aggiunge nulla al pacchetto.
 
+**Cartella del fork eliminata (2026-11-19, su richiesta dell'utente: "se il fork non ha idee né context utili
+cancella l'intera cartella")**, spostata nel Cestino di Windows. Controllo fatto prima: 104 dei 111 file
+avevano lo stesso contenuto (hash git) di un oggetto già nella storia del repository, incluse le 3 immagini di
+`docs\` (schema P5100 pagina 7 batteria/fuel gauge e PMIC, pinout 30 pin). I 7 file unici e cosa contenevano:
+- `docs\CONTEXT_REVISIONE_v0.1.0_20261112-2045.md`: descrizione della ricerca UDP 8091 (già adottata dal branch
+  principale nel server v0.4.3 / APK v0.12.0, rifatta senza IP calcolato all'avvio e senza `SO_REUSEADDR`) e
+  idee future: token `X-Tab2-Token` (⛔ scelta utente: basta il firewall), QR code (⏸️), mDNS (⛔ serve una
+  libreria; il broadcast basta), Inno Setup (⏸️), HTTPS (⛔ sproporzionato in LAN), JSON con `org.json` (già
+  così nella v0.12.0), "più server in rete: mostra solo il primo" (da valutare nella sessione APK ⏳),
+  permesso `CHANGE_WIFI_MULTICAST_STATE` (non serve: le risposte del server sono unicast).
+- `windows\agent\tab2monitor_server_v0.5.0_20261112-1800.py`: v0.4.1 + ricerca UDP (superato dalla v0.4.3).
+- `android\...\SettingsActivity_v0.12.0.java`: pulsante "Cerca server" (superato dalla v0.12.0 del branch principale).
+- `windows\installer\` setup / install_tablet / start / LEGGIMI v0.1.0: confrontati nella tabella sopra.
+
 ## 3. Cosa c'è nel branch (2026-11-19)
 | Voce | File | Stato |
 |---|---|---|

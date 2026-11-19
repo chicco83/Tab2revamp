@@ -10,6 +10,10 @@ Versione documento: v0.1.19 — 2026-11-19 09:00 (ora del PC, branch installer-t
 - **Rollback:** eliminare la cartella `LibreHardwareMonitor_v0.9.6-mi50` e riavviare l'attivita' (`schtasks /end /tn Tab2Monitor` poi `/run`): torna v0.9.6.
 - Quando la PR sara' fusa e uscira' una release: sostituire la cartella con la release ufficiale e togliere `-mi50`.
 
+## 43. (2) Cartella del fork eliminata — 2026-11-19 09:20 (sessione «Piano installer Tab2Monitor», branch `installer-tab2monitor`)
+- Su richiesta dell'utente la cartella `C:\Users\chicco\Desktop\tab pc monitor` e' stata spostata nel Cestino (recuperabile da li'). Controllo prima: 104 file su 111 identici (hash git) a oggetti gia' nel repository, immagini di `docs\` comprese; i 7 file unici (CONTEXT_REVISIONE, server v0.5.0, SettingsActivity_v0.12.0, 4 file dell'installer) non avevano idee non ancora adottate o gia' decise. Elenco e valutazione nel PIANO_INSTALLER v0.3.0 par. 2.
+- Rollback: ripristinare la cartella dal Cestino di Windows.
+
 ## 43. Pacchetto portabile 0.2.0: server v0.4.4 + APK v0.12.0, ricerca su UDP 8091 — 2026-11-19 09:00 (sessione «Piano installer Tab2Monitor», branch `installer-tab2monitor`)
 - **Richiesta** della sessione «APK nativa Tab2Monitor per GT-P5100»: confrontare il pacchetto con l'installer
   del fork (`C:\Users\chicco\Desktop\tab pc monitor\windows\installer\`), includere server v0.4.3 e APK
