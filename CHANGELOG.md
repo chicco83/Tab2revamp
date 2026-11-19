@@ -11,7 +11,9 @@ Versione documento: v0.1.19 — 2026-11-19 09:00 (ora del PC, branch installer-t
 ## 46. Schermo del PC spento = tablet spento: APK v0.14.1 — 2026-11-19 14:00
 - **Richiesta:** se lo schermo del PC si spegne deve spegnersi anche il tablet.
 - **APK:** `PresenceService` legge `srv.display_on` da `/api/metrics`; se resta `false` per piu' di 5 s (con `pc_sleep` acceso) fa come per il PC spento (schermo e fotocamera spenti, nessuna riaccensione per movimento o carico); al ritorno a `true` riaccende. Campo assente = schermo acceso (compatibile con i server precedenti). Build `build_tab2monitor_v0.14.1_20261119-1400.sh` (VERSION_CODE 33), installata sul tablet 192.168.1.206.
-- **Server:** campo `srv.display_on` richiesto alla sessione Windows (notifica `GUID_CONSOLE_DISPLAY_STATE`); ⏳ finche' non e' in servizio la funzione non ha effetto e non e' provata.
+- **Server v0.4.7** (commit 11ef663, sessione Windows): campo `srv.display_on` (notifica `GUID_CONSOLE_DISPLAY_STATE`, finestra message-only, 0 = false, 1/2 = true, assente se l'API fallisce).
+- ✅ **Provato sul tablet (19:49-19:50):** monitor del PC spenti con `SC_MONITORPOWER` -> `display_on=false`, dopo 5 s di conferma log «schermo del PC spento: PC spento, spengo schermo e fotocamera», tablet `Asleep`; mouse mosso -> `display_on=true`, dopo ~12 s (misura dal movimento) «server tornato», tablet `Awake`, fotocamera riaperta.
+- Nota: `fan_config.json` ha ancora `adb_ips` = 192.168.1.208 mentre il tablet e' ora .206 (della sessione Windows).
 - **Rollback:** reinstallare `dist/Tab2Monitor_v0.14.0.apk`.
 
 ## 45. PC spento = schermo e rilevamento movimento fermi; risveglio al ritorno del server: APK v0.14.0 — 2026-11-19 13:00
