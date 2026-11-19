@@ -25,7 +25,8 @@ Versione documento: v0.1.14 — 2026-10-22 01:35 (ora del PC)
   ✅ Provato in isolamento (senza toccare il servizio attivo): risposta corretta sia al broadcast (`255.255.255.255`) sia in unicast, pacchetti estranei ignorati. Il firewall ha gia' regole `python.exe` per UDP.
 - **App v0.12.0** (`MainActivity.Poller`): se nessuna sorgente risponde per 3 cicli (~9 s) invia `TAB2MON?` a `255.255.255.255` e al broadcast di ogni interfaccia, aspetta fino a 2,5 s, aggiorna `wifi_url` col nuovo indirizzo, salva e riprova subito; poi al massimo una ricerca ogni 10 s. Il thread parte anche con URL Wi-Fi vuoto se la sorgente Wi-Fi e' accesa.
   Impostazioni: pulsante **«Cerca il PC in rete»** sotto l'URL Wi-Fi, che riempie il campo. Build `build_tab2monitor_v0.12.0_20261119-1000.sh` (VERSION_CODE 30); installata sul tablet `192.168.1.208`.
-- ⏳ Il servizio attivo gira ancora con la v0.4.2 (senza responder): la ricerca funzionera' appena il servizio sara' riavviato con la v0.4.3. ⏳ Prova completa su tablet da fare dopo.
+- ✅ **Server v0.4.3 in servizio** (messo in servizio dalla sessione «Sorgente dati Windows»: log «ricerca automatica UDP in ascolto sulla porta 8091», `/api/metrics` con `version` v0.4.3).
+- ✅ **Prova completa sul tablet (2026-11-19 08:20):** impostato di proposito un URL sbagliato (`http://192.168.1.99:8090`); l'app mostrava «In attesa del server Tab2Monitor»; dopo ~25 s ha trovato da sola il PC (`192.168.1.237`) e la dashboard e' tornata con i dati. Connessione verificata con `netstat`: `192.168.1.237:8090` <- `192.168.1.208`. L'indirizzo trovato viene salvato in `wifi_url`.
 - **Limiti noti:** non funziona con router con «isolamento client» o reti ospiti; con piu' PC con il server nella stessa rete l'app prende il primo che risponde.
 - **Rollback:** reinstallare `dist/Tab2Monitor_v0.11.4.apk`; sul server tornare a `tab2monitor_server_v0.4.2_20261117-1500.py` (i file vecchi restano nella cartella).
 
