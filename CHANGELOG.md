@@ -1,6 +1,14 @@
 # CHANGELOG — Tab2revamp
 Versione documento: v0.1.19 — 2026-11-19 09:00 (ora del PC, branch installer-tab2monitor)
 
+## 45. PC spento = schermo e rilevamento movimento fermi; risveglio al ritorno del server: APK v0.14.0 — 2026-11-19 13:00
+- **Richiesta:** se l'app non rileva il server perche' il PC e' spento, il tablet spegne schermo e rilevamento movimenti e si riaccende quando il PC torna online; il server deve dare un segnale di risveglio all'avvio.
+- **Prima:** il servizio `PresenceService` spegneva lo schermo solo per assenza di persone (fotocamera) e leggeva `/api/metrics` solo per carico/allarmi; a PC spento il tablet restava acceso su «In attesa del server». L'URL Wi-Fi nel servizio era fissato all'avvio e, a schermo spento, nessuno cercava il PC dopo un cambio di IP.
+- **Ora (APK, `PresenceService`):** se il server non risponde per 30 s (`OFFLINE_SEC`) e l'opzione `pc_sleep` (default acceso; Impostazioni -> «PC spento») e' attiva: schermo spento (`lockNow` se amministratore, altrimenti nero), fotocamera chiusa, nessuna riaccensione per movimento/volto/carico. Il servizio rilegge l'URL Wi-Fi a ogni ciclo e, dopo 3 cicli falliti, cerca il PC in rete (UDP 8091, ogni 10 s al massimo) anche a schermo spento. Al ritorno: una risposta del server **oppure** il pacchetto UDP `{"app":"tab2monitor-up","port":...}` sulla porta **8092** (indirizzo preso dal mittente) -> schermo acceso, dashboard, fotocamera riaperta. Wake lock Wi-Fi + multicast lock a schermo spento (permessi `ACCESS_WIFI_STATE`, `CHANGE_WIFI_MULTICAST_STATE`). Il servizio ora parte anche con presenza e allarmi spenti (basta `pc_sleep`). Build `build_tab2monitor_v0.14.0_20261119-1300.sh` (VERSION_CODE 32).
+- **Segnale dal server:** richiesto alla sessione «Sorgente dati Windows» l'invio all'avvio di `TAB2MON-UP` in broadcast sulla 8092 (5 volte: 0, 2, 5, 10, 20 s). Finche' non c'e', l'APK si risveglia comunque col polling (circa 3 s dopo che il server risponde).
+- ⏳ **Non provato sul tablet:** compilato ma non installato, perche' adb su `192.168.1.208:5555` risponde «unauthorized» (serve accettare il messaggio di autorizzazione sul tablet). Da provare: spegnere il server -> dopo ~30 s schermo spento; riavviarlo -> schermo acceso.
+- **Rollback:** reinstallare `dist/Tab2Monitor_v0.13.0.apk` (o v0.12.0); nel codice `git revert` del commit di questa voce.
+
 ## 44. Pagine configurabili e modalita' «Modifica layout»: APK v0.13.0 — 2026-11-19 12:00
 - **Richiesta:** ogni blocco (CPU, Core, Storico, RAM, GPU, Rete, Dischi, Top processi, Claude, Sensori) deve poter stare su una pagina a scelta, e una modalita' sul tablet per spostarli trascinandoli.
 - **Prima:** l'organizzazione era fissa nel codice (`MonitorView.PAGES`): pagina 1 = {CPU, Core, Storico} {RAM, GPU} {Rete, Dischi, Processi}; pagina 2 = {Claude} {Sensori}.

@@ -204,6 +204,9 @@ public class SettingsActivity extends Activity {
         }
         label("Stato: " + PresenceService.status);
 
+        // ---- v0.14.0: PC spento
+        header("PC spento");
+        toggle("pc_sleep", "Se il PC e' spento: spegni lo schermo e il rilevamento movimento; riaccendi quando il server riparte");
         // ---- v0.8.0: carico
         header("Carico (riaccende lo schermo e lo tiene acceso)");
         toggle("load_wake", "Riaccendi lo schermo quando il PC e' sotto carico (anche senza nessuno davanti)");

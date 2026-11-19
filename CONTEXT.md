@@ -170,6 +170,11 @@ dall'utente) · ⏳ l'utente dà nomi e abbinamenti alle ventole dalla pagina `/
 la causa era `psutil.process_iter`, non `GPU Engine`) · ⛔ avvio prima dell'accesso: il progetto sta su G: (Google
 Drive), montato solo dopo l'accesso. ✅ `claude_plan` via oauth verificato dal vivo il 2026-10-23 (token ora presente); ripiego history di Claude Desktop. ⛔ FanControl: vedi CHANGELOG v0.2.0.
 
+## PC spento (APK v0.14.0, 2026-11-19)
+- ✅ Codice: `PresenceService` con `pcOff`, `serverGone()` / `serverBack()`, ascolto UDP 8092 (`udpLoop`), ricerca del PC a schermo spento, opzione `pc_sleep` (default true), wake lock Wi-Fi/multicast. ⏳ Non provato sul tablet (adb 192.168.1.208 «unauthorized»: accettare l'autorizzazione sul tablet).
+- ⏳ Lato server (sessione Windows): inviare `{"app":"tab2monitor-up","name","port","version"}` in broadcast UDP porta 8092 all'avvio, 5 volte (0, 2, 5, 10, 20 s). Senza, il risveglio avviene col polling.
+- Rollback: reinstallare APK v0.13.0 o `git revert` del commit.
+
 ## Layout configurabile (APK v0.13.0, 2026-11-19)
 - ✅ `Layout.java` (pagine -> colonne -> blocchi, JSON in pref `layout`, auto-riparazione), editor trascinabile in `MonitorView` (`edit`, `drawEditor`, `editTouch`, `dropAt`), menu per blocco in `SettingsActivity`, extra adb `edit_layout` / `layout`. Provato sul tablet .208; layout predefinito ripristinato. Prima: `PAGES` fisso nel codice (ora `PAGES_OLD`, solo storia).
 - Ids blocchi: 0 CPU, 1 Core, 2 Storico, 3 RAM, 4 GPU, 6 Rete, 7 Dischi, 8 Top processi, 9 Claude, 11 Sensori (5 e 10 = interruttori righe dentro Sensori). Colonna con Sensori = larghezza doppia.

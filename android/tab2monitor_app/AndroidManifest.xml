@@ -21,6 +21,9 @@
          CAMERA e' un permesso "runtime": lo chiede la schermata impostazioni (o adb pm grant). -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- v0.14.0: Wi-Fi sveglio a schermo spento e ricezione del segnale di avvio del server (UDP broadcast) -->
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
     <uses-feature android:name="android.hardware.camera.front" android:required="false" />
 
     <application

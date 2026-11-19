@@ -1,6 +1,13 @@
 // =============================================================================
 // Tab2Monitor - PresenceService (presenza con la fotocamera frontale)
-// Versione: v0.8.0 - 2026-10-22 02:45
+// Versione: v0.14.0 - 2026-11-19 13:00
+//   v0.14.0: PC SPENTO = schermo spento e rilevamento movimento fermo. Se il server non risponde per
+//           OFFLINE_SEC secondi (opzione "pc_sleep", default acceso) spegne lo schermo, chiude la fotocamera
+//           e non si riaccende per movimento. Quando il server torna (una risposta a /api/metrics oppure il
+//           pacchetto UDP "TAB2MON-UP" che il server invia in broadcast alla partenza, porta 8092)
+//           riaccende lo schermo e riapre la fotocamera. A server assente cerca il PC in rete (UDP 8091)
+//           come fa l'activity, perche' a schermo spento l'activity non gira.
+// v0.8.0 - 2026-10-22 02:45
 //   v0.8.0: (1) il servizio legge da solo /api/metrics ogni 2 s (anche a schermo spento):
 //           CARICO oltre soglia (CPU, GPU, RAM, VRAM) = "presenza" -> riaccende e tiene acceso
 //           finche' il carico resta; (2) ALLARME VOCALE (TextToSpeech, voce italiana Pico) quando
@@ -100,6 +107,19 @@ public class PresenceService extends Service {
     private volatile long graceUntil;                    // uptimeMillis fino a cui ignorare il movimento
     private int hits;                                    // fotogrammi consecutivi con movimento
     private final Handler main = new Handler(Looper.getMainLooper());
+    // v0.14.0: PC spento
+    static final long OFFLINE_SEC = 30;                   // senza risposta per tanto = PC spento
+    static final int WAKE_PORT = 8092;                    // il server vi invia "TAB2MON-UP" quando parte
+    private boolean pcSleep = true;
+    private volatile boolean pcOff;                       // vero = abbiamo spento tutto perche' il PC non c'e'
+    private volatile long lastOk;                         // uptimeMillis dell'ultima risposta del server
+    private int pollFails;
+    private long lastDisc;
+    private SharedPreferences prefs;
+    private Thread udp;
+    private volatile boolean udpRun;
+    private android.net.wifi.WifiManager.WifiLock wifiLock;
+    private android.net.wifi.WifiManager.MulticastLock mcLock;
 
     @Override
     public IBinder onBind(Intent i) { return null; }
@@ -112,12 +132,25 @@ public class PresenceService extends Service {
         admin = new ComponentName(this, AdminReceiver.class);
         cpuLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "tab2monitor:presence");
         cpuLock.acquire();
+        prefs = getSharedPreferences(MainActivity.PREFS, 0);
+        lastOk = SystemClock.uptimeMillis();
+        try {                                              // v0.14.0: Wi-Fi sveglio a schermo spento + ricezione broadcast
+            android.net.wifi.WifiManager wm = (android.net.wifi.WifiManager) getApplicationContext()
+                    .getSystemService(Context.WIFI_SERVICE);
+            wifiLock = wm.createWifiLock(android.net.wifi.WifiManager.WIFI_MODE_FULL_HIGH_PERF, "tab2monitor:wifi");
+            wifiLock.acquire();
+            mcLock = wm.createMulticastLock("tab2monitor:mc");
+            mcLock.acquire();
+        } catch (Exception e) { Log.w(TAG, "wifi lock", e); }
+        udpRun = true;
+        udp = new Thread(new Runnable() { public void run() { udpLoop(); } }, "Tab2WakeUdp");
+        udp.start();
         // notifica obbligatoria per un servizio in primo piano
         PendingIntent pi = PendingIntent.getActivity(this, 0, new Intent(this, MainActivity.class), 0);
         Notification n = new Notification.Builder(this)
                 .setSmallIcon(R.drawable.ic)
                 .setContentTitle("Tab2Monitor - rilevamento presenza")
-                .setContentText("Fotocamera frontale attiva per accendere/spegnere lo schermo")
+                .setContentText("Presenza, allarmi e schermo (spento se il PC e' spento)")
                 .setContentIntent(pi).setOngoing(true).build();
         startForeground(1, n);
         thread = new HandlerThread("Tab2Camera");
@@ -145,12 +178,13 @@ public class PresenceService extends Service {
         thCpu = p.getInt("th_cpu", 60); thGpu = p.getInt("th_gpu", 50);
         thRam = p.getInt("th_ram", 90); thVram = p.getInt("th_vram", 90);
         alarmDef = p.getInt("alarm_def", 85);
+        pcSleep = p.getBoolean("pc_sleep", true);      // v0.14.0
         String wifi = p.getString("wifi_url", "");
         boolean usb = p.getBoolean("src_usb", true), wf = p.getBoolean("src_wifi", true) && wifi.length() > 0;
         urls = usb && wf ? new String[]{MainActivity.USB_URL, wifi}
                 : usb ? new String[]{MainActivity.USB_URL} : wf ? new String[]{wifi} : new String[0];
         h.post(new Runnable() { public void run() {
-            if (presenceOn && cam == null) openCamera();
+            if (presenceOn && cam == null && !pcOff) openCamera();      // v0.14.0: + !pcOff
             if (!presenceOn && cam != null) { closeCamera(); status = "fotocamera spenta (presenza disattivata)"; }
         } });
         if (alarmOn && tts == null) {
@@ -178,6 +212,10 @@ public class PresenceService extends Service {
         h.removeCallbacksAndMessages(null);
         h.post(new Runnable() { public void run() { closeCamera(); } });
         thread.quitSafely();
+        udpRun = false;                                  // v0.14.0
+        if (udp != null) udp.interrupt();
+        if (wifiLock != null && wifiLock.isHeld()) wifiLock.release();
+        if (mcLock != null && mcLock.isHeld()) mcLock.release();
         if (screenOffByUs) wake();                       // non lasciare lo schermo spento
         if (cpuLock.isHeld()) cpuLock.release();
         status = "spento";
@@ -259,6 +297,7 @@ public class PresenceService extends Service {
     }
 
     private void presence(String why) {
+        if (pcOff) return;                               // v0.14.0: PC spento, nessuno accende lo schermo
         lastPresenceAt = SystemClock.uptimeMillis();
         if (screenOffByUs) {
             Log.i(TAG, "presenza (" + why + "): accendo");
@@ -286,14 +325,93 @@ public class PresenceService extends Service {
     private final Runnable poll = new Runnable() {
         public void run() {
             MainActivity.Metrics m = null;
-            for (String u : urls) {
+            // v0.14.0: l'URL Wi-Fi puo' essere cambiato (ricerca automatica): si rilegge a ogni ciclo
+            // (era: for (String u : urls) fissato in onStartCommand)
+            for (String u : currentUrls()) {
                 try { m = MainActivity.Metrics.parse(new JSONObject(get(u + "/api/metrics"))); break; }
                 catch (Exception ignored) { }
             }
-            if (m != null) { last = m; check(m); }
-            net.postDelayed(this, 2000);
+            if (m != null) {
+                last = m; pollFails = 0; lastOk = SystemClock.uptimeMillis();
+                if (pcOff) serverBack("risposta del server");
+                check(m);
+            } else {
+                pollFails++;
+                if (pollFails >= 3 && wifiOn() && SystemClock.uptimeMillis() - lastDisc > 10000) {
+                    lastDisc = SystemClock.uptimeMillis();
+                    String f = MainActivity.Poller.discover();           // cerca il PC (UDP 8091)
+                    if (f != null && !f.equals(prefs.getString("wifi_url", ""))) {
+                        prefs.edit().putString("wifi_url", f).apply();
+                        pollFails = 0;
+                    }
+                }
+                if (pcSleep && !pcOff && (SystemClock.uptimeMillis() - lastOk) / 1000 >= OFFLINE_SEC) serverGone();
+            }
+            net.postDelayed(this, pcOff ? 3000 : 2000);
         }
     };
+
+    // ------------------------------------------------------- PC spento / acceso (v0.14.0)
+    private boolean wifiOn() { return prefs.getBoolean("src_wifi", true); }
+
+    private String[] currentUrls() {
+        String wifi = prefs.getString("wifi_url", "");
+        boolean usb = prefs.getBoolean("src_usb", true), wf = wifiOn() && wifi.length() > 0;
+        return usb && wf ? new String[]{MainActivity.USB_URL, wifi}
+                : usb ? new String[]{MainActivity.USB_URL} : wf ? new String[]{wifi} : new String[0];
+    }
+
+    private void serverGone() {
+        Log.i(TAG, "server assente da " + OFFLINE_SEC + " s: PC spento, spengo schermo e fotocamera");
+        pcOff = true;
+        loadStatus = "PC spento (server non risponde)";
+        h.post(new Runnable() { public void run() {
+            closeCamera(); status = "fermo: PC spento";
+        } });
+        main.post(new Runnable() { public void run() { if (!screenOffByUs) sleep(); } });
+    }
+
+    private void serverBack(String why) {
+        if (!pcOff) return;
+        Log.i(TAG, "server tornato (" + why + "): riaccendo schermo e fotocamera");
+        pcOff = false;
+        pollFails = 0; lastOk = SystemClock.uptimeMillis();
+        lastPresenceAt = SystemClock.uptimeMillis();
+        h.post(new Runnable() { public void run() {
+            if (presenceOn && cam == null) openCamera();
+        } });
+        main.post(new Runnable() { public void run() { wake(); } });
+    }
+
+    // Segnale di risveglio: il server, partendo, manda "TAB2MON-UP" in broadcast sulla porta 8092.
+    // Cosi' non si aspetta il prossimo ciclo di polling (e funziona anche se l'IP del PC e' cambiato:
+    // il nuovo indirizzo e' quello del mittente).
+    private void udpLoop() {
+        java.net.DatagramSocket sk = null;
+        try {
+            sk = new java.net.DatagramSocket(null);
+            sk.setReuseAddress(true);
+            sk.bind(new java.net.InetSocketAddress(WAKE_PORT));
+            byte[] b = new byte[512];
+            while (udpRun) {
+                java.net.DatagramPacket pk = new java.net.DatagramPacket(b, b.length);
+                try { sk.receive(pk); } catch (java.io.IOException e) { if (!udpRun) break; continue; }
+                try {
+                    JSONObject o = new JSONObject(new String(pk.getData(), 0, pk.getLength(), "UTF-8"));
+                    if (!"tab2monitor-up".equals(o.optString("app"))) continue;
+                    String url = "http://" + pk.getAddress().getHostAddress() + ":" + o.optInt("port", 8090);
+                    if (wifiOn() && !url.equals(prefs.getString("wifi_url", "")))
+                        prefs.edit().putString("wifi_url", url).apply();
+                    pollFails = 0;
+                    serverBack("segnale di avvio del server");
+                } catch (Exception ignored) { /* pacchetto di altro tipo */ }
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "ascolto UDP " + WAKE_PORT, e);
+        } finally {
+            if (sk != null) sk.close();
+        }
+    }
 
     private String get(String u) throws Exception {
         HttpURLConnection c = (HttpURLConnection) new URL(u).openConnection();

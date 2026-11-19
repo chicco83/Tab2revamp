@@ -107,6 +107,7 @@ public class MainActivity extends Activity {
             "p_cpu", "p_cores", "p_hist", "p_ram", "p_gpu", "p_temps", "p_net", "p_disk", "p_procs",
             "p_claude", "p_fans", "anim_fans", "presence",       // v0.6.0: + presence (default false)
             "load_wake", "alarm_on",                             // v0.8.0 (alarm_on default false)
+            "pc_sleep",                                          // v0.14.0 (default true)
             "anim_smooth", "gauge_check",                        // v0.9.0
             "flip180",                                           // v0.9.2 (default false)
             "auto_rot"};                                         // v0.9.3 (default false: serve calibrare)
@@ -216,7 +217,9 @@ public class MainActivity extends Activity {
         boolean cam = prefs.getBoolean("presence", false)
                 && checkSelfPermission(android.Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED;
         if (!cam && prefs.getBoolean("presence", false)) prefs.edit().putBoolean("presence", false).apply();
-        if (cam || prefs.getBoolean("alarm_on", false)) startService(ps);
+        // v0.14.0: il servizio serve anche per spegnere lo schermo a PC spento (pc_sleep, default true)
+        // (era: if (cam || prefs.getBoolean("alarm_on", false)) startService(ps);)
+        if (cam || prefs.getBoolean("alarm_on", false) || prefs.getBoolean("pc_sleep", true)) startService(ps);
         else stopService(ps);
     }
 
