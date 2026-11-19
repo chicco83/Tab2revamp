@@ -1,6 +1,8 @@
 // =============================================================================
 // Tab2Monitor - MainActivity + thread di polling
-// Versione: v0.11.1 - 2026-11-12 10:00
+// Versione: v0.12.0 - 2026-11-19 10:00
+//   v0.12.0: ricerca automatica del PC in rete (UDP broadcast, porta 8091): se il server non risponde per ~9 s
+//            il Poller lo cerca da solo, aggiorna wifi_url e riprende (IP cambiato dal DHCP)
 //   v0.11.1: scartata la temperatura 'GPU VR VDDC' (MI50): il box tagliava la riga Hot Spot
 //   v0.11.0: tolti gpu_busy_pct / gpu_busy_sec (pagina GPU non piu' separata)
 //   v0.10.1: procs_top (server v0.3.5): top 5 per RAM, per GPU e per I/O oltre a quello per CPU
@@ -78,8 +80,14 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.io.InputStream;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
 import java.net.HttpURLConnection;
+import java.net.InetAddress;
+import java.net.InterfaceAddress;
+import java.net.NetworkInterface;
 import java.net.URL;
+import java.util.Enumeration;
 
 public class MainActivity extends Activity {
     static final String PREFS = "tab2monitor";
@@ -320,8 +328,11 @@ public class MainActivity extends Activity {
         view.setAnim(prefs.getBoolean("anim_smooth", true), prefs.getInt("poll_ms", 1000));   // v0.9.0
         view.setGaugeCheck(prefs.getBoolean("gauge_check", true));
         view.setConfig(urls, on, prefs.getInt("page_sec", DEF_PAGE_SEC), prefs.getBoolean("anim_fans", true));
-        if (urls.length == 0) return;          // nessuna sorgente: niente thread, solo il messaggio
-        poller = new Poller(view, urls, prefs.getInt("poll_ms", 1000));
+        // v0.12.0: con la sorgente Wi-Fi accesa il thread parte anche senza URL: lo trova la ricerca in rete
+        // (era: if (urls.length == 0) return;  poller = new Poller(view, urls, prefs.getInt("poll_ms", 1000));)
+        boolean wfOn = prefs.getBoolean("src_wifi", true);
+        if (urls.length == 0 && !wfOn) return;          // nessuna sorgente: niente thread, solo il messaggio
+        poller = new Poller(view, usb, wfOn ? wifi : "", wfOn, prefs, prefs.getInt("poll_ms", 1000));
         poller.start();
     }
 
@@ -335,16 +346,74 @@ public class MainActivity extends Activity {
     // -------------------------------------------------------------------------
     static final class Poller extends Thread {
         private final MonitorView view;
-        private final String[] urls;
+        // v0.12.0: sorgenti = USB (127.0.0.1) + URL Wi-Fi, che la ricerca in rete puo' cambiare.
+        // (v0.4.0-v0.11.x: private final String[] urls; fissato all'avvio)
+        private final boolean usb, wfOn;
+        private String wifi;
+        private final SharedPreferences prefs;
+        private int fails = 0;                                 // cicli consecutivi senza risposta
+        private long lastDisc = 0;                             // uptimeMillis dell'ultima ricerca
         private final int pollMs;
         private volatile boolean running = true;
         private int good = 0;                                  // indice dell'ultimo URL ok
         private final byte[] buf = new byte[8192];
         private final ByteArrayOutputStream bos = new ByteArrayOutputStream(16384);
 
-        Poller(MonitorView v, String[] u, int ms) {
+        Poller(MonitorView v, boolean usb, String wifi, boolean wfOn, SharedPreferences p, int ms) {
             super("Tab2Poller");
-            view = v; urls = u; pollMs = ms;
+            view = v; this.usb = usb; this.wifi = wifi; this.wfOn = wfOn; prefs = p; pollMs = ms;
+        }
+
+        private String[] sources() {                           // v0.12.0
+            ArrayList<String> l = new ArrayList<String>();
+            if (usb) l.add(USB_URL);
+            if (wifi.length() > 0) l.add(wifi);
+            return l.toArray(new String[0]);
+        }
+
+        // v0.12.0: cerca il server Tab2Monitor sulla LAN. Invia "TAB2MON?" in UDP a 255.255.255.255 e al
+        // broadcast di ogni interfaccia (porta 8091); il server risponde con {"app","name","port",...} e
+        // l'indirizzo e' quello da cui arriva la risposta (cosi' non puo' essere vecchio).
+        // Restituisce "http://IP:porta" oppure null. Bloccante (~2,5 s al massimo): da thread non UI.
+        static String discover() {
+            DatagramSocket s = null;
+            try {
+                s = new DatagramSocket();
+                s.setBroadcast(true);
+                byte[] q = "TAB2MON?".getBytes("UTF-8");
+                ArrayList<InetAddress> dst = new ArrayList<InetAddress>();
+                dst.add(InetAddress.getByName("255.255.255.255"));
+                try {
+                    for (Enumeration<NetworkInterface> e = NetworkInterface.getNetworkInterfaces();
+                         e != null && e.hasMoreElements();) {
+                        NetworkInterface ni = e.nextElement();
+                        if (ni.isLoopback() || !ni.isUp()) continue;
+                        for (InterfaceAddress ia : ni.getInterfaceAddresses())
+                            if (ia.getBroadcast() != null) dst.add(ia.getBroadcast());
+                    }
+                } catch (Exception ignored) { /* resta il broadcast generale */ }
+                for (InetAddress d : dst) {
+                    try { s.send(new DatagramPacket(q, q.length, d, 8091)); } catch (Exception ignored) { }
+                }
+                byte[] b = new byte[1024];
+                long end = SystemClock.uptimeMillis() + 2500;
+                while (true) {
+                    long left = end - SystemClock.uptimeMillis();
+                    if (left <= 0) return null;
+                    s.setSoTimeout((int) left);
+                    DatagramPacket p = new DatagramPacket(b, b.length);
+                    try { s.receive(p); } catch (java.net.SocketTimeoutException e) { return null; }
+                    try {
+                        JSONObject o = new JSONObject(new String(p.getData(), 0, p.getLength(), "UTF-8"));
+                        if ("tab2monitor".equals(o.optString("app")))
+                            return "http://" + p.getAddress().getHostAddress() + ":" + o.optInt("port", 8090);
+                    } catch (Exception ignored) { /* pacchetto di altro tipo: si continua ad ascoltare */ }
+                }
+            } catch (Exception e) {
+                return null;
+            } finally {
+                if (s != null) s.close();
+            }
         }
 
         void quit() { running = false; interrupt(); }
@@ -355,6 +424,7 @@ public class MainActivity extends Activity {
                 long t0 = SystemClock.uptimeMillis();
                 Metrics m = null;
                 String src = null;
+                String[] urls = sources();                     // v0.12.0: ricalcolato a ogni ciclo
                 for (int k = 0; k < urls.length && running && m == null; k++) {
                     int i = (good + k) % urls.length;
                     try {
@@ -363,6 +433,20 @@ public class MainActivity extends Activity {
                     } catch (Exception ignored) { /* prova l'URL successivo */ }
                 }
                 if (!running) break;
+                // v0.12.0: ricerca automatica. Dopo 3 cicli senza risposta (~9 s) e poi al piu' ogni 10 s.
+                if (m != null) fails = 0;
+                else if (wfOn && ++fails >= 3 && SystemClock.uptimeMillis() - lastDisc > 10000) {
+                    lastDisc = SystemClock.uptimeMillis();
+                    String f = discover();
+                    if (f != null && running) {
+                        if (!f.equals(wifi)) {
+                            wifi = f;
+                            prefs.edit().putString("wifi_url", f).apply();   // resta salvato per i prossimi avvii
+                        }
+                        good = 0; fails = 0;
+                        continue;                              // riprova subito col nuovo indirizzo
+                    }
+                }
                 if (m != null) lastMetrics = m;           // v0.8.0
                 final Metrics fm = m; final String fs = src;
                 view.post(new Runnable() { public void run() { view.update(fm, fs); } });

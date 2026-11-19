@@ -1,6 +1,7 @@
 // =============================================================================
 // Tab2Monitor - SettingsActivity (pannello impostazioni)
-// Versione: v0.11.0 - 2026-10-30 09:00
+// Versione: v0.12.0 - 2026-11-19 10:00
+//   v0.12.0: pulsante 'Cerca il PC in rete' sotto l'URL Wi-Fi (UDP broadcast, vedi MainActivity.Poller.discover)
 //   v0.11.0: tolte le due opzioni 'Pagina GPU' (soglia di carico e secondi)
 //   v0.9.3: rotazione automatica (interruttore + pulsante di calibrazione)
 //   v0.9.2: interruttore "Capovolgi l'interfaccia di 180 gradi" (applicato subito anche qui)
@@ -73,6 +74,28 @@ public class SettingsActivity extends Activity {
         toggle("src_wifi", "Wi-Fi  -  URL del PC qui sotto");
         url = field(prefs.getString("wifi_url", ""), "http://192.168.1.237:8090",
                 InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
+        // v0.12.0: ricerca del server in rete; riempie il campo URL (si salva alla chiusura come prima)
+        final TextView findMsg = new TextView(this);
+        Button find = new Button(this);
+        find.setText("Cerca il PC in rete");
+        find.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                findMsg.setText("Ricerca in corso...");
+                new Thread(new Runnable() {
+                    public void run() {
+                        final String f = MainActivity.Poller.discover();
+                        runOnUiThread(new Runnable() {
+                            public void run() {
+                                if (f != null) { url.setText(f); findMsg.setText("Trovato: " + f); }
+                                else findMsg.setText("Nessun server trovato: PC acceso con server v0.4.3 o successivo, stessa rete Wi-Fi, firewall UDP 8091 aperto");
+                            }
+                        });
+                    }
+                }).start();
+            }
+        });
+        ll.addView(find);
+        ll.addView(findMsg);
 
         header("Pannelli della dashboard");
         for (int i = 0; i < MonitorView.PANEL_KEYS.length; i++)

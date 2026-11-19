@@ -14,6 +14,21 @@ Versione documento: v0.1.14 — 2026-10-22 01:35 (ora del PC)
 - **Rollback:** eliminare la cartella `LibreHardwareMonitor_v0.9.6-mi50` e riavviare l'attivita' (`schtasks /end /tn Tab2Monitor` poi `/run`): torna v0.9.6.
 - Quando la PR sara' fusa e uscira' una release: sostituire la cartella con la release ufficiale e togliere `-mi50`.
 
+## 42. Ricerca automatica del server: APK v0.12.0 + server v0.4.3 — 2026-11-19
+- **Problema:** l'app non trovava il server dopo un cambio di IP del DHCP (PC passato da `192.168.1.237` a `.239` e di nuovo a `.237`; tablet da `.234` a `.208`), perche' l'URL Wi-Fi era scritto a mano.
+- **Origine:** un'altra IA (fork in `Desktop	ab pc monitor`, documento `CONTEXT_REVISIONE_v0.1.0_20261112-2045.md`) ha proposto la ricerca UDP.
+  Revisione del fork (verificata leggendo i file): il server `v0.5.0` del fork funzionava ma era basato sulla v0.4.1 (senza le correzioni successive), calcolava l'IP una volta sola all'avvio (resta vecchio dopo un cambio DHCP)
+  e usava `SO_REUSEADDR`; il lato tablet **non era implementato** (`SettingsActivity_v0.12.0.java` conteneva solo tre campi dichiarati, nessun metodo di ricerca, nessun pulsante, e con quel nome file la classe non compila).
+  Gli installer PowerShell del fork non sono stati usati ne' controllati: restano un'idea da valutare a parte (il piano installer e' della sessione dedicata).
+- **Server v0.4.3** (`tab2monitor_server_v0.4.3_20261119-1000.py`, su base v0.4.2): thread UDP sulla porta 8091; alla richiesta `TAB2MON?` risponde in unicast `{"app":"tab2monitor","name":<PC>,"port":<porta HTTP>,"version":...}`.
+  Nessun IP nella risposta: lo ricava l'app dal mittente del pacchetto. Niente `SO_REUSEADDR`; se il socket cade riparte dopo 5 s.
+  ✅ Provato in isolamento (senza toccare il servizio attivo): risposta corretta sia al broadcast (`255.255.255.255`) sia in unicast, pacchetti estranei ignorati. Il firewall ha gia' regole `python.exe` per UDP.
+- **App v0.12.0** (`MainActivity.Poller`): se nessuna sorgente risponde per 3 cicli (~9 s) invia `TAB2MON?` a `255.255.255.255` e al broadcast di ogni interfaccia, aspetta fino a 2,5 s, aggiorna `wifi_url` col nuovo indirizzo, salva e riprova subito; poi al massimo una ricerca ogni 10 s. Il thread parte anche con URL Wi-Fi vuoto se la sorgente Wi-Fi e' accesa.
+  Impostazioni: pulsante **«Cerca il PC in rete»** sotto l'URL Wi-Fi, che riempie il campo. Build `build_tab2monitor_v0.12.0_20261119-1000.sh` (VERSION_CODE 30); installata sul tablet `192.168.1.208`.
+- ⏳ Il servizio attivo gira ancora con la v0.4.2 (senza responder): la ricerca funzionera' appena il servizio sara' riavviato con la v0.4.3. ⏳ Prova completa su tablet da fare dopo.
+- **Limiti noti:** non funziona con router con «isolamento client» o reti ospiti; con piu' PC con il server nella stessa rete l'app prende il primo che risponde.
+- **Rollback:** reinstallare `dist/Tab2Monitor_v0.11.4.apk`; sul server tornare a `tab2monitor_server_v0.4.2_20261117-1500.py` (i file vecchi restano nella cartella).
+
 ## 41. APK v0.11.4 — 2026-11-12 19:00: colore dei grafici delle temperature proporzionale alla temperatura
 - **Richiesta utente:** il colore del grafico deve cambiare nel tempo in proporzione alla temperatura.
 - **Modifica (`MonitorView.tSpark()`):** ogni punto ha il colore della sua temperatura; linea e area usano una sfumatura **orizzontale** che passa da un punto all'altro (linea piena, area con alfa 0x60).
