@@ -125,6 +125,18 @@ Versione documento: v0.1.19 — 2026-11-19 09:00 (ora del PC, branch installer-t
 - ✅ Verificato con screenshot sul GT-P5100 (ora `192.168.1.208`): GPU 2 mostra GPU Core, GPU Memory, GPU Hot Spot.
 - **Rollback:** reinstallare `dist/Tab2Monitor_v0.11.0.apk` oppure `git checkout 07a6c10 -- android/tab2monitor_app/src/it/tab2revamp/monitor/MainActivity.java` e ricompilare con lo script v0.11.0.
 
+## 41. v0.4.6 server Windows — 2026-11-19 10:41 (sessione «Sorgente dati Windows», su richiesta della sessione APK): annuncio «server acceso»
+- **Richiesta (APK v0.14.0):** a PC spento il tablet spegne schermo e rilevamento movimento; deve riaccendersi quando il server riparte. L'APK ascolta UDP 8092.
+- **v0.4.6 = v0.4.5 + annuncio:** appena la porta HTTP e' in ascolto (oggetto server creato, prima di `serve_forever`) un thread manda
+  `{"app":"tab2monitor-up","name":<PC>,"port":<porta HTTP>,"version":<versione>}` a `255.255.255.255:8092` e al broadcast di ogni interfaccia IPv4 (esclusi 127.x e 169.254.x),
+  a 0, 2, 5, 10 e 20 s dall'avvio; elenco delle interfacce riletto a ogni invio. Socket di invio separato con `SO_BROADCAST`; il socket di ascolto 8091 non cambia (senza `SO_REUSEADDR`).
+  Disattivato insieme alla ricerca con `--no-discovery` o `"discovery": false`. Nessun IP nel pacchetto.
+- ✅ Verificato con un ricevitore sulla porta 8092 del PC durante il riavvio del servizio: 5 invii a 6,7 / 8,7 / 11,7 / 16,7 / 26,7 s dall'avvio del ricevitore (intervalli 2, 3, 5, 10 s),
+  ognuno a `255.255.255.255`, `192.168.1.255` e all'interfaccia Tailscale (`100.114.77.65/32`, inutile ma innocuo); log «annuncio di avvio inviato 5 volte su UDP 8092».
+  Firewall: nessuna regola in uscita necessaria (l'uscita e' permessa). ⏳ Ricezione sul tablet da provare (sessione APK).
+- Dopo il riavvio: IP del PC ora **`192.168.1.234`** (cambiato di nuovo dal DHCP; il 12/11 era `.239`, stamattina `.237`); adb del tablet `192.168.1.208:5555` = `rete: unauthorized` (sul tablet va accettata la richiesta di debug).
+- Rollback: `git rm windows/agent/tab2monitor_server_v0.4.6_20261119-1200.py` e riavvio del servizio (parte la v0.4.5).
+
 ## 40. v0.4.5 server Windows — 2026-11-19 09:10 (sessione «Sorgente dati Windows»)
 - **Chiarimento dell'utente sulla voce 39:** Fan #4 «MI 50» oggi non e' usata; la ventola della MI50 e' su **Fan #3**, collegata **senza filo del contagiri**: i 0 giri sono normali.
   Le temperature alte erano dovute al carico: alle 09:07 la MI50 era al 100% di carico con Hot Spot 84 °C e Fan #3 al 94% secondo la sua curva (45:0, 60:45, 75:75, 80:90, 90:100 su «GPU Hot Spot» della MI50).
