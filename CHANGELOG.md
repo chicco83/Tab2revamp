@@ -1,5 +1,14 @@
 # CHANGELOG — Tab2revamp
-Versione documento: v0.1.19 — 2026-11-19 09:00 (ora del PC, branch installer-tab2monitor)
+Versione documento: v0.1.20 — 2026-11-21 10:00
+
+## 48. Installer: scelta «per tutti gli utenti» o «solo per questo utente» (setup v0.3.0) — 2026-11-21 10:00
+- **Richiesta:** il server deve girare per tutta la macchina, qualunque utente acceda, non solo per l'utente che l'ha installato; l'installer deve far scegliere.
+- **Motivo:** il 2026-11-20 l'attivita' «Tab2Monitor» di questo PC (all'accesso di chicco, con la cartella su Google Drive G:) e' fallita con 0x8007010B perche' G: non era ancora montata; ripartita solo a mano.
+- **Prima (setup v0.2.0):** un menu unico 1) accesso con admin (predefinito, anche con `-Yes`) 2) avvio del PC (SYSTEM) 3) accesso senza admin 4) nessuno; riprovi dell'attivita' 3.
+- **Ora (`windows/installer/setup_v0.3.0_20261121-1000.ps1`):** nuovo parametro `-Scope All|User`. Prima domanda: 1) **per tutti gli utenti** (all'avvio del PC, account SYSTEM, prima dell'accesso; **predefinito**, anche con `-Yes`) 2) solo per l'utente che installa (poi: con admin = `Logon`, senza = `LogonUser`) 3) nessuno. `-Autostart Logon|Boot|LogonUser|None` resta e vince su `-Scope`. Riprovi dell'attivita' da 3 a 10 (ogni minuto). Menu voce 1 aggiornata. Limiti di SYSTEM (gia' avvisati dal setup): il pannello Claude non legge i log dell'utente, adb usa chiavi proprie (il tablet richiede di nuovo l'autorizzazione USB).
+- ✅ Provato in `-DryRun`: `-Scope All` -> Boot, `-Scope User -Yes` -> Logon, `-Autostart LogonUser` -> LogonUser; sintassi PowerShell valida. ⏳ **Non provata l'installazione vera** (serve amministratore) ne' una nuova build del pacchetto: `build_portable_v0.2.0` prende da solo il setup piu' recente per nome, ma contiene ancora il server v0.4.4 (va ricostruito con la v0.4.7).
+- ⏳ **Questo PC:** l'attivita' in uso parte da G: (Google Drive dell'utente), quindi non puo' girare come SYSTEM; per renderla valida per tutti serve installare il pacchetto in Program Files con `-Scope All` (copia del server, `fan_config.json` in `%ProgramData%\Tab2Monitor`).
+- **Rollback:** togliere `setup_v0.3.0_20261121-1000.ps1` (il pacchetto riprende la v0.2.0); `git revert` del commit.
 
 ## 47. Server Windows v0.4.7: campo `srv.display_on` (schermo del PC acceso/spento) — 2026-11-19 19:50
 - **Richiesta (sessione APK, per APK v0.14.1):** sapere se i monitor del PC sono spenti per risparmio energia, per spegnere anche il tablet.

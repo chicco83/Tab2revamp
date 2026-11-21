@@ -283,7 +283,10 @@ Con `-home` l'app diventa anche la schermata Home (kiosk); `-nohome` la toglie.
 - Problemi e comandi di controllo: `RUNBOOK_INSTALLER_v0.2.0_20261119-0900.md` §4 (es. rete "Pubblica" →
   Setup voce 3; Home non impostabile da Android 11 con l'APK v0.12.0 → aprire l'app a mano dopo un riavvio).
 
+- **Per chi gira il server (setup v0.3.0, 2026-11-21):** `Setup.cmd` voce 1 chiede 1) per TUTTI gli utenti (avvio del PC, account SYSTEM, funziona qualunque utente acceda: predefinito) 2) solo per l'utente che installa (all'accesso, con o senza amministratore) 3) nessuno. Non interattivo: `-Action Install -Scope All|User [-Yes]`.
+
 ### Storico modifiche (sezione pacchetto portabile)
+- 2026-11-21: setup v0.3.0. Prima: menu unico con avvio all'accesso con admin come predefinito, 3 riprovi. Ora: domanda «per chi» con predefinito tutti gli utenti (SYSTEM), 10 riprovi. Perche': il server deve girare qualunque utente acceda; l'avvio all'accesso e' fallito il 2026-11-20 con Google Drive non ancora montato.
 - 2026-11-19: prima build APK v0.10.0 del branch installer, pacchetto 0.1.0, Android 5.0+, ricerca UDP 8090,
   extra adb `--es lang en|it` e `--ez home true|false`, firewall TCP+UDP 8090. Ora APK v0.12.0 del branch
   principale (Android 7.1+, solo italiano, quegli extra non esistono), UDP 8091, pacchetto 0.2.0. Perché: un
