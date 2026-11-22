@@ -183,6 +183,14 @@ Drive), montato solo dopo l'accesso. ✅ `claude_plan` via oauth verificato dal 
 - Ids blocchi: 0 CPU, 1 Core, 2 Storico, 3 RAM, 4 GPU, 6 Rete, 7 Dischi, 8 Top processi, 9 Claude, 11 Sensori (5 e 10 = interruttori righe dentro Sensori). Colonna con Sensori = larghezza doppia.
 - Rollback: reinstallare APK v0.12.0 o `git checkout db609ca -- android/tab2monitor_app/src/it/tab2revamp/monitor/` + cancellare `Layout.java`.
 
+## Avvio automatico dalla ricarica da spento (boot modificata, 2026-11-22)
+- ✅ Immagine boot modificata e scritta su `mmcblk0p5` (md5 `0af342ab0941074a7eb974d33287efb5`); originale in `backup/pre_charger_20261122/mmcblk0p5.img` (md5 `96ff304873b9673066f26134769a1422`, insieme a EFS `mmcblk0p1` e recovery `mmcblk0p6`; cartella `backup/` ignorata da git, tenerne una copia anche altrove). Funzione: da spento in ricarica (ro.bootmode=charger) un servizio legge la batteria ogni 30 s; scesa sotto 100 e poi arrivata a 100 avvia Android (`sys.boot_from_charger_mode=1`, dopo 25 s `vold.decrypt=trigger_restart_framework`). Il perche' delle scelte e le prove sono scritti per esteso nella voce 51 del CHANGELOG e nel MANUAL.
+- ✅ Provato: scrittura e rilettura identica, avvio normale (Enforcing), lettura batteria in modalita' ricarica, catena di avvio fino a `boot_completed=1`. ⏳ Da provare con caricatore a muro il caso reale (batteria che sale fino a 100%): da USB del PC in modalita' ricarica la carica non saliva (95-96%).
+- ⛔ Scelta obbligata: dominio SELinux `shell` permissive (init non puo' eseguire sh ne' passare a su, ne' fare setenforce; la cmdline e' ignorata dal bootloader). Effetto: i processi di `adb shell` senza root non sono confinati da SELinux; il resto resta enforcing.
+- Trappole: (1) campi cpio newc = 13 (non 14) o bootloop; (2) `vold.decrypt` impostato troppo presto => `installd not ready`; (3) la cmdline dell'immagine non viene usata; (4) con l'immagine sicura adb in modalita' ricarica dice `unauthorized`; funziona con `ro.secure=0` (solo diagnosi).
+- Rollback: da TWRP `dd if=backup/pre_charger_20261122/mmcblk0p5.img of=/dev/block/mmcblk0p5 bs=4096` poi `sync`.
+- Generatori: `scripts/mkboot_chargerboot.py` (legge l'originale dal backup, scrive `scratchpad/boot_new.img`; `DIAG=1` aggiunge `ro.secure=0` e adb senza autorizzazione, solo diagnosi, mai da lasciare), `scripts/unboot.py`.
+
 ## Punti aperti
 - SensorService: ✅ risolto disattivando l'HAL (vedi tabella Stato). Scartate: patch binaria dell'HAL (rischiosa, da rifare a ogni flash) e conviverci (un core su due sprecato). Attenzione: un reflash della ROM ripristina l'HAL → rifare il rename.
 - `adb reverse` va rifatto a ogni riavvio del tablet: con l'APK non è più bloccante (ripiego Wi‑Fi).

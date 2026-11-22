@@ -257,6 +257,15 @@ Con `-home` l'app diventa anche la schermata Home (kiosk); `-nohome` la toglie.
 - Per lo spegnimento reale serve l'amministratore dispositivo (altrimenti schermo nero a luminosita' minima).
 - Stato: provata sul tablet fermando e riavviando il server (spento in ~30 s, riacceso in ~4 s); da PowerShell `schtasks /End /TN Tab2Monitor` e `/Run`.
 
+## Avvio da solo quando la batteria torna al 100% (boot modificata, 2026-11-22)
+- Cosa fa: se il tablet si spegne per batteria scarica e resta collegato al caricatore, in modalita' ricarica (schermo con la batteria) controlla la carica ogni 30 s; quando arriva a 100% (essendo stata sotto 100) avvia Android. Se lo spegni tu mentre e' gia' al 100% non si riaccende.
+- Stato: provate la catena di avvio e la lettura della batteria; la partenza reale al 100% va ancora vista con un caricatore a muro (da USB del PC la carica in modalita' ricarica non saliva).
+- Gia' installata sul tablet. Per rifarla da zero: da TWRP (`adb reboot recovery`) scrivere l'immagine generata da `scripts/mkboot_chargerboot.py` (parte da `backup/pre_charger_20261122/mmcblk0p5.img`, scrive `scratchpad/boot_new.img`): `adb push boot_new.img /tmp/b.img`, `md5sum` uguale sul tablet, `dd if=/tmp/b.img of=/dev/block/mmcblk0p5 bs=4096 && sync`, rilettura con `dd ... count=2048 | md5sum` (8 MB), poi riavvio. Da Git Bash usare `MSYS_NO_PATHCONV=1` e percorsi Windows per i file locali.
+- Tornare indietro: da TWRP riscrivere `backup/pre_charger_20261122/mmcblk0p5.img` (md5 `96ff304873b9673066f26134769a1422`) su `mmcblk0p5`.
+- Diagnosi: con l'immagine generata con `DIAG=1` adb funziona anche in modalita' ricarica; li' `getprop debug.tab2.level` mostra l'ultima carica letta e `dmesg | grep tab2chg` il servizio. L'immagine DIAG ha `ro.secure=0`: tornare sempre a quella normale.
+- Se il tablet va in bootloop dopo un flash: Power + Volume su (TWRP) o Power + Volume giu' (Download), poi riscrivere la boot di backup. Causa nota di un bootloop: intestazione cpio con 14 campi invece di 13.
+- Nota di sicurezza: il dominio SELinux `shell` e' permissive anche in uso normale; il resto e' enforcing.
+
 ## Pagine e modalita' «Modifica layout» (APK v0.13.0, 2026-11-19)
 - Ogni blocco (CPU, Core, Storico 60 s, RAM, GPU, Rete, Dischi, Top processi, Claude, Sensori) sta su una pagina (max 5) e in una colonna (max 3).
 - **Dalle impostazioni:** sezione «Pagine: dove sta ogni blocco», un menu per blocco; «Ripristina il layout predefinito».
