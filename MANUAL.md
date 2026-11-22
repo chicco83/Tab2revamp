@@ -265,6 +265,7 @@ Con `-home` l'app diventa anche la schermata Home (kiosk); `-nohome` la toglie.
 - Storico: prima della v0.13.0 l'organizzazione (pagina 1 sistema+GPU, pagina 2 Claude+sensori) era fissa nel codice; ora e' quella predefinita.
 
 ## Storico modifiche (sezione server Windows)
+- 2026-11-22: server v0.4.8 e pagina /config v0.2.1. Prima: la curva usava la temperatura istantanea. Ora: campo «reattivita': media su N s» per ventola (0-120, 0 = come prima). Perche': evitare che la ventola ondeggi con i picchi brevi di temperatura. Uso: in /config, riga Controllo, modo curva; per una ventola calma 20-30 s; per la CPU/pompa 0-5 s.
 - 2026-11-19: server v0.4.7. Prima: nessuna informazione sullo schermo del PC. Ora: campo `srv.display_on`. Perche': l'APK v0.14.1 spegne il tablet quando si spengono i monitor del PC.
 - 2026-11-12: installer `install_tab2monitor_service_v0.2.1_20261112-1510` al posto della v0.2.0 (2026-10-22). Prima: attività con la priorità
   predefinita 7, sotto la norma. Ora: priorità 4. Perché: con Citrix Workspace al 100% su tutti i core il server non riceveva CPU e non rispondeva.

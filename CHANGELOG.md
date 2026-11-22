@@ -1,5 +1,13 @@
 # CHANGELOG — Tab2revamp
-Versione documento: v0.1.20 — 2026-11-21 10:00
+Versione documento: v0.1.21 — 2026-11-22 10:00
+
+## 49. Server v0.4.8: reattivita' della ventola alle fluttuazioni di temperatura (`fan_ctl[].smooth`) + pacchetto 0.3.0 — 2026-11-22 10:00
+- **Richiesta:** un campo per regolare quanto la ventola reagisce alle fluttuazioni della temperatura.
+- **Prima (v0.4.7):** la curva usava la temperatura letta ogni secondo; in discesa la % calava al massimo di 2 punti/s, in salita seguiva subito, quindi i picchi brevi facevano ondeggiare la ventola.
+- **Ora (v0.4.8, `tab2monitor_server_v0.4.8_20261122-1000.py`, pagina `config_page_v0.2.1_20261122-1000.html`):** campo per ventola `fan_ctl[id].smooth` = secondi (0-120, predefinito 0 = come prima). La temperatura data alla curva e' una media mobile esponenziale con costante di tempo `smooth` (alpha = 1 - exp(-1/smooth) a ogni campione da 1 s): piu' alto = i picchi brevi vengono ignorati. Solo in modo curva. Nessun ritardo con sensore perso (100% subito), cambio di modo o CPU >= 90 °C (100% su tutte); il filtro riparte dal valore letto. Nuovi in `fans[].ctl`: `temp_raw` (letta) e `smooth`; `ctl.temp` e' la temperatura USATA dalla curva (filtrata). In `/config` il campo «reattivita': media su N s» sulla riga Controllo; da APK `POST /api/fan {"id","mode","smooth"}`. Limite: con 60 s ci vogliono circa 2 minuti per coprire il 90% di un salto di temperatura; per ventole senza altra protezione tenerlo basso.
+- ✅ **Provato:** prova isolata della classe `FanControl` (temperatura 40 -> 80 °C con smooth 10: la % sale 9,5 / 18 / 26 / 33 ... invece di saltare); validazione (999 -> 120, 0 -> campo omesso); servizio riavviato, `/api/metrics` v0.4.8 con 2 ventole controllate, `/config` contiene il campo. ⏳ Non provato a lungo con un carico reale.
+- **Pacchetto portabile 0.3.0** ricostruito (`%LOCALAPPDATA%\Tab2Monitor-build\dist\Tab2Monitor_v0.3.0` e `.zip`, 13,1 MB): server v0.4.8, setup v0.3.0 (scelta «per chi»), APK v0.14.1, sensori `LibreHardwareMonitor_v0.9.6-mi50` (quelli di questo PC, con la MI50; per altri PC usare la release 0.9.6 non -mi50 con `-LhmDir`). Script di installazione per questo PC: `scratchpad/installa_per_tutti.ps1` (da amministratore): ferma il server dell'utente, installa con `-Scope All`, copia `fan_config.json` in `%ProgramData%\Tab2Monitor`. ⏳ Non ancora eseguito (serve amministratore).
+- **Rollback:** spostare `tab2monitor_server_v0.4.8_*.py` e `config_page_v0.2.1_*.html` fuori da `windows/agent/` (si riprendono v0.4.7 e v0.2.0) e riavviare l'attivita' con `schtasks /End` + `/Run` da PowerShell; il campo `smooth` salvato in `fan_config.json` viene ignorato dalle versioni vecchie.
 
 ## 48. Installer: scelta «per tutti gli utenti» o «solo per questo utente» (setup v0.3.0) — 2026-11-21 10:00
 - **Richiesta:** il server deve girare per tutta la macchina, qualunque utente acceda, non solo per l'utente che l'ha installato; l'installer deve far scegliere.
