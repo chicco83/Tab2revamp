@@ -1,6 +1,11 @@
 # CHANGELOG — Tab2revamp
 Versione documento: v0.1.21 — 2026-11-22 10:00
 
+## 50. Pagina /config v0.2.2: «reattivita'» non va piu' a capo — 2026-11-22 11:00
+- **Segnalazione:** nella riga Controllo il campo «reattivita': media su N s» andava a capo.
+- **Prima (v0.2.1):** schede larghe al massimo 980 px, campo curva 260 px. **Ora (`config_page_v0.2.2_20261122-1100.html`):** schede fino a 1280 px, curva 220 px, e il gruppo «reattivita' ... s» e' un blocco che non si spezza (se manca spazio va a capo intero). Solo grafica, server invariato (v0.4.8).
+- **Rollback:** spostare `config_page_v0.2.2_*.html` fuori da `windows/agent/` (si riprende la v0.2.1).
+
 ## 49. Server v0.4.8: reattivita' della ventola alle fluttuazioni di temperatura (`fan_ctl[].smooth`) + pacchetto 0.3.0 — 2026-11-22 10:00
 - **Richiesta:** un campo per regolare quanto la ventola reagisce alle fluttuazioni della temperatura.
 - **Prima (v0.4.7):** la curva usava la temperatura letta ogni secondo; in discesa la % calava al massimo di 2 punti/s, in salita seguiva subito, quindi i picchi brevi facevano ondeggiare la ventola.
