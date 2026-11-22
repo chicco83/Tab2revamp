@@ -54,7 +54,7 @@ assert _st.unpack_from('<III',pd,56)==(64,640,3) and _st.unpack_from('<I',pd,92)
 m=_st.unpack_from('<Q',pd,96)[0]; assert not m>>52&1
 _st.pack_into('<Q',pd,96,m|(1<<52)); sp['data']=bytes(pd)
 rc['data']=(t.rstrip('\n')+'\n'+add).encode()
-sh=open(base+r"\scratchpad\tab2_chargerboot.sh",'rb').read()
+sh=open(base+r"\scripts\tab2_chargerboot.sh",'rb').read()
 ref=[e for e in ents if e['name']=='sbin/healthd'][0]['f']
 # CORRETTO 2026-11-22: la versione precedente aveva 14 campi (ref[5] doppio) e rompeva il cpio -> bootloop
 nf=list(ref); nf[0]=0x20000+len(ents); nf[1]=0o100750; nf[4]=1
